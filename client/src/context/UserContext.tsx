@@ -14,7 +14,7 @@ interface UserContextType {
     currentGroup: Group | null;
     isAdmin: boolean;
     isShiftManager: boolean;
-    login: (username: string, password: string) => Promise<boolean>;
+    login: () => void; // שונה: לא מקבל פרמטרים
     logout: () => void;
     switchGroup: (groupId: string) => void;
     isRestoringSession: boolean;
@@ -23,122 +23,92 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
-    const { users, groups, refreshData, loading: dataLoading } = useData();
+    // אנו עדיין משתמשים ב-useData כדי לקבל מידע על קבוצות, אך לא לזיהוי המשתמש
+    const { groups } = useData();
 
     const [user, setUser] = useState<User | null>(null);
     const [currentGroup, setCurrentGroup] = useState<Group | null>(null);
     const [isRestoringSession, setIsRestoringSession] = useState(true);
 
-    const isAdmin = currentGroup?.name?.toLowerCase() === "administrators";
+    // בדיקה: האם המשתמש הוא אדמין (לפי שם הקבוצה הנוכחית או התפקיד ב-User)
+    const isAdmin =
+        user?.role === "admin" ||
+        currentGroup?.name?.toLowerCase() === "administrators";
 
+    // בדיקה אם המשתמש הוא מנהל משמרת בקבוצה הנוכחית
     const isShiftManagerBool =
-        user?.groups.some(
+        user?.groups?.some(
             (g) =>
                 g.groupId === (currentGroup?._id || currentGroup?.id) &&
                 g.role === "shift_manager"
         ) || false;
 
-    // === שחזור סשן (ללא שמירת אובייקטים רגישים) ===
+    // === בדיקת Session מול השרת בעליית האתר ===
     useEffect(() => {
-        if (dataLoading) return;
+        const checkAuth = async () => {
+            try {
+                // פניה לשרת לבדיקת העוגייה
+                const { data } = await axios.get("/api/auth/me");
 
-        const restoreSession = () => {
-            const storedUserId = localStorage.getItem("hunting_userId");
-            const storedGroupId = localStorage.getItem("hunting_groupId");
+                if (data.user) {
+                    setUser(data.user);
 
-            if (storedUserId) {
-                const foundUser = users.find(
-                    (u) => (u._id || u.id) === storedUserId
-                );
-
-                if (foundUser) {
-                    setUser(foundUser);
-
-                    if (storedGroupId) {
-                        const foundGroup = groups.find(
-                            (g) => (g._id || g.id) === storedGroupId
-                        );
-                        if (foundGroup) {
-                            setCurrentGroup(foundGroup);
-                        } else {
-                            selectDefaultGroup(foundUser);
-                        }
-                    } else {
-                        selectDefaultGroup(foundUser);
+                    // אם למשתמש יש כבר קבוצה משויכת, נגדיר אותה כקבוצה הנוכחית
+                    if (data.user.group) {
+                        // כאן אנו מניחים שהשרת מחזיר את ה-ID של הקבוצה
+                        // או שצריך למצוא את הקבוצה מתוך רשימת הקבוצות ב-Data
+                        // לצורך הפשטות ננסה למצוא אותה ב-groups אם נטענו, או נחכה
+                        // (בגרסה פשוטה נסמוך על השרת שיחזיר אוכלוס מלא של הקבוצה אם צריך)
                     }
-                } else {
-                    logout(); // המשתמש לא נמצא, ננקה את ה-ID
                 }
+            } catch (error) {
+                // 401 או שגיאה אחרת אומרת שאנחנו לא מחוברים
+                setUser(null);
+            } finally {
+                setIsRestoringSession(false);
             }
-            setIsRestoringSession(false);
         };
 
-        restoreSession();
-    }, [users, groups, dataLoading]);
+        checkAuth();
+    }, []);
 
-    const selectDefaultGroup = (u: User) => {
-        if (u.groups && u.groups.length > 0) {
-            const firstGroupId = u.groups[0].groupId;
-            const groupObj = groups.find(
-                (g) => (g._id || g.id) === firstGroupId
+    // עדכון הקבוצה הנוכחית כאשר היוזר או הקבוצות נטענים
+    useEffect(() => {
+        if (user && user.group && groups.length > 0 && !currentGroup) {
+            const foundGroup = groups.find(
+                (g) => g._id === user.group || g.id === user.group
             );
-            if (groupObj) setCurrentGroup(groupObj);
-        }
-    };
-
-    const login = async (username: string, _pass: string): Promise<boolean> => {
-        try {
-            const response = await axios.post("/api/users/login", { username });
-            const foundUser = response.data;
-
-            if (foundUser) {
-                setUser(foundUser);
-                // שמירת ID בלבד (בטוח)
-                localStorage.setItem(
-                    "hunting_userId",
-                    foundUser._id || foundUser.id
-                );
-
-                refreshData();
-
-                if (foundUser.groups && foundUser.groups.length > 0) {
-                    const firstGroupId = foundUser.groups[0].groupId;
-                    const groupObj = groups.find(
-                        (g) => (g._id || g.id) === firstGroupId
-                    );
-
-                    if (groupObj) {
-                        setCurrentGroup(groupObj);
-                        localStorage.setItem(
-                            "hunting_groupId",
-                            groupObj._id || groupObj.id
-                        );
-                    }
-                }
-                return true;
+            if (foundGroup) {
+                setCurrentGroup(foundGroup);
             }
-            return false;
-        } catch (error) {
-            console.error("Login failed:", error);
-            return false;
         }
+    }, [user, groups, currentGroup]);
+
+    // === התחברות SSO ===
+    const login = () => {
+        // הפניה לכתובת השרת שמבצעת את תהליך ה-SSO
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+        window.location.href = `${apiUrl}/api/auth/login`;
     };
 
-    const logout = () => {
-        setUser(null);
-        setCurrentGroup(null);
-        localStorage.removeItem("hunting_userId");
-        localStorage.removeItem("hunting_groupId");
+    // === התנתקות ===
+    const logout = async () => {
+        try {
+            await axios.post("/api/auth/logout");
+            setUser(null);
+            setCurrentGroup(null);
+            // רענון הדף כדי לנקות את כל הזיכרון
+            window.location.reload();
+        } catch (error) {
+            console.error("Logout failed", error);
+        }
     };
 
     const switchGroup = (groupId: string) => {
-        const membership = user?.groups.find((g) => g.groupId === groupId);
-        if (membership || isAdmin) {
-            const groupObj = groups.find((g) => (g._id || g.id) === groupId);
-            if (groupObj) {
-                setCurrentGroup(groupObj);
-                localStorage.setItem("hunting_groupId", groupId);
-            }
+        // לוגיקה קיימת של החלפת קבוצה (רלוונטי בעיקר לאדמין או משתמש רב-קבוצות)
+        const groupObj = groups.find((g) => (g._id || g.id) === groupId);
+        if (groupObj) {
+            setCurrentGroup(groupObj);
         }
     };
 

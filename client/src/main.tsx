@@ -6,23 +6,16 @@ import { UserProvider } from "./context/UserContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { DataProvider } from "./context/DataContext";
 import { ColorModeProvider } from "./context/ThemeContext";
-import axios from "axios"; // <-- וודא שיש ייבוא של axios
+import axios from "axios";
 
-// === הגדרת Interceptor גלובלי לאבטחה ===
-// בכל בקשה שיוצאת לשרת, נבדוק אם יש משתמש מחובר ונוסיף את ה-ID שלו
-axios.interceptors.request.use(
-    (config) => {
-        const userId = localStorage.getItem("hunting_userId");
-        if (userId) {
-            config.headers["x-user-id"] = userId;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
-// ========================================
+// === הגדרות גלובליות לתקשורת ===
+
+// קביעת כתובת השרת (לוקאלי או ייצור) לפי משתני הסביבה
+axios.defaults.baseURL =
+    import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+// חובה! מאפשר שליחת עוגיות (Session) בכל בקשה מול השרת
+axios.defaults.withCredentials = true;
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>

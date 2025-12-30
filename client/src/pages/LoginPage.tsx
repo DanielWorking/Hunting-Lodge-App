@@ -1,39 +1,26 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import {
     Container,
     Paper,
-    TextField,
     Button,
     Typography,
     Box,
     Alert,
 } from "@mui/material";
 import { useUser } from "../context/UserContext";
-import { useNavigate } from "react-router-dom";
-import { useColorMode } from "../context/ThemeContext"; // <-- Import
+import { useColorMode } from "../context/ThemeContext";
 
 export default function LoginPage() {
-    const [username, setUsername] = useState("");
-    const [error, setError] = useState("");
     const { login } = useUser();
-    const navigate = useNavigate();
-
-    // אנחנו מושכים את הפונקציה החדשה setMode
     const { setMode } = useColorMode();
 
-    // === התיקון: קביעה חד משמעית למצב בהיר ===
+    // קביעה למצב בהיר במסך התחברות (לפי הקוד המקורי שלך)
     useEffect(() => {
         setMode("light");
     }, []);
 
-    const handleLogin = async () => {
-        const success = await login(username, "password123");
-
-        if (success) {
-            navigate("/");
-        } else {
-            setError('User not found. Try "Regular", "Regular2" or "Admin"');
-        }
+    const handleSSOLogin = () => {
+        login(); // הפניה לשרת
     };
 
     return (
@@ -49,11 +36,12 @@ export default function LoginPage() {
                 <Paper
                     elevation={3}
                     sx={{
-                        p: 4,
-                        width: "100%",
+                        padding: 4,
                         display: "flex",
                         flexDirection: "column",
-                        gap: 2,
+                        alignItems: "center",
+                        width: "100%",
+                        borderRadius: 2,
                     }}
                 >
                     <Typography
@@ -61,43 +49,41 @@ export default function LoginPage() {
                         variant="h5"
                         align="center"
                         gutterBottom
+                        sx={{ mb: 3 }}
                     >
-                        Hunting Lodge Login
+                        Hunting Lodge
+                        <br />
+                        <span style={{ fontSize: "0.8em", color: "gray" }}>
+                            Secure Login
+                        </span>
                     </Typography>
 
-                    {error && <Alert severity="error">{error}</Alert>}
-
-                    <TextField
-                        label="Username"
-                        variant="outlined"
-                        fullWidth
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        autoFocus
-                    />
-
-                    <TextField
-                        label="Password"
-                        type="password"
-                        variant="outlined"
-                        fullWidth
-                        disabled
-                        placeholder="Any password works"
-                    />
+                    <Alert severity="info" sx={{ mb: 3, width: "100%" }}>
+                        המערכת זמינה לעובדי הארגון בלבד דרך הרשת הפנימית.
+                    </Alert>
 
                     <Button
                         variant="contained"
                         fullWidth
                         size="large"
-                        onClick={handleLogin}
+                        onClick={handleSSOLogin}
+                        sx={{
+                            mt: 1,
+                            mb: 2,
+                            height: 50,
+                            fontSize: "1.1rem",
+                        }}
                     >
-                        Sign In
+                        התחברות ארגונית (SSO)
                     </Button>
 
-                    <Alert severity="info" sx={{ mt: 2 }}>
-                        Users available: <b>Regular</b>, <b>Regular2</b>,{" "}
-                        <b>Admin</b>
-                    </Alert>
+                    <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        align="center"
+                    >
+                        Secure Authentication via OpenID Connect
+                    </Typography>
                 </Paper>
             </Box>
         </Container>

@@ -1,69 +1,106 @@
 const express = require("express");
 const router = express.Router();
-const { Issuer } = require("openid-client");
 const User = require("../models/User");
 
-let client;
+// משתנים לשמירת הקונפיגורציה בזיכרון (במקום ב-Class)
+let openIdConfig = null;
 
-// אתחול ה-Client של ה-SSO (מתבצע פעם אחת בעליית השרת)
-async function initializeOidcClient() {
-    if (client) return client;
+// פונקציית עזר לטעינת הספרייה (שעובדת ב-ESM) בתוך סביבת CommonJS
+async function getOpenIdClient() {
+    // טעינה דינמית של הספרייה
+    const openid = await import("openid-client");
+    return openid;
+}
+
+// פונקציית אתחול - מגלה את הגדרות השרת (Discovery)
+async function initializeAuth() {
+    if (openIdConfig) return openIdConfig;
 
     try {
-        const issuer = await Issuer.discover(process.env.SSO_ISSUER_URL);
-        console.log("Discovered issuer:", issuer.issuer);
+        const { discovery } = await getOpenIdClient();
 
-        client = new issuer.Client({
-            client_id: process.env.SSO_CLIENT_ID,
-            client_secret: process.env.SSO_CLIENT_SECRET,
-            redirect_uris: [`${process.env.BASE_URL}/api/auth/callback`],
-            response_types: ["code"],
-        });
-        return client;
+        const issuerUrl = new URL(process.env.SSO_ISSUER_URL);
+        const clientId = process.env.SSO_CLIENT_ID;
+        const clientSecret = process.env.SSO_CLIENT_SECRET;
+
+        // 1. גילוי הגדרות השרת (Discovery)
+        const serverConfig = await discovery(issuerUrl, clientId, clientSecret);
+
+        console.log(
+            "✅ SSO Discovery successful:",
+            serverConfig.serverMetadata().issuer
+        );
+
+        // שמירת הקונפיגורציה לשימוש חוזר
+        openIdConfig = {
+            serverConfig,
+            clientId,
+            clientSecret,
+            redirectUri: `${process.env.BASE_URL}/api/auth/callback`,
+        };
+
+        return openIdConfig;
     } catch (err) {
-        console.error("Failed to discover OIDC issuer:", err);
-        // לא עוצרים את השרת כדי לאפשר עבודה גם אם ה-SSO למטה, אבל הלוגין ייכשל
+        console.error("❌ Failed to initialize OpenID Client:", err);
+        return null;
     }
 }
 
-// קריאה לפונקציה בעת טעינת הקובץ
-initializeOidcClient();
+// אתחול ראשוני בעליית השרת
+initializeAuth();
 
-// 1. נתיב התחברות - מפנה את המשתמש ל-SSO
+// === 1. נתיב התחברות (Login) ===
 router.get("/login", async (req, res) => {
-    if (!client) await initializeOidcClient();
+    const config = await initializeAuth();
+    if (!config) return res.status(500).send("SSO Service Unavailable");
 
-    // יצירת URL להתחברות
-    const authorizationUrl = client.authorizationUrl({
-        scope: "openid profile email", // המידע שאנו מבקשים
-        // nonce: '...' // אופציונלי, הספרייה מייצרת אוטומטית אם לא תספק
+    const { buildAuthorizationUrl } = await getOpenIdClient();
+
+    // בניית ה-URL להפניה
+    const authorizationUrl = buildAuthorizationUrl(config.serverConfig, {
+        client_id: config.clientId,
+        redirect_uri: config.redirectUri,
+        scope: "openid profile email",
+        response_type: "code",
     });
 
-    res.redirect(authorizationUrl);
+    res.redirect(authorizationUrl.href);
 });
 
-// 2. נתיב Callback - ה-SSO מחזיר את המשתמש לכאן עם code
+// === 2. נתיב Callback ===
 router.get("/callback", async (req, res) => {
-    if (!client) await initializeOidcClient();
+    const config = await initializeAuth();
+    if (!config) return res.status(500).send("SSO Service Unavailable");
+
+    const { processAuthorizationCodeOpenIDResponse, allowInsecureRequests } =
+        await getOpenIdClient();
 
     try {
-        const params = client.callbackParams(req);
-        // החלפת ה-Code ב-Token (קורה ב-Backend - מאובטח!)
-        const tokenSet = await client.callback(
-            `${process.env.BASE_URL}/api/auth/callback`,
-            params
+        const currentUrl = new URL(`${process.env.BASE_URL}${req.originalUrl}`);
+
+        // הערה: בסביבת פיתוח (http) צריך לאפשר בקשות לא מאובטחות, בייצור ה-SSO דורש https
+        if (process.env.NODE_ENV !== "production") {
+            allowInsecureRequests(config.serverConfig);
+        }
+
+        // החלפת ה-Code ב-Token וקבלת המידע
+        // בגרסה 6 הפונקציה הזו עושה הכל: ולידציה, החלפת טוקן ופענוח ה-ID Token
+        const tokenSet = await processAuthorizationCodeOpenIDResponse(
+            config.serverConfig,
+            {
+                client_id: config.clientId,
+                client_secret: config.clientSecret,
+            },
+            currentUrl
         );
 
-        // קבלת פרטי המשתמש באמצעות ה-Token
-        const userInfo = await client.userinfo(tokenSet.access_token);
+        // שליפת ה-Claims (המידע על המשתמש) מתוך ה-Token
+        const claims = tokenSet.claims();
+        console.log("User Info received:", claims);
 
-        // לוג לצורך דיבאג - תראה את כל המפתחות שה-SSO מחזיר
-        console.log("User Info received from SSO:", userInfo);
-
-        // חילוץ נתונים (מותאם לסטנדרט, ייתכן שתצטרך להתאים מפתחות לפי הלוג למעלה)
-        const email = userInfo.email;
-        const name = userInfo.name || userInfo.given_name || "No Name";
-        const ssoId = userInfo.sub;
+        const email = claims.email;
+        const name = claims.name || claims.given_name || "No Name";
+        const ssoId = claims.sub;
 
         if (!email) {
             return res
@@ -71,33 +108,27 @@ router.get("/callback", async (req, res) => {
                 .send("Error: No email provided by SSO provider");
         }
 
-        // חיפוש או יצירת משתמש ב-DB
+        // === לוגיקה עסקית (DB) - זהה לקוד המקורי שלך ===
         let user = await User.findOne({ email });
 
         if (!user) {
-            // משתמש חדש - נוצר כ-GUEST
             user = new User({
                 email,
                 name,
                 ssoId,
-                role: "guest", // ממתין לאישור אדמין
+                role: "guest",
             });
             await user.save();
             console.log("New user created via SSO:", email);
         } else {
-            // משתמש קיים - נעדכן לו את ה-SSO ID אם חסר
             if (!user.ssoId) {
                 user.ssoId = ssoId;
                 await user.save();
             }
         }
 
-        // שמירת המזהה ב-Session (העוגייה)
         req.session.userId = user._id;
 
-        // הפניה חזרה לדף הבית של ה-Frontend
-        // בסביבת פיתוח ה-Frontend רץ בפורט אחר (למשל 5173), בייצור זה אותו דומיין
-        // נניח כאן שאנחנו מפנים ל-Root של השרת שיגיש את הריאקט, או לכתובת ההארד-קודד של הקליינט
         const clientUrl =
             process.env.NODE_ENV === "production"
                 ? "/"
@@ -109,7 +140,7 @@ router.get("/callback", async (req, res) => {
     }
 });
 
-// 3. בדיקת משתמש מחובר (עבור ה-Frontend)
+// === 3. נתיב בדיקת משתמש (נשאר ללא שינוי) ===
 router.get("/me", async (req, res) => {
     if (!req.session || !req.session.userId) {
         return res.status(401).json({ user: null });
@@ -118,7 +149,7 @@ router.get("/me", async (req, res) => {
     try {
         const user = await User.findById(req.session.userId).select(
             "-password"
-        ); // לא מחזירים סיסמה
+        );
         if (!user) {
             req.session = null;
             return res.status(401).json({ user: null });
@@ -130,9 +161,9 @@ router.get("/me", async (req, res) => {
     }
 });
 
-// 4. התנתקות
+// === 4. התנתקות ===
 router.post("/logout", (req, res) => {
-    req.session = null; // מחיקת העוגייה
+    req.session = null;
     res.json({ message: "Logged out successfully" });
 });
 

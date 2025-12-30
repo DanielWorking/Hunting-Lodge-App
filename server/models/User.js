@@ -1,34 +1,47 @@
 const mongoose = require("mongoose");
 
-// הגדרה פנימית לשיוך לקבוצה (רק התפקיד הוא ייחודי לקבוצה)
-const GroupMembershipSchema = new mongoose.Schema(
+const userSchema = new mongoose.Schema(
     {
-        groupId: { type: String, required: true },
+        // שם מלא מה-SSO
+        name: {
+            type: String,
+            required: true,
+        },
+        // המייל הוא המזהה הראשי שלנו
+        email: {
+            type: String,
+            required: true,
+            unique: true,
+        },
+        // מזהה ייחודי שמגיע מה-SSO (למשל sub) - אופציונלי אך מומלץ לשמור
+        ssoId: {
+            type: String,
+            unique: true,
+            sparse: true, // מאפשר שיהיו משתמשים בלי שדה זה (אם יש משתמשים ישנים)
+        },
+        // סיסמה - כבר לא חובה (required: false)
+        password: {
+            type: String,
+            required: false,
+        },
+        // תפקיד המשתמש - ברירת מחדל היא 'guest' עד שאדמין יאשר
         role: {
             type: String,
-            enum: ["member", "shift_manager"], // [cite: 9-10]
-            default: "member",
+            enum: ["guest", "user", "admin"],
+            default: "guest",
         },
-        order: { type: Number, default: 0 }, // סדר מיון ברשימת החברים בקבוצה
+        // שיוך לקבוצה (כמו שהיה לך)
+        group: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Group",
+            default: null,
+        },
+        phoneNumber: {
+            type: String,
+            default: "",
+        },
     },
-    { _id: false }
+    { timestamps: true }
 );
 
-const UserSchema = new mongoose.Schema(
-    {
-        username: { type: String, required: true, unique: true },
-
-        // === שדות גלובליים ===
-        isActive: { type: Boolean, default: true }, // [cite: 13, 17] - האם המשתמש פעיל בחברה בכלל
-        vacationBalance: { type: Number, default: 18 }, // [cite: 28, 49] - יתרה שנתית גלובלית
-        lastLogin: { type: String, default: "Never" },
-
-        // === שיוך לקבוצות ותפקידים ===
-        groups: [GroupMembershipSchema],
-    },
-    {
-        timestamps: true,
-    }
-);
-
-module.exports = mongoose.model("User", UserSchema);
+module.exports = mongoose.model("User", userSchema);

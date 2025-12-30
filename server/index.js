@@ -1,26 +1,29 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const mongoose = require("mongoose");
-const cookieSession = require("cookie-session"); // ספרייה לניהול Session
-const authRoutes = require("./routes/auth"); // נתיבי ה-SSO החדשים
 
-// טעינת משתני סביבה
+// === תיקון קריטי: טעינת משתני סביבה ראשונה ===
+// חובה לטעון את ה-.env לפני כל ייבוא אחר שמשתמש בו
 const result = dotenv.config();
 if (result.error) {
     console.log("❌ Error loading .env file", result.error);
 }
+
+const mongoose = require("mongoose");
+const cookieSession = require("cookie-session"); // ספרייה לניהול Session
+
+// רק עכשיו, אחרי שה-env טעון, אפשר לייבא את הנתיבים
+const authRoutes = require("./routes/auth");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // === Middleware ===
 
-// הגדרת CORS מעודכנת - חובה כדי לאפשר עוגיות (Credentials)
 app.use(
     cors({
-        // בסביבת ייצור (Production) - הכתובת תגיע מהדפדפן באותו הדומיין ולכן אין צורך ב-Origin ספציפי (או שמגדירים את הדומיין המדויק)
-        // בסביבת פיתוח - חייבים לאשר את הכתובת של ה-React (למשל localhost:5173) כדי שהעוגייה תעבור
+        // בסביבת ייצור (Production) - הכתובת תגיע מהדפדפן באותו הדומיין
+        // בסביבת פיתוח - חייבים לאשר את הכתובת של ה-React
         origin:
             process.env.NODE_ENV === "production"
                 ? false
@@ -43,7 +46,10 @@ app.use(
 // חיבור ל-DB
 const connectDB = async () => {
     try {
-        const conn = await mongoose.connect(process.env.MONGO_URI);
+        // שימוש במשתנה סביבה או בברירת מחדל אם הוא חסר
+        const uri =
+            process.env.MONGO_URI || "mongodb://localhost:27017/hunting_lodge";
+        const conn = await mongoose.connect(uri);
         console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     } catch (error) {
         console.error(`❌ Error: ${error.message}`);
@@ -55,7 +61,7 @@ connectDB();
 
 // === הגדרת הנתיבים (Routes) ===
 
-// נתיבי אימות (SSO) - חייב להיות לפני בדיקות הרשאה
+// נתיבי אימות (SSO)
 app.use("/api/auth", authRoutes);
 
 // שאר הנתיבים הקיימים

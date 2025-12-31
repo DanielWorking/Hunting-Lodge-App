@@ -7,7 +7,12 @@ import {
 } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
+import SSOCallback from "./pages/SSOCallback"; // הדף החדש
+import GuestPage from "./pages/GuestPage"; // הדף החדש
 import { useUser } from "./context/UserContext";
+import ThinkingLoader from "./components/ThinkingLoader";
+
+// דפים קיימים
 import SitesPage from "./pages/SitesPage";
 import TactiSitesPage from "./pages/TactiSitesPage";
 import PhonesPage from "./pages/PhonesPage";
@@ -15,32 +20,55 @@ import AdminPage from "./pages/AdminPage";
 import GroupSettingsPage from "./pages/GroupSettingsPage";
 import ShiftSchedulePage from "./pages/ShiftSchedulePage";
 import ShiftReportPage from "./pages/ShiftReportPage";
-import ThinkingLoader from "./components/ThinkingLoader";
 
-// רכיב הגנה משופר: ממתין לטעינת הנתונים לפני שהוא מחליט אם לזרוק החוצה
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const { user, isRestoringSession } = useUser();
 
-    // 1. אם אנחנו עדיין מנסים להבין מי המשתמש (קוראים מ-localStorage)
-    // נציג מסך טעינה במקום לזרוק אותו ישר החוצה
+    // 1. המתנה לטעינת נתונים
     if (isRestoringSession) {
         return <ThinkingLoader />;
     }
 
-    // 2. רק אם סיימנו לטעון ועדיין אין משתמש - אז נזרוק ללוגין
+    // 2. אם אין משתמש -> לוגין
     if (!user) {
         return <Navigate to="/login" replace />;
+    }
+
+    // 3. הגנה חדשה: אם זה משתמש "אורח" (ללא קבוצות)
+    // אנחנו מונעים ממנו לראות דפים פנימיים
+    if (user.groups.length === 0) {
+        return <Navigate to="/guest" replace />;
     }
 
     return <>{children}</>;
 };
 
 function App() {
+    const { user } = useUser();
+
+    // בדיקה האם להציג את ה-Navbar (לא מציגים בלוגין, לא ב-Callback, ולא ב-Guest)
+    const showNavbar = user && user.groups.length > 0;
+
     return (
         <Router>
-            <Navbar />
+            {showNavbar && <Navbar />}
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
+
+                {/* נתיב החזרה מה-SSO */}
+                <Route path="/auth/callback" element={<SSOCallback />} />
+
+                {/* דף המתנה למשתמשים ללא הרשאות */}
+                <Route
+                    path="/guest"
+                    element={
+                        user && user.groups.length === 0 ? (
+                            <GuestPage />
+                        ) : (
+                            <Navigate to="/" replace />
+                        )
+                    }
+                />
 
                 <Route
                     path="/"

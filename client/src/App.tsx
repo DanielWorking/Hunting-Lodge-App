@@ -8,7 +8,12 @@ import {
 import { Container, Paper, Typography, Button, Box } from "@mui/material"; // MUI Imports
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
+import SSOCallback from "./pages/SSOCallback"; // הדף החדש
+import GuestPage from "./pages/GuestPage"; // הדף החדש
 import { useUser } from "./context/UserContext";
+import ThinkingLoader from "./components/ThinkingLoader";
+
+// דפים קיימים
 import SitesPage from "./pages/SitesPage";
 import TactiSitesPage from "./pages/TactiSitesPage";
 import PhonesPage from "./pages/PhonesPage";
@@ -16,7 +21,6 @@ import AdminPage from "./pages/AdminPage";
 import GroupSettingsPage from "./pages/GroupSettingsPage";
 import ShiftSchedulePage from "./pages/ShiftSchedulePage";
 import ShiftReportPage from "./pages/ShiftReportPage";
-import ThinkingLoader from "./components/ThinkingLoader";
 
 // === מסך המתנה למשתמשים ללא קבוצה (Guest) ===
 const PendingApprovalScreen = () => {
@@ -74,6 +78,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
+    const { user } = useUser();
+
+    // בדיקה האם להציג את ה-Navbar (לא מציגים בלוגין, לא ב-Callback, ולא ב-Guest)
+    const showNavbar = user && user.groups.length > 0;
+
     return (
         <Router>
             <Routes>

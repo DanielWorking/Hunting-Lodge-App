@@ -71,6 +71,8 @@ app.use("/api/groups", require("./routes/groups"));
 app.use("/api/users", require("./routes/users"));
 app.use("/api/schedules", require("./routes/schedules"));
 app.use("/api/reports", require("./routes/reports"));
+// SSO Auth Routes
+app.use("/api/auth", authRoutes);
 
 // נתיב בדיקה כללי
 app.get("/", (req, res) => {

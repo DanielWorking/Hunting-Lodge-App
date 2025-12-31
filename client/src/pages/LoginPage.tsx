@@ -4,8 +4,10 @@ import {
     Paper,
     Button,
     Typography,
-    Box,
+    Paper,
     Alert,
+    Snackbar,
+    CircularProgress,
 } from "@mui/material";
 import { useUser } from "../context/UserContext";
 import { useColorMode } from "../context/ThemeContext";
@@ -24,13 +26,23 @@ export default function LoginPage() {
     };
 
     return (
-        <Container maxWidth="xs">
-            <Box
+        <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            minHeight="100vh"
+            bgcolor="#f5f5f5"
+        >
+            <Paper
+                elevation={3}
                 sx={{
-                    marginTop: 8,
+                    p: 5,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
+                    gap: 3,
+                    maxWidth: 400,
+                    width: "100%",
                 }}
             >
                 <Paper

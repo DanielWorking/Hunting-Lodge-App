@@ -18,7 +18,6 @@ export default function SSOCallback() {
 
         const handleSSOLogin = async () => {
             try {
-                // שלב 6 בתרשים: שליחת הקוד לשרת [cite: 26-27]
                 const response = await axios.post("/api/auth/login", {
                     code,
                     state,

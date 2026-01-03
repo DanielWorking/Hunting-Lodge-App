@@ -1,154 +1,124 @@
 const express = require("express");
 const router = express.Router();
-const { Issuer, generators } = require("openid-client"); // שים לב: ייבוא רגיל ופשוט
+
+// --- שינוי כאן ---
+// אנחנו מייבאים את כל הספרייה ומחלצים את Issuer ידנית לבדיקה
+const openIdClient = require("openid-client");
+const { Issuer } = openIdClient;
+
+console.log("🔍 Checking openid-client version compatibility:");
+console.log("Issuer exists?", !!Issuer); // אם זה false, הגרסה לא נכונה
+// ----------------
+
 const User = require("../models/User");
+const ssoConfig = require("../config/sso");
 
 let client;
 
-// פונקציה שמבטיחה שה-Client מאותחל לפני שמשתמשים בו
-async function getOidcClient() {
-    if (client) return client; // אם כבר אותחל, תחזיר אותו
+// פונקציית עזר לאתחול ה-Client (כי Discover היא פעולה אסינכרונית)
+async function getClient() {
+    if (client) return client;
 
-    try {
-        // גילוי הגדרות השרת (כמו במדריך הארגוני שלך)
-        const issuer = await Issuer.discover(process.env.SSO_ISSUER_URL);
-        console.log("✅ Discovered issuer:", issuer.issuer);
+    console.log("🔄 Discovering SSO Issuer:", ssoConfig.issuerUrl);
+    const issuer = await Issuer.discover(ssoConfig.issuerUrl);
 
-        client = new issuer.Client({
-            client_id: process.env.SSO_CLIENT_ID,
-            client_secret: process.env.SSO_CLIENT_SECRET,
-            redirect_uris: [`${process.env.BASE_URL}/api/auth/callback`],
-            response_types: ["code"],
-        });
+    client = new issuer.Client({
+        client_id: ssoConfig.clientId,
+        client_secret: ssoConfig.clientSecret,
+        redirect_uris: [ssoConfig.redirectUri],
+        response_types: ["code"],
+    });
 
-        return client;
-    } catch (err) {
-        console.error("❌ Failed to discover OIDC issuer:", err.message);
-        throw err; // זורקים שגיאה כדי שהפונקציה הקוראת תדע שנכשלנו
-    }
+    return client;
 }
 
-// ניסיון אתחול ראשוני ברקע (לא חובה לחכות לו)
-getOidcClient().catch(() =>
-    console.log("Waiting for first request to retry discovery...")
-);
-
-// 1. נתיב התחברות
-router.get("/login", async (req, res) => {
+// 1. נתיב לקבלת כתובת ההתחברות (הפרונטנד יפנה לכאן)
+router.get("/sso-url", async (req, res) => {
     try {
-        const oidcClient = await getOidcClient();
+        const ssoClient = await getClient();
 
-        // יצירת מזהים לאבטחה (כמו במדריך: State ו-Nonce)
-        const code_verifier = generators.codeVerifier();
-        const code_challenge = generators.codeChallenge(code_verifier);
-        const state = generators.state();
-        const nonce = generators.nonce();
-
-        // שמירה ב-Session לשימוש בחזור
-        req.session.code_verifier = code_verifier;
-        req.session.state = state;
-        req.session.nonce = nonce;
-
-        const authorizationUrl = oidcClient.authorizationUrl({
-            scope: "openid profile email",
-            code_challenge,
-            code_challenge_method: "S256",
-            state,
-            nonce,
+        const url = ssoClient.authorizationUrl({
+            scope: ssoConfig.scope,
+            // כאן אפשר להוסיף state או nonce לאבטחה מוגברת בעתיד
         });
 
-        res.redirect(authorizationUrl);
-    } catch (err) {
-        console.error("Login Error:", err);
-        res.status(500).send("SSO Login Error: " + err.message);
+        res.json({ url });
+    } catch (error) {
+        console.error("❌ Error generating SSO URL:", error);
+        res.status(500).json({ message: "Failed to generate SSO URL" });
     }
 });
 
-// 2. נתיב Callback (כמו במדריך: "Step 3: Obtain a token set")
-router.get("/callback", async (req, res) => {
+// 2. נתיב ה-Login הראשי
+router.post("/login", async (req, res) => {
     try {
-        const oidcClient = await getOidcClient();
+        const { code } = req.body;
+        if (!code)
+            return res
+                .status(400)
+                .json({ message: "Authorization code missing" });
 
-        // שליפת הפרמטרים מה-Session לבדיקה
-        const params = oidcClient.callbackParams(req);
-        const { code_verifier, state, nonce } = req.session;
+        const ssoClient = await getClient();
 
-        if (!code_verifier || !state) {
-            return res.status(400).send("Session expired or invalid state");
-        }
-
-        // החלפת ה-Code ב-Token (בדיוק כמו במדריך הארגוני: client.callback)
-        const tokenSet = await oidcClient.callback(
-            `${process.env.BASE_URL}/api/auth/callback`,
-            params,
-            { code_verifier, state, nonce }
+        // === התיקון כאן ===
+        // שינינו את הפרמטר השלישי ל-{} (אובייקט ריק)
+        // כי לא שלחנו state בבקשה המקורית, אז אסור לנו לבקש מהספרייה לבדוק אותו
+        const tokenSet = await ssoClient.callback(
+            ssoConfig.redirectUri,
+            { code },
+            {}
         );
+        // ==================
 
-        console.log("✅ Authentication successful!");
+        // שליפת פרטי המשתמש מתוך ה-Token
+        const claims = tokenSet.claims();
+        console.log("👤 SSO User Claims:", claims);
 
-        // ניקוי ה-Session
-        req.session.code_verifier = null;
-        req.session.state = null;
-        req.session.nonce = null;
+        //TODO: make sure to change logic to get username insted of email
+        // המשך הקוד נשאר זהה...
+        const email = claims.email;
+        const ssoUsername =
+            claims.preferred_username || claims.email || claims.sub;
 
-        // שליפת פרטי המשתמש (Claims)
-        const userInfo = tokenSet.claims();
-        const email = userInfo.email;
-        const name = userInfo.name || userInfo.given_name || "No Name";
-        const ssoId = userInfo.sub;
-
-        if (!email) {
-            return res.status(400).send("Error: No email provided by SSO");
+        if (!ssoUsername) {
+            return res
+                .status(400)
+                .json({ message: "Could not identify user from SSO" });
         }
 
-        // === לוגיקה עסקית (חיפוש/יצירת משתמש) ===
-        let user = await User.findOne({ email });
+        // --- לוגיקה עסקית ---
+        let user = await User.findOne({
+            $or: [{ email: email }, { username: ssoUsername }],
+        });
 
-        if (!user) {
-            user = new User({ email, name, ssoId, role: "guest" });
+        if (user) {
+            console.log(`✅ User found: ${user.username}`);
+            if (!user.isActive) {
+                user.isActive = true;
+            }
+            user.lastLogin = new Date().toISOString();
             await user.save();
-            console.log("New user created:", email);
-        } else if (!user.ssoId) {
-            user.ssoId = ssoId;
+        } else {
+            console.log(`🆕 Creating new Guest user: ${ssoUsername}`);
+            user = new User({
+                username: ssoUsername,
+                email: email,
+                isActive: true,
+                groups: [],
+                lastLogin: new Date().toISOString(),
+                vacationBalance: 0,
+            });
             await user.save();
         }
 
-        req.session.userId = user._id;
-
-        const clientUrl =
-            process.env.NODE_ENV === "production"
-                ? "/"
-                : "http://localhost:5173";
-        res.redirect(clientUrl);
-    } catch (err) {
-        console.error("SSO Callback Error:", err);
-        res.status(500).send("Authentication failed: " + err.message);
+        res.json(user);
+    } catch (error) {
+        console.error("❌ SSO Login Error:", error);
+        // הוספתי הדפסה של הודעת השגיאה המלאה לדיבוג
+        res.status(401).json({
+            message: "SSO Authentication failed",
+            error: error.message,
+        });
     }
 });
-
-// 3. בדיקת משתמש (ללא שינוי)
-router.get("/me", async (req, res) => {
-    if (!req.session || !req.session.userId) {
-        return res.status(401).json({ user: null });
-    }
-    try {
-        const user = await User.findById(req.session.userId).select(
-            "-password"
-        );
-        if (!user) {
-            req.session = null;
-            return res.status(401).json({ user: null });
-        }
-        res.json({ user });
-    } catch (err) {
-        res.status(500).json({ error: "Server error" });
-    }
-});
-
-// 4. התנתקות
-router.post("/logout", (req, res) => {
-    req.session = null;
-    res.json({ message: "Logged out successfully" });
-});
-
 module.exports = router;

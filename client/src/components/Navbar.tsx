@@ -111,13 +111,7 @@ export default function Navbar() {
                         <Button component={RouterLink} to="/" color="inherit">
                             Sites
                         </Button>
-                        <Button
-                            component={RouterLink}
-                            to="/tacti-sites"
-                            color="inherit"
-                        >
-                            Tacti Sites
-                        </Button>
+                        {/* TactiSites Link Removed */}
                         <Button
                             component={RouterLink}
                             to="/phones"

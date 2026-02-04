@@ -1,16 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
     Container,
     Typography,
     Box,
     TextField,
-    MenuItem,
-    Select,
+    Button,
+    Chip,
+    Stack,
+    IconButton,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Tooltip,
     FormControl,
     InputLabel,
-    Button,
+    Select,
+    MenuItem,
+    Grid,
 } from "@mui/material";
-import Grid from "@mui/material/Grid";
 import { useUser } from "../context/UserContext";
 import { useData } from "../context/DataContext";
 import SiteCard from "../components/SiteCard";
@@ -19,6 +27,8 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import { useNotification } from "../context/NotificationContext";
 import type { SiteCard as SiteCardType } from "../types";
 import AddIcon from "@mui/icons-material/Add";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import SortIcon from "@mui/icons-material/Sort";
 import axios from "axios";
 import ThinkingLoader from "../components/ThinkingLoader";
@@ -26,56 +36,70 @@ import ThinkingLoader from "../components/ThinkingLoader";
 export default function SitesPage() {
     const { currentGroup } = useUser();
     const { showNotification } = useNotification();
-    const { sites, setSites, refreshData, loading } = useData();
+    const { sites, setSites, groups, refreshData, loading } = useData();
 
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [editingSite, setEditingSite] = useState<SiteCardType | null>(null);
+    // מציאת הקבוצה הפעילה מתוך הדאטה כדי לקבל את כל השדות שלה (כולל _id ו-siteTags)
+    const activeGroup = groups.find(
+        (g) => (g.id || g._id) === (currentGroup?.id || currentGroup?._id),
+    );
+    const groupTags =
+        activeGroup?.siteTags && activeGroup.siteTags.length > 0
+            ? activeGroup.siteTags
+            : ["General"];
 
-    // === שינוי: שמירת האובייקט המלא למחיקה ===
-    const [deleteItem, setDeleteItem] = useState<SiteCardType | null>(null);
-
-    const [filterFav, setFilterFav] = useState("all");
+    // State
+    const [selectedTag, setSelectedTag] = useState("All");
     const [searchTerm, setSearchTerm] = useState("");
-    const [sortOrder, setSortOrder] = useState("newest");
 
-    const handleAddClick = () => {
+    // Filters restored
+    const [filterFav, setFilterFav] = useState("all");
+    const [sortOrder, setSortOrder] = useState("newest"); // 'newest', 'oldest', 'a-z', 'z-a'
+
+    // Dialogs State
+    const [isSiteDialogOpen, setIsSiteDialogOpen] = useState(false);
+    const [editingSite, setEditingSite] = useState<SiteCardType | null>(null);
+    const [deleteSiteItem, setDeleteSiteItem] = useState<SiteCardType | null>(
+        null,
+    );
+
+    // Tag Management State
+    const [isTagDialogOpen, setIsTagDialogOpen] = useState(false);
+    const [tagDialogMode, setTagDialogMode] = useState<"create" | "edit">(
+        "create",
+    );
+    const [tagValue, setTagValue] = useState("");
+    const [tagToDelete, setTagToDelete] = useState<string | null>(null);
+
+    // === Site Management ===
+
+    const handleAddSiteClick = () => {
         setEditingSite(null);
-        setIsDialogOpen(true);
+        setIsSiteDialogOpen(true);
     };
 
-    const handleEditClick = (site: SiteCardType) => {
+    const handleEditSiteClick = (site: SiteCardType) => {
         setEditingSite(site);
-        setIsDialogOpen(true);
+        setIsSiteDialogOpen(true);
     };
 
     const handleSaveSite = async (formData: Partial<SiteCardType>) => {
-        if (!currentGroup) return;
+        if (!activeGroup) return;
 
-        const duplicate = sites.find(
-            (s) =>
-                s.url.toLowerCase() === formData.url?.toLowerCase() &&
-                (!editingSite ||
-                    (s._id || s.id) !== (editingSite._id || editingSite.id))
-        );
-
-        if (duplicate) {
-            showNotification("This URL already exists in Sites.", "error");
-            return;
-        }
+        // FIX: Using _id (ObjectId) for the relationship, NOT the custom string id
+        const groupIdToSend = activeGroup._id;
 
         try {
             if (editingSite) {
                 const siteId = editingSite._id || editingSite.id;
                 await axios.put(`/api/sites/${siteId}`, {
                     ...formData,
-                    groupId: currentGroup.id || currentGroup._id,
+                    groupId: groupIdToSend,
                 });
                 showNotification("Site updated successfully", "success");
             } else {
                 await axios.post("/api/sites", {
                     ...formData,
-                    groupId: currentGroup.id || currentGroup._id,
-                    isTacti: false,
+                    groupId: groupIdToSend,
                 });
                 showNotification("New site created successfully", "success");
             }
@@ -86,14 +110,13 @@ export default function SitesPage() {
         }
     };
 
-    // מקבל את כל האובייקט
-    const handleDeleteClick = (site: SiteCardType) => {
-        setDeleteItem(site);
+    const handleDeleteSiteClick = (site: SiteCardType) => {
+        setDeleteSiteItem(site);
     };
 
-    const handleConfirmDelete = async () => {
-        if (deleteItem) {
-            const idToDelete = deleteItem._id || deleteItem.id;
+    const handleConfirmDeleteSite = async () => {
+        if (deleteSiteItem) {
+            const idToDelete = deleteSiteItem._id || deleteSiteItem.id;
             try {
                 await axios.delete(`/api/sites/${idToDelete}`);
                 showNotification("Site deleted successfully", "success");
@@ -102,7 +125,7 @@ export default function SitesPage() {
                 console.error(error);
                 showNotification("Error deleting site", "error");
             } finally {
-                setDeleteItem(null);
+                setDeleteSiteItem(null);
             }
         }
     };
@@ -119,23 +142,106 @@ export default function SitesPage() {
         }
     };
 
-    const filteredSites = sites.filter((site) => {
-        const currentGroupId = currentGroup?.id || currentGroup?._id;
-        if (site.groupId !== currentGroupId) return false;
+    // === Tag Management ===
 
+    const openCreateTagDialog = () => {
+        setTagDialogMode("create");
+        setTagValue("");
+        setIsTagDialogOpen(true);
+    };
+
+    const openEditTagDialog = () => {
+        if (selectedTag === "All" || selectedTag === "General") return;
+        setTagDialogMode("edit");
+        setTagValue(selectedTag);
+        setIsTagDialogOpen(true);
+    };
+
+    const handleSaveTag = async () => {
+        if (!tagValue.trim() || !activeGroup) return;
+        // For tags URL: we use the custom ID string because that's how the route is defined (/:id/tags)
+        const groupId = activeGroup.id;
+
+        try {
+            if (tagDialogMode === "create") {
+                await axios.post(`/api/groups/${groupId}/tags`, {
+                    tagName: tagValue,
+                });
+                showNotification("Tag created", "success");
+                setSelectedTag(tagValue);
+            } else {
+                // Edit mode
+                await axios.put(`/api/groups/${groupId}/tags/${selectedTag}`, {
+                    newTagName: tagValue,
+                });
+                showNotification("Tag updated", "success");
+                setSelectedTag(tagValue);
+            }
+            refreshData();
+            setIsTagDialogOpen(false);
+        } catch (error: any) {
+            showNotification(
+                error.response?.data?.message || "Error saving tag",
+                "error",
+            );
+        }
+    };
+
+    const handleDeleteTagClick = () => {
+        if (selectedTag === "All" || selectedTag === "General") return;
+        setTagToDelete(selectedTag);
+    };
+
+    const handleConfirmDeleteTag = async () => {
+        if (!tagToDelete || !activeGroup) return;
+        const groupId = activeGroup.id;
+
+        try {
+            await axios.delete(`/api/groups/${groupId}/tags/${tagToDelete}`);
+            showNotification("Tag deleted. Sites moved to General.", "success");
+            setSelectedTag("General");
+            refreshData();
+        } catch (error: any) {
+            showNotification("Error deleting tag", "error");
+        } finally {
+            setTagToDelete(null);
+        }
+    };
+
+    // === Filtering & Sorting ===
+
+    const filteredSites = sites.filter((site) => {
+        // FIX: Compare ObjectId to ObjectId
+        if (site.groupId !== activeGroup?._id) return false;
+
+        // Tag Filtering
+        const siteTag = site.tag || "General";
+        if (selectedTag !== "All" && siteTag !== selectedTag) return false;
+
+        // Favorite Filtering
+        if (filterFav === "fav" && !site.isFavorite) return false;
+
+        // Search Filtering
         const matchesSearch = site.title
             .toLowerCase()
             .includes(searchTerm.toLowerCase());
-        if (filterFav === "fav" && !site.isFavorite) return false;
         return matchesSearch;
     });
 
     const sortedSites = [...filteredSites].sort((a, b) => {
-        if (a.isFavorite && !b.isFavorite) return -1;
-        if (!a.isFavorite && b.isFavorite) return 1;
+        // Always prioritize favorites if "newest" or "oldest" isn't strictly overriding logic
+        // (Usually users want favorites on top unless sorting by name)
+
+        // Let's implement strict sorting based on user selection:
+
+        if (sortOrder === "a-z") return a.title.localeCompare(b.title);
+        if (sortOrder === "z-a") return b.title.localeCompare(a.title);
         if (sortOrder === "newest")
             return b.createdAt.localeCompare(a.createdAt);
-        return a.createdAt.localeCompare(b.createdAt);
+        if (sortOrder === "oldest")
+            return a.createdAt.localeCompare(b.createdAt);
+
+        return 0;
     });
 
     if (loading && sites.length === 0) {
@@ -144,20 +250,90 @@ export default function SitesPage() {
 
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-            <Box sx={{ mb: 4 }}>
+            <Box sx={{ mb: 3 }}>
                 <Typography
                     variant="h4"
                     component="h1"
                     gutterBottom
                     sx={{ fontWeight: "bold" }}
                 >
-                    {currentGroup?.name.toUpperCase()} Sites
-                </Typography>
-                <Typography variant="subtitle1" color="text.secondary">
-                    Manage your team's essential links and resources.
+                    {activeGroup?.name.toUpperCase()} Sites
                 </Typography>
             </Box>
 
+            {/* Tag Filter Bar */}
+            <Box sx={{ mb: 3 }}>
+                <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    sx={{ flexWrap: "wrap", gap: 1 }}
+                >
+                    <Chip
+                        label="All Tags"
+                        onClick={() => setSelectedTag("All")}
+                        color={selectedTag === "All" ? "primary" : "default"}
+                        variant={selectedTag === "All" ? "filled" : "outlined"}
+                        clickable
+                    />
+                    {groupTags.map((tag) => (
+                        <Chip
+                            key={tag}
+                            label={tag}
+                            onClick={() => setSelectedTag(tag)}
+                            color={selectedTag === tag ? "primary" : "default"}
+                            variant={
+                                selectedTag === tag ? "filled" : "outlined"
+                            }
+                            clickable
+                        />
+                    ))}
+                    <Tooltip title="Create new tag">
+                        <IconButton
+                            size="small"
+                            onClick={openCreateTagDialog}
+                            sx={{ border: "1px dashed grey" }}
+                        >
+                            <AddIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                </Stack>
+
+                {selectedTag !== "All" && selectedTag !== "General" && (
+                    <Box
+                        sx={{
+                            mt: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                        }}
+                    >
+                        <Typography variant="caption" color="text.secondary">
+                            Tag Actions:
+                        </Typography>
+                        <Tooltip title="Rename Tag">
+                            <IconButton
+                                size="small"
+                                onClick={openEditTagDialog}
+                                color="primary"
+                            >
+                                <EditIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete Tag">
+                            <IconButton
+                                size="small"
+                                onClick={handleDeleteTagClick}
+                                color="error"
+                            >
+                                <DeleteIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
+                )}
+            </Box>
+
+            {/* Controls Bar: Filter, Search, Sort, Add */}
             <Box
                 sx={{
                     display: "flex",
@@ -171,18 +347,20 @@ export default function SitesPage() {
                     boxShadow: 1,
                 }}
             >
+                {/* 1. Filter Favorites */}
                 <FormControl size="small" sx={{ minWidth: 120 }}>
-                    <InputLabel>Filter</InputLabel>
+                    <InputLabel>Show</InputLabel>
                     <Select
                         value={filterFav}
-                        label="Filter"
+                        label="Show"
                         onChange={(e) => setFilterFav(e.target.value)}
                     >
-                        <MenuItem value="all">Show All</MenuItem>
+                        <MenuItem value="all">All Sites</MenuItem>
                         <MenuItem value="fav">Favorites Only</MenuItem>
                     </Select>
                 </FormControl>
 
+                {/* 2. Search */}
                 <TextField
                     size="small"
                     label="Search Sites..."
@@ -192,28 +370,39 @@ export default function SitesPage() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
 
-                <Button
-                    variant="outlined"
-                    startIcon={<SortIcon />}
-                    onClick={() =>
-                        setSortOrder((prev) =>
-                            prev === "newest" ? "oldest" : "newest"
-                        )
-                    }
-                >
-                    {sortOrder === "newest" ? "Newest First" : "Oldest First"}
-                </Button>
+                {/* 3. Sort */}
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <InputLabel>Sort By</InputLabel>
+                    <Select
+                        value={sortOrder}
+                        label="Sort By"
+                        onChange={(e) => setSortOrder(e.target.value)}
+                        startAdornment={
+                            <SortIcon
+                                fontSize="small"
+                                sx={{ mr: 1, color: "action.active" }}
+                            />
+                        }
+                    >
+                        <MenuItem value="newest">Newest</MenuItem>
+                        <MenuItem value="oldest">Oldest</MenuItem>
+                        <MenuItem value="a-z">Name (A-Z)</MenuItem>
+                        <MenuItem value="z-a">Name (Z-A)</MenuItem>
+                    </Select>
+                </FormControl>
 
+                {/* 4. Add Button */}
                 <Button
                     variant="contained"
                     color="primary"
                     startIcon={<AddIcon />}
-                    onClick={handleAddClick}
+                    onClick={handleAddSiteClick}
                 >
                     Add Site
                 </Button>
             </Box>
 
+            {/* Sites Grid */}
             {sortedSites.length > 0 ? (
                 <Grid container spacing={3}>
                     {sortedSites.map((site) => (
@@ -223,9 +412,8 @@ export default function SitesPage() {
                         >
                             <SiteCard
                                 data={site}
-                                onEdit={() => handleEditClick(site)}
-                                // === שינוי: שליחת האובייקט המלא ===
-                                onDelete={() => handleDeleteClick(site)}
+                                onEdit={() => handleEditSiteClick(site)}
+                                onDelete={() => handleDeleteSiteClick(site)}
                                 onToggleFavorite={() =>
                                     handleToggleFavorite(site)
                                 }
@@ -240,21 +428,65 @@ export default function SitesPage() {
             )}
 
             <SiteDialog
-                open={isDialogOpen}
-                onClose={() => setIsDialogOpen(false)}
+                open={isSiteDialogOpen}
+                onClose={() => setIsSiteDialogOpen(false)}
                 onSave={handleSaveSite}
                 initialData={editingSite}
+                currentGroup={activeGroup}
             />
 
-            {/* === שינוי: כותרת דינמית עם שם האתר === */}
             <ConfirmDialog
-                open={!!deleteItem}
+                open={!!deleteSiteItem}
                 title={
-                    deleteItem ? `Delete "${deleteItem.title}"?` : "Delete Site"
+                    deleteSiteItem
+                        ? `Delete "${deleteSiteItem.title}"?`
+                        : "Delete Site"
                 }
-                content={`Are you sure you want to delete the site "${deleteItem?.title}"? This action cannot be undone.`}
-                onCancel={() => setDeleteItem(null)}
-                onConfirm={handleConfirmDelete}
+                content={`Are you sure you want to delete "${deleteSiteItem?.title}"?`}
+                onCancel={() => setDeleteSiteItem(null)}
+                onConfirm={handleConfirmDeleteSite}
+            />
+
+            <Dialog
+                open={isTagDialogOpen}
+                onClose={() => setIsTagDialogOpen(false)}
+                maxWidth="xs"
+                fullWidth
+            >
+                <DialogTitle>
+                    {tagDialogMode === "create" ? "New Tag" : "Rename Tag"}
+                </DialogTitle>
+                <DialogContent>
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        label="Tag Name"
+                        fullWidth
+                        variant="outlined"
+                        value={tagValue}
+                        onChange={(e) => setTagValue(e.target.value)}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setIsTagDialogOpen(false)}>
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleSaveTag}
+                        variant="contained"
+                        color="primary"
+                    >
+                        Save
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <ConfirmDialog
+                open={!!tagToDelete}
+                title={`Delete Tag "${tagToDelete}"?`}
+                content={`Are you sure? All sites under this tag will be moved to "General".`}
+                onCancel={() => setTagToDelete(null)}
+                onConfirm={handleConfirmDeleteTag}
             />
         </Container>
     );

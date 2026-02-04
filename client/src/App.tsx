@@ -1,9 +1,5 @@
 import React from "react";
-import {
-    Routes, // הסרנו את BrowserRouter as Router
-    Route,
-    Navigate,
-} from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
 import SSOCallback from "./pages/SSOCallback";
@@ -11,9 +7,8 @@ import GuestPage from "./pages/GuestPage";
 import { useUser } from "./context/UserContext";
 import ThinkingLoader from "./components/ThinkingLoader";
 
-// דפים קיימים
+// דפים
 import SitesPage from "./pages/SitesPage";
-import TactiSitesPage from "./pages/TactiSitesPage";
 import PhonesPage from "./pages/PhonesPage";
 import AdminPage from "./pages/AdminPage";
 import GroupSettingsPage from "./pages/GroupSettingsPage";
@@ -43,16 +38,12 @@ function App() {
 
     const showNavbar = user && user.groups.length > 0;
 
-    // מחקנו את ה-<Router> שעטף את הכל, כי הוא עבר ל-main.tsx
-    // השארנו רק את ה-Routes ואת ה-Navbar
     return (
         <>
             {showNavbar && <Navbar />}
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
-
                 <Route path="/auth/callback" element={<SSOCallback />} />
-
                 <Route
                     path="/guest"
                     element={
@@ -72,14 +63,9 @@ function App() {
                         </ProtectedRoute>
                     }
                 />
-                <Route
-                    path="/tacti-sites"
-                    element={
-                        <ProtectedRoute>
-                            <TactiSitesPage />
-                        </ProtectedRoute>
-                    }
-                />
+
+                {/* TactiSites Route Removed */}
+
                 <Route
                     path="/phones"
                     element={

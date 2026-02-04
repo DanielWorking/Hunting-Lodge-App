@@ -13,8 +13,7 @@ interface DataContextType {
     setSites: React.Dispatch<React.SetStateAction<SiteCard[]>>;
     phones: PhoneRow[];
     setPhones: React.Dispatch<React.SetStateAction<PhoneRow[]>>;
-    tactiSites: SiteCard[];
-    setTactiSites: React.Dispatch<React.SetStateAction<SiteCard[]>>;
+    // tactiSites הוסר
     users: User[];
     setUsers: React.Dispatch<React.SetStateAction<User[]>>;
     groups: Group[];
@@ -27,7 +26,6 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
     const [sites, setSites] = useState<SiteCard[]>([]);
-    const [tactiSites, setTactiSites] = useState<SiteCard[]>([]);
     const [phones, setPhones] = useState<PhoneRow[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
@@ -35,14 +33,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
 
     const fetchData = async () => {
-        // === בדיקה מקדימה: מניעת שגיאות 401 ===
-        // אם אין מזהה משתמש שמור, לא מנסים לפנות לשרת
         const storedUserId = localStorage.getItem("hunting_userId");
         if (!storedUserId) {
             setLoading(false);
             return;
         }
-        // ============================
 
         try {
             setLoading(true);
@@ -55,9 +50,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                     axios.get("/api/users"),
                 ]);
 
-            const allSites = sitesRes.data;
-            setSites(allSites.filter((s: any) => !s.isTacti));
-            setTactiSites(allSites.filter((s: any) => s.isTacti));
+            // טוענים את כל האתרים למשתנה אחד
+            setSites(sitesRes.data);
 
             setPhones(phonesRes.data);
             setGroups(groupsRes.data);
@@ -80,8 +74,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 setSites,
                 phones,
                 setPhones,
-                tactiSites,
-                setTactiSites,
                 users,
                 setUsers,
                 groups,

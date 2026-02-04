@@ -16,8 +16,6 @@ if (result.error) {
 }
 
 // === חשוב: הגדר כאן את המייל שלך ב-Auth0 / ארגון ===
-// זה המשתמש שיקבל הרשאות ניהול בפעם הראשונה
-// const INITIAL_ADMIN_EMAIL = "CHANGE_ME@gmail.com";
 const INITIAL_ADMIN_EMAIL = "daniel.reifer17@gmail.com";
 // ===================================================
 
@@ -65,27 +63,39 @@ const importData = async () => {
         await ShiftReport.deleteMany();
         console.log("🗑️  Old Data Destroyed...");
 
-        // יצירת קבוצות
+        // 1. יצירת קבוצות עם הגדרת תגיות (siteTags)
         const createdGroups = await Group.insertMany([
             {
+                id: "administrators",
                 name: "administrators",
                 settings: { shiftTypes: [], timeSlots: [] },
+                siteTags: ["General"],
             },
             {
+                id: "splunk",
                 name: "splunk",
                 settings: {
                     shiftTypes: DEFAULT_SHIFT_TYPES,
                     timeSlots: DEFAULT_TIME_SLOTS,
                 },
+                siteTags: ["General", "Logs", "Docs"],
             },
             {
+                id: "noc",
                 name: "noc",
                 settings: {
                     shiftTypes: DEFAULT_SHIFT_TYPES,
                     timeSlots: DEFAULT_TIME_SLOTS,
                 },
+                // הגדרת התגיות שהכרטיסים ישתמשו בהן
+                siteTags: ["General", "Dashboards", "Tools"],
             },
-            { name: "zooz", settings: { shiftTypes: [], timeSlots: [] } },
+            {
+                id: "zooz",
+                name: "zooz",
+                settings: { shiftTypes: [], timeSlots: [] },
+                siteTags: ["General"],
+            },
         ]);
 
         const gMap = {};
@@ -94,12 +104,12 @@ const importData = async () => {
         });
         console.log("🏢 Groups Created...");
 
-        // יצירת משתמשים - שים לב לשינוי באדמין
+        // 2. יצירת משתמשים
         const users = [
             {
-                // זה יהיה שם התצוגה במערכת, אבל המזהה האמיתי בחיבור יהיה האימייל
                 username: "Super Admin",
-                email: INITIAL_ADMIN_EMAIL, // <-- כאן נכנס המייל שלך
+                id: "auth0|superadmin",
+                email: INITIAL_ADMIN_EMAIL,
                 isActive: true,
                 vacationBalance: 999,
                 groups: [
@@ -108,9 +118,9 @@ const importData = async () => {
                 ],
                 lastLogin: "Never",
             },
-            // משתמשים נוספים לדוגמה (לא יצליחו להתחבר ב-SSO אלא אם יש להם מיילים אמיתיים בארגון)
             {
                 username: "Regular User",
+                id: "auth0|regular",
                 email: "regular@example.com",
                 isActive: true,
                 vacationBalance: 12,
@@ -119,20 +129,42 @@ const importData = async () => {
         ];
 
         await User.insertMany(users);
-        console.log("busts_in_silhouette Users Created...");
+        console.log("👤 Users Created...");
 
-        // יצירת טלפונים ואתרים (ללא שינוי)
+        // 3. יצירת טלפונים
         await Phone.insertMany(phones);
 
+        // 4. יצירת אתרים (ללא isTacti ועם תגיות תואמות לקבוצות)
         const sites = [
             {
                 title: "NOC Dashboard",
                 url: "https://noc.example.com",
-                imageUrl: "https://via.placeholder.com/300",
-                description: "Monitor",
+                imageUrl:
+                    "https://via.placeholder.com/300/0000FF/808080?text=Dashboard",
+                description: "Main monitoring dashboard",
                 isFavorite: true,
                 groupId: gMap["noc"],
-                isTacti: false,
+                tag: "Dashboards", // תגית זו קיימת ב-noc siteTags
+            },
+            {
+                title: "Shift Log Tool",
+                url: "https://docs.google.com",
+                imageUrl:
+                    "https://via.placeholder.com/300/FF0000/FFFFFF?text=Logs",
+                description: "Daily logs",
+                isFavorite: false,
+                groupId: gMap["noc"],
+                tag: "Tools", // תגית זו קיימת ב-noc siteTags
+            },
+            {
+                title: "Company Portal",
+                url: "https://portal.company.com",
+                imageUrl:
+                    "https://via.placeholder.com/300/FFFF00/000000?text=Portal",
+                description: "General company info",
+                isFavorite: false,
+                groupId: gMap["noc"],
+                tag: "General", // ברירת מחדל
             },
         ];
         await Site.insertMany(sites);

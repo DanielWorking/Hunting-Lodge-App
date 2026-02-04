@@ -1,135 +1,166 @@
-const express = require("express");
-const router = express.Router();
+const router = require("express").Router();
 const Group = require("../models/Group");
 const User = require("../models/User");
+const Site = require("../models/Site");
 const { protect } = require("../middleware/authMiddleware");
 
-// הפעלת ה-Middleware על כל הנתיבים בקובץ זה
-router.use(protect);
-
-// Get All
-router.get("/", async (req, res) => {
+// Get all groups
+router.get("/", protect, async (req, res) => {
     try {
         const groups = await Group.find();
         res.json(groups);
     } catch (err) {
-        console.error("❌ ERROR in GET /api/groups:", err);
         res.status(500).json({ message: err.message });
     }
 });
 
-// Create Group + Sync Users
-router.post("/", async (req, res) => {
-    // הגנה: רק משתמש מחובר יכול ליצור קבוצה
-    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-
+// Create a new group
+router.post("/", protect, async (req, res) => {
+    const { id, name } = req.body;
     try {
-        const group = new Group(req.body);
-        const newGroup = await group.save();
+        const existingGroup = await Group.findOne({ id });
+        if (existingGroup)
+            return res.status(400).json({ message: "Group ID already exists" });
 
-        if (newGroup.members && newGroup.members.length > 0) {
-            const membership = { groupId: newGroup._id, role: "member" };
+        const newGroup = new Group({
+            id,
+            name,
+            settings: { shiftTypes: [], timeSlots: [] },
+            siteTags: ["General"],
+        });
 
-            await User.updateMany(
-                { _id: { $in: newGroup.members } },
-                { $push: { groups: membership } }
-            );
-        }
-
-        res.status(201).json(newGroup);
+        const savedGroup = await newGroup.save();
+        res.status(201).json(savedGroup);
     } catch (err) {
-        console.error("❌ ERROR in POST /api/groups:", err);
         res.status(400).json({ message: err.message });
     }
 });
 
-// Update Group + Sync Users
-router.put("/:id", async (req, res) => {
-    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+// === TAG MANAGEMENT ROUTES (Fixed to use custom 'id') ===
+
+// Add a new tag
+router.post("/:id/tags", protect, async (req, res) => {
+    const { tagName } = req.body;
+    if (!tagName || !tagName.trim()) {
+        return res.status(400).json({ message: "Tag name is required" });
+    }
 
     try {
-        const updatedGroup = await Group.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true }
-        );
+        // FIX: Using findOne with 'id' field instead of findById
+        const group = await Group.findOne({ id: req.params.id });
+        if (!group) return res.status(404).json({ message: "Group not found" });
 
-        await User.updateMany(
-            { "groups.groupId": req.params.id },
-            { $pull: { groups: { groupId: req.params.id } } }
-        );
-
-        if (updatedGroup.members && updatedGroup.members.length > 0) {
-            const membership = { groupId: updatedGroup._id, role: "member" };
-
-            await User.updateMany(
-                { _id: { $in: updatedGroup.members } },
-                { $push: { groups: membership } }
-            );
+        if (group.siteTags.includes(tagName.trim())) {
+            return res.status(400).json({ message: "Tag already exists" });
         }
 
-        res.json(updatedGroup);
+        group.siteTags.push(tagName.trim());
+        await group.save();
+        res.json(group.siteTags);
     } catch (err) {
-        console.error("❌ ERROR in PUT /api/groups:", err);
-        res.status(400).json({ message: err.message });
+        res.status(500).json({ message: err.message });
     }
 });
 
-// Update Settings
-router.put("/:id/settings", async (req, res) => {
-    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+// Rename a tag
+router.put("/:id/tags/:tagName", protect, async (req, res) => {
+    const { tagName } = req.params;
+    const { newTagName } = req.body;
+
+    if (!newTagName || !newTagName.trim()) {
+        return res.status(400).json({ message: "New tag name is required" });
+    }
+
+    if (tagName === "General") {
+        return res.status(400).json({ message: "Cannot rename General tag" });
+    }
 
     try {
-        const { shiftTypes, timeSlots, reportEmails } = req.body;
+        // FIX: Using findOne with 'id' field
+        const group = await Group.findOne({ id: req.params.id });
+        if (!group) return res.status(404).json({ message: "Group not found" });
 
-        const updateData = {
-            "settings.shiftTypes": shiftTypes,
-            "settings.timeSlots": timeSlots,
-        };
-
-        if (reportEmails !== undefined) {
-            updateData["reportEmails"] = reportEmails;
+        const tagIndex = group.siteTags.indexOf(tagName);
+        if (tagIndex === -1) {
+            return res.status(404).json({ message: "Tag not found" });
         }
 
-        const updatedGroup = await Group.findByIdAndUpdate(
-            req.params.id,
-            { $set: updateData },
-            { new: true }
-        );
-
-        res.json(updatedGroup);
-    } catch (err) {
-        console.error(err);
-        res.status(400).json({ message: err.message });
-    }
-});
-
-// Delete Group
-router.delete("/:id", async (req, res) => {
-    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-
-    try {
-        const groupToDelete = await Group.findById(req.params.id);
-
-        if (
-            groupToDelete &&
-            groupToDelete.name.toLowerCase() === "administrators"
-        ) {
+        if (group.siteTags.includes(newTagName.trim())) {
             return res
-                .status(403)
-                .json({ message: "Cannot delete administrators group" });
+                .status(400)
+                .json({ message: "New tag name already exists" });
         }
 
-        await Group.findByIdAndDelete(req.params.id);
+        // 1. Update tag in group
+        group.siteTags[tagIndex] = newTagName.trim();
+        await group.save();
 
-        await User.updateMany(
-            { "groups.groupId": req.params.id },
-            { $pull: { groups: { groupId: req.params.id } } }
+        // 2. Update sites (using group._id for relationship)
+        await Site.updateMany(
+            { groupId: group._id, tag: tagName },
+            { $set: { tag: newTagName.trim() } },
         );
 
-        res.json({ message: "Group deleted" });
+        res.json({
+            message: "Tag renamed successfully",
+            siteTags: group.siteTags,
+        });
     } catch (err) {
         res.status(500).json({ message: err.message });
+    }
+});
+
+// Delete a tag
+router.delete("/:id/tags/:tagName", protect, async (req, res) => {
+    const { tagName } = req.params;
+
+    if (tagName === "General") {
+        return res.status(400).json({ message: "Cannot delete General tag" });
+    }
+
+    try {
+        // FIX: Using findOne with 'id' field
+        const group = await Group.findOne({ id: req.params.id });
+        if (!group) return res.status(404).json({ message: "Group not found" });
+
+        group.siteTags = group.siteTags.filter((t) => t !== tagName);
+        await group.save();
+
+        await Site.updateMany(
+            { groupId: group._id, tag: tagName },
+            { $set: { tag: "General" } },
+        );
+
+        res.json({
+            message: "Tag deleted and sites moved to General",
+            siteTags: group.siteTags,
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Update group settings (Logic: assumes ID is _id for standard updates, or use logic based on your frontend calls)
+// If frontend sends _id for settings, keep findById. If it sends 'noc', use findOne.
+// Usually settings updates use the _id.
+router.put("/:id", protect, async (req, res) => {
+    try {
+        // Try by _id first (standard), if fails/invalid, try custom id
+        let group;
+        if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            group = await Group.findByIdAndUpdate(req.params.id, req.body, {
+                new: true,
+            });
+        } else {
+            group = await Group.findOneAndUpdate(
+                { id: req.params.id },
+                req.body,
+                { new: true },
+            );
+        }
+        res.json(group);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
     }
 });
 

@@ -45,7 +45,8 @@ export interface Group {
     members: string[];
     createdAt: string;
     settings?: GroupSettings;
-    reportEmails?: string[]; // מערך של מחרוזות
+    reportEmails?: string[];
+    siteTags?: string[]; // מערך התגיות של הקבוצה
 }
 
 export interface SiteCard {
@@ -58,7 +59,7 @@ export interface SiteCard {
     isFavorite: boolean;
     groupId: string;
     createdAt: string;
-    isTacti?: boolean;
+    tag?: string;
 }
 
 export type PhoneType = 'Black' | 'Red' | 'Mobile' | 'Landline';

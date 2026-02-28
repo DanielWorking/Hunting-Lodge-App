@@ -30,7 +30,6 @@ import axios from "axios";
 
 export default function MembersTab() {
     const { currentGroup } = useUser();
-    // === תיקון: הוספת groups ===
     const { users, refreshData, groups } = useData();
     const { showNotification } = useNotification();
 
@@ -93,8 +92,6 @@ export default function MembersTab() {
     const handleSaveEmails = async () => {
         if (!currentGroup) return;
         try {
-            // FIX: Sending directly to group update endpoint (removing /settings suffix)
-            // and sending reportEmails as a root property, not inside settings.
             await axios.put(
                 `/api/groups/${currentGroup._id || currentGroup.id}`,
                 {
@@ -260,6 +257,10 @@ export default function MembersTab() {
                             const userId = user._id || user.id;
                             const isEdited = !!editedValues[userId];
 
+                            // בדיקה אם המשתמש הוא ה-Super Admin
+                            const isSuperAdmin =
+                                user.username === "Super Admin";
+
                             const currentVacation = isEdited
                                 ? editedValues[userId].vacation
                                 : user.vacationBalance;
@@ -318,6 +319,8 @@ export default function MembersTab() {
                                                     ? "success"
                                                     : "default"
                                             }
+                                            // כאן השינוי: נעילת המתג עבור Super Admin
+                                            disabled={isSuperAdmin}
                                         />
                                     </TableCell>
 

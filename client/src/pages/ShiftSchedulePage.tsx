@@ -1,20 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react"; // הוספנו useCallback
 import {
     Container,
     Typography,
     Box,
     Button,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Paper,
     IconButton,
     Menu,
     MenuItem,
-    Chip,
     Dialog,
     AppBar,
     Toolbar,
@@ -33,7 +25,6 @@ import {
     isSameDay,
     parseISO,
 } from "date-fns";
-import { he } from "date-fns/locale";
 import axios from "axios";
 
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
@@ -50,6 +41,7 @@ import { useNotification } from "../context/NotificationContext";
 import ConfirmDialog from "../components/ConfirmDialog";
 import type { ShiftType } from "../types";
 import ThinkingLoader from "../components/ThinkingLoader";
+import ScheduleTable from "../components/ScheduleTable"; // הייבוא החדש
 
 interface LocalShift {
     userId: string;
@@ -66,7 +58,6 @@ const Transition = React.forwardRef(function Transition(
 });
 
 export default function ShiftSchedulePage() {
-    // הוספנו את user כאן כדי שנוכל לשלוח את ה-ID שלו לשרת
     const { user, currentGroup, isShiftManager, isAdmin } = useUser();
     const { users, groups, refreshData } = useData();
     const { showNotification } = useNotification();
@@ -146,18 +137,15 @@ export default function ShiftSchedulePage() {
         try {
             setLoading(true);
             const groupId = currentGroup?._id || currentGroup?.id;
-            const userId = user?._id || user?.id; // קבלת ה-ID של המשתמש הנוכחי
+            const userId = user?._id || user?.id;
 
             const response = await axios.get("/api/schedules", {
                 params: { groupId, date: weekStart.toISOString() },
-                // === השינוי: שליחת מזהה המשתמש לשרת לצורך אימות הרשאות ===
-                headers: {
-                    "x-user-id": userId,
-                },
+                headers: { "x-user-id": userId },
             });
 
             const data = response.data;
-            setScheduleData(data); // אם זה טיוטה ואנחנו לא מנהלים, השרת יחזיר ריק/null
+            setScheduleData(data);
 
             if (data && data.shifts) {
                 const parsedShifts = data.shifts.map((s: any) => ({
@@ -178,15 +166,19 @@ export default function ShiftSchedulePage() {
         }
     };
 
-    const handleCellClick = (
-        event: React.MouseEvent<HTMLTableDataCellElement>,
-        userId: string,
-        date: Date,
-    ) => {
-        if (!isShiftManager && !isAdmin) return;
-        setAnchorEl(event.currentTarget);
-        setSelectedCell({ userId, date });
-    };
+    // שימוש ב-useCallback כדי שהפונקציה לא תיווצר מחדש בכל רינדור (חשוב ל-memo של הטבלה)
+    const handleCellClick = useCallback(
+        (
+            event: React.MouseEvent<HTMLTableDataCellElement>,
+            userId: string,
+            date: Date,
+        ) => {
+            if (!isShiftManager && !isAdmin) return;
+            setAnchorEl(event.currentTarget);
+            setSelectedCell({ userId, date });
+        },
+        [isShiftManager, isAdmin],
+    );
 
     const handleSelectShift = (type: ShiftType | null) => {
         if (!selectedCell) return;
@@ -272,158 +264,24 @@ export default function ShiftSchedulePage() {
         }
     };
 
-    const getShiftForCell = (userId: string, date: Date) => {
-        return shifts.find(
-            (s) => s.userId === userId && isSameDay(s.date, date),
-        );
-    };
-
-    const getShiftType = (id: string) => {
-        return shiftTypes.find((t) => t._id === id);
-    };
-
-    const getContrastText = (hexColor: string) => {
-        const r = parseInt(hexColor.substr(1, 2), 16);
-        const g = parseInt(hexColor.substr(3, 2), 16);
-        const b = parseInt(hexColor.substr(5, 2), 16);
-        const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-        return yiq >= 128 ? "black" : "white";
-    };
-
-    const renderTable = (isFull: boolean) => (
-        <TableContainer
-            component={Paper}
-            sx={{
-                maxHeight: isFull ? "none" : "70vh",
-                overflow: isFull ? "visible" : "auto",
-            }}
-            ref={isFull ? tableRef : null}
-        >
-            <Table stickyHeader={!isFull}>
-                <TableHead>
-                    <TableRow>
-                        <TableCell
-                            sx={{
-                                bgcolor: "background.default",
-                                fontWeight: "bold",
-                                zIndex: 20,
-                                minWidth: 150,
-                            }}
-                        >
-                            Employee
-                        </TableCell>
-                        {weekDays.map((day) => (
-                            <TableCell
-                                key={day.toISOString()}
-                                align="center"
-                                sx={{
-                                    bgcolor: "background.default",
-                                    fontWeight: "bold",
-                                    minWidth: 120,
-                                }}
-                            >
-                                {format(day, "EEEE", { locale: he })} <br />
-                                {format(day, "dd/MM")}
-                            </TableCell>
-                        ))}
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {activeUsers.map((user) => (
-                        <TableRow key={user._id || user.id} hover>
-                            <TableCell
-                                component="th"
-                                scope="row"
-                                sx={{
-                                    fontWeight: "bold",
-                                    position: "sticky",
-                                    left: 0,
-                                    bgcolor: "background.paper",
-                                    zIndex: 10,
-                                }}
-                            >
-                                {user.username}
-                            </TableCell>
-                            {weekDays.map((day) => {
-                                const shift = getShiftForCell(
-                                    user._id || user.id,
-                                    day,
-                                );
-                                const shiftType = shift
-                                    ? getShiftType(shift.shiftTypeId)
-                                    : null;
-
-                                return (
-                                    <TableCell
-                                        key={day.toISOString()}
-                                        align="center"
-                                        onClick={(e) =>
-                                            handleCellClick(
-                                                e,
-                                                user._id || user.id,
-                                                day,
-                                            )
-                                        }
-                                        sx={{
-                                            cursor:
-                                                isShiftManager || isAdmin
-                                                    ? "pointer"
-                                                    : "default",
-                                            bgcolor: shiftType
-                                                ? `${shiftType.color}40`
-                                                : "inherit",
-                                            border:
-                                                selectedCell?.userId ===
-                                                    (user._id || user.id) &&
-                                                isSameDay(
-                                                    selectedCell.date,
-                                                    day,
-                                                )
-                                                    ? "2px solid blue"
-                                                    : undefined,
-                                        }}
-                                    >
-                                        {shiftType ? (
-                                            <Chip
-                                                label={shiftType.name}
-                                                size="small"
-                                                sx={{
-                                                    bgcolor: shiftType.color,
-                                                    color: getContrastText(
-                                                        shiftType.color,
-                                                    ),
-                                                    fontWeight: "bold",
-                                                    border: "1px solid rgba(0,0,0,0.1)",
-                                                }}
-                                            />
-                                        ) : isShiftManager || isAdmin ? (
-                                            <Box
-                                                sx={{
-                                                    opacity: 0.1,
-                                                    fontSize: "20px",
-                                                }}
-                                            >
-                                                +
-                                            </Box>
-                                        ) : (
-                                            "-"
-                                        )}
-                                    </TableCell>
-                                );
-                            })}
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </TableContainer>
-    );
-
     if (!currentGroup)
         return (
             <Container>
                 <Typography>Please select a group.</Typography>
             </Container>
         );
+
+    // הגדרת ה-Props המשותפים לטבלה כדי למנוע שכפול קוד ב-JSX
+    const tableProps = {
+        weekDays,
+        activeUsers,
+        shifts,
+        shiftTypes,
+        isShiftManager: !!isShiftManager,
+        isAdmin: !!isAdmin,
+        selectedCell,
+        onCellClick: handleCellClick,
+    };
 
     return (
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -515,7 +373,12 @@ export default function ShiftSchedulePage() {
                 )}
             </Box>
 
-            {loading ? <ThinkingLoader /> : renderTable(false)}
+            {loading ? (
+                <ThinkingLoader />
+            ) : (
+                // השימוש החדש ברכיב הנפרד
+                <ScheduleTable isFull={false} {...tableProps} />
+            )}
 
             <Dialog
                 fullScreen
@@ -566,7 +429,12 @@ export default function ShiftSchedulePage() {
                         pt: 2,
                     }}
                 >
-                    {renderTable(true)}
+                    {/* השימוש ברכיב הנפרד למצב מסך מלא + העברת ה-Ref */}
+                    <ScheduleTable
+                        isFull={true}
+                        ref={tableRef}
+                        {...tableProps}
+                    />
                 </Box>
             </Dialog>
 

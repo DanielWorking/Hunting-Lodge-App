@@ -60,7 +60,7 @@ interface LocalShift {
 
 const Transition = React.forwardRef(function Transition(
     props: TransitionProps & { children: React.ReactElement },
-    ref: React.Ref<unknown>
+    ref: React.Ref<unknown>,
 ) {
     return <Slide direction="up" ref={ref} {...props} />;
 });
@@ -89,11 +89,11 @@ export default function ShiftSchedulePage() {
 
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
     const weekDays = Array.from({ length: 7 }).map((_, i) =>
-        addDays(weekStart, i)
+        addDays(weekStart, i),
     );
 
     const groupSettings = groups.find(
-        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id)
+        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
     )?.settings;
     const shiftTypes = groupSettings?.shiftTypes || [];
 
@@ -101,17 +101,19 @@ export default function ShiftSchedulePage() {
         .filter((u) => {
             if (!u.isActive) return false;
             return u.groups.some(
-                (g) => g.groupId === (currentGroup?._id || currentGroup?.id)
+                (g) => g.groupId === (currentGroup?._id || currentGroup?.id),
             );
         })
         .sort((a, b) => {
             const orderA =
                 a.groups.find(
-                    (g) => g.groupId === (currentGroup?._id || currentGroup?.id)
+                    (g) =>
+                        g.groupId === (currentGroup?._id || currentGroup?.id),
                 )?.order || 0;
             const orderB =
                 b.groups.find(
-                    (g) => g.groupId === (currentGroup?._id || currentGroup?.id)
+                    (g) =>
+                        g.groupId === (currentGroup?._id || currentGroup?.id),
                 )?.order || 0;
             return orderA - orderB;
         });
@@ -179,7 +181,7 @@ export default function ShiftSchedulePage() {
     const handleCellClick = (
         event: React.MouseEvent<HTMLTableDataCellElement>,
         userId: string,
-        date: Date
+        date: Date,
     ) => {
         if (!isShiftManager && !isAdmin) return;
         setAnchorEl(event.currentTarget);
@@ -195,7 +197,7 @@ export default function ShiftSchedulePage() {
                     !(
                         s.userId === selectedCell.userId &&
                         isSameDay(s.date, selectedCell.date)
-                    )
+                    ),
             );
 
             if (type) {
@@ -272,7 +274,7 @@ export default function ShiftSchedulePage() {
 
     const getShiftForCell = (userId: string, date: Date) => {
         return shifts.find(
-            (s) => s.userId === userId && isSameDay(s.date, date)
+            (s) => s.userId === userId && isSameDay(s.date, date),
         );
     };
 
@@ -345,7 +347,7 @@ export default function ShiftSchedulePage() {
                             {weekDays.map((day) => {
                                 const shift = getShiftForCell(
                                     user._id || user.id,
-                                    day
+                                    day,
                                 );
                                 const shiftType = shift
                                     ? getShiftType(shift.shiftTypeId)
@@ -359,7 +361,7 @@ export default function ShiftSchedulePage() {
                                             handleCellClick(
                                                 e,
                                                 user._id || user.id,
-                                                day
+                                                day,
                                             )
                                         }
                                         sx={{
@@ -375,7 +377,7 @@ export default function ShiftSchedulePage() {
                                                     (user._id || user.id) &&
                                                 isSameDay(
                                                     selectedCell.date,
-                                                    day
+                                                    day,
                                                 )
                                                     ? "2px solid blue"
                                                     : undefined,
@@ -388,7 +390,7 @@ export default function ShiftSchedulePage() {
                                                 sx={{
                                                     bgcolor: shiftType.color,
                                                     color: getContrastText(
-                                                        shiftType.color
+                                                        shiftType.color,
                                                     ),
                                                     fontWeight: "bold",
                                                     border: "1px solid rgba(0,0,0,0.1)",
@@ -443,7 +445,7 @@ export default function ShiftSchedulePage() {
                             {format(weekStart, "dd/MM/yyyy")} -{" "}
                             {format(
                                 endOfWeek(currentDate, { weekStartsOn: 0 }),
-                                "dd/MM/yyyy"
+                                "dd/MM/yyyy",
                             )}
                         </Typography>
                         <Typography variant="subtitle2" color="text.secondary">

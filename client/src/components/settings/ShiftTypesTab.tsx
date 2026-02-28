@@ -36,7 +36,7 @@ export default function ShiftTypesTab() {
     const { showNotification } = useNotification();
 
     const groupSettings = groups.find(
-        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id)
+        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
     )?.settings;
     const shiftTypes = groupSettings?.shiftTypes || [];
 
@@ -76,7 +76,7 @@ export default function ShiftTypesTab() {
 
             if (editingType) {
                 updatedTypes = updatedTypes.map((t) =>
-                    t._id === editingType._id ? { ...t, ...formData } : t
+                    t._id === editingType._id ? { ...t, ...formData } : t,
                 );
             } else {
                 updatedTypes.push({ ...formData } as ShiftType);
@@ -87,7 +87,7 @@ export default function ShiftTypesTab() {
                 {
                     ...groupSettings,
                     shiftTypes: updatedTypes,
-                }
+                },
             );
 
             showNotification("Shift types updated successfully", "success");
@@ -116,7 +116,7 @@ export default function ShiftTypesTab() {
                 {
                     ...groupSettings,
                     shiftTypes: updatedTypes,
-                }
+                },
             );
 
             showNotification("Shift type deleted", "success");
@@ -221,22 +221,30 @@ export default function ShiftTypesTab() {
                         />
 
                         <Box display="flex" alignItems="center" gap={2}>
-                            <label>Color:</label>
-                            <input
-                                type="color"
-                                value={formData.color}
-                                onChange={(e) =>
-                                    setFormData({
-                                        ...formData,
-                                        color: e.target.value,
-                                    })
-                                }
+                            <label
                                 style={{
-                                    width: "50px",
-                                    height: "40px",
-                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "10px",
                                 }}
-                            />
+                            >
+                                Color:
+                                <input
+                                    type="color"
+                                    value={formData.color}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            color: e.target.value,
+                                        })
+                                    }
+                                    style={{
+                                        width: "50px",
+                                        height: "40px",
+                                        cursor: "pointer",
+                                    }}
+                                />
+                            </label>
                         </Box>
 
                         <FormControlLabel

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     Dialog,
     DialogTitle,
@@ -26,15 +26,19 @@ interface PhoneDialogProps {
     initialData?: PhoneRow | null;
 }
 
+// עזר ליצירת מזהים ייחודיים לשדות
+const generateId = () => Math.random().toString(36).substr(2, 9);
+
 export default function PhoneDialog({
     open,
     onClose,
     onSave,
     initialData,
 }: PhoneDialogProps) {
+    // שינוי מבנה ה-State: המספרים הם כעת אובייקטים עם id
     const [formData, setFormData] = useState({
         name: "",
-        numbers: [""], // מתחילים עם מערך של מספר אחד ריק
+        numbers: [{ id: generateId(), value: "" }],
         type: "Mobile" as PhoneType,
         description: "",
     });
@@ -50,15 +54,21 @@ export default function PhoneDialog({
         if (initialData) {
             setFormData({
                 name: initialData.name,
+                // המרה ממערך מחרוזות למערך אובייקטים בטעינה
                 numbers:
-                    initialData.numbers.length > 0 ? initialData.numbers : [""],
+                    initialData.numbers.length > 0
+                        ? initialData.numbers.map((num) => ({
+                              id: generateId(),
+                              value: num,
+                          }))
+                        : [{ id: generateId(), value: "" }],
                 type: initialData.type,
                 description: initialData.description,
             });
         } else {
             setFormData({
                 name: "",
-                numbers: [""],
+                numbers: [{ id: generateId(), value: "" }],
                 type: "Mobile",
                 description: "",
             });
@@ -71,7 +81,6 @@ export default function PhoneDialog({
         });
     }, [initialData, open]);
 
-    // לוגיקת הפירמוט (נשארת זהה, פשוט מופעלת על אינדקס ספציפי)
     const formatAsYouType = (rawValue: string, type: PhoneType) => {
         const digits = rawValue.replace(/\D/g, "");
         let formatted = "";
@@ -88,10 +97,7 @@ export default function PhoneDialog({
                 break;
             case "Mobile":
                 if (digits.length > 6)
-                    formatted = `${digits.slice(0, 3)}-${digits.slice(
-                        3,
-                        6
-                    )}-${digits.slice(6, 10)}`;
+                    formatted = `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
                 else if (digits.length > 3)
                     formatted = `${digits.slice(0, 3)}-${digits.slice(3)}`;
                 else formatted = digits.slice(0, 10);
@@ -107,47 +113,56 @@ export default function PhoneDialog({
         return formatted;
     };
 
-    // שינוי מספר ספציפי במערך
-    const handleNumberChange = (index: number, value: string) => {
-        const newNumbers = [...formData.numbers];
-        newNumbers[index] = formatAsYouType(value, formData.type);
+    const handleNumberChange = (id: string, value: string) => {
+        const newNumbers = formData.numbers.map((item) => {
+            if (item.id === id) {
+                return {
+                    ...item,
+                    value: formatAsYouType(value, formData.type),
+                };
+            }
+            return item;
+        });
         setFormData({ ...formData, numbers: newNumbers });
     };
 
-    // הוספת שדה מספר חדש
     const handleAddNumberField = () => {
-        setFormData({ ...formData, numbers: [...formData.numbers, ""] });
+        setFormData({
+            ...formData,
+            numbers: [...formData.numbers, { id: generateId(), value: "" }],
+        });
     };
 
-    // מחיקת שדה מספר
-    const handleRemoveNumberField = (index: number) => {
-        const newNumbers = formData.numbers.filter((_, i) => i !== index);
+    const handleRemoveNumberField = (id: string) => {
+        const newNumbers = formData.numbers.filter((item) => item.id !== id);
         setFormData({ ...formData, numbers: newNumbers });
     };
 
-    // שינוי סוג הטלפון (מאפס למספר אחד ומפרמט אותו)
     const handleTypeChange = (newType: PhoneType) => {
-        // אם עוברים מסוג מרובה לסוג יחיד, משאירים רק את המספר הראשון
         let currentNumbers = [...formData.numbers];
         if (newType === "Mobile" || newType === "Landline") {
-            currentNumbers = [currentNumbers[0] || ""];
+            // משאירים רק את האיבר הראשון
+            currentNumbers = [
+                currentNumbers[0] || { id: generateId(), value: "" },
+            ];
         }
 
-        // מפרמטים מחדש את המספרים שנשארו
-        const reFormatted = currentNumbers.map((num) =>
-            formatAsYouType(num, newType)
-        );
+        const reFormatted = currentNumbers.map((item) => ({
+            ...item,
+            value: formatAsYouType(item.value, newType),
+        }));
         setFormData({ ...formData, type: newType, numbers: reFormatted });
     };
 
     const handleSubmit = () => {
-        // בדיקת שדות חובה
-        const hasEmptyNumber = formData.numbers.some((n) => !n.trim());
+        // המרה חזרה למחרוזות לפני שמירה
+        const rawNumbers = formData.numbers.map((n) => n.value);
+        const hasEmptyNumber = rawNumbers.some((n) => !n.trim());
 
         const newErrors = {
             name: !formData.name.trim(),
             type: !formData.type,
-            numbers: formData.numbers.length === 0 || hasEmptyNumber,
+            numbers: rawNumbers.length === 0 || hasEmptyNumber,
             description: !formData.description.trim(),
         };
 
@@ -162,11 +177,11 @@ export default function PhoneDialog({
             return;
         }
 
-        onSave(formData);
+        // שליחה של המידע בפורמט שהאבא מצפה לו (מערך מחרוזות)
+        onSave({ ...formData, numbers: rawNumbers });
         onClose();
     };
 
-    // האם מותר להוסיף עוד מספרים? (רק בשחור ואדום)
     const canAddMultiple = formData.type === "Black" || formData.type === "Red";
 
     return (
@@ -176,7 +191,7 @@ export default function PhoneDialog({
             </DialogTitle>
             <DialogContent>
                 <TextField
-                    autoFocus
+                    // הסרתי את autoFocus כדי לפתור את בעיית הנגישות, אפשר להחזיר אם זה קריטי ל-UX
                     margin="dense"
                     label="Name *"
                     fullWidth
@@ -209,22 +224,22 @@ export default function PhoneDialog({
                     Phone Numbers *
                 </Typography>
 
-                {formData.numbers.map((num, index) => (
-                    <Box key={index} sx={{ display: "flex", gap: 1, mb: 1 }}>
+                {formData.numbers.map((item, index) => (
+                    // התיקון החשוב: שימוש ב-item.id ולא ב-index
+                    <Box key={item.id} sx={{ display: "flex", gap: 1, mb: 1 }}>
                         <TextField
                             fullWidth
                             size="small"
-                            value={num}
+                            value={item.value}
                             onChange={(e) =>
-                                handleNumberChange(index, e.target.value)
+                                handleNumberChange(item.id, e.target.value)
                             }
                             placeholder="Type number..."
-                            error={errors.numbers && !num}
+                            error={errors.numbers && !item.value}
                         />
-                        {/* כפתור מחיקה - מופיע רק אם יש יותר ממספר אחד */}
                         {formData.numbers.length > 1 && (
                             <IconButton
-                                onClick={() => handleRemoveNumberField(index)}
+                                onClick={() => handleRemoveNumberField(item.id)}
                                 color="error"
                             >
                                 <DeleteOutlineIcon />
@@ -233,7 +248,6 @@ export default function PhoneDialog({
                     </Box>
                 ))}
 
-                {/* כפתור הוספה - מופיע רק בסוגים המותרים */}
                 {canAddMultiple && (
                     <Button
                         startIcon={<AddCircleOutlineIcon />}

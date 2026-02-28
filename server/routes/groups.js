@@ -36,7 +36,7 @@ router.post("/", protect, async (req, res) => {
     }
 });
 
-// === TAG MANAGEMENT ROUTES (Fixed to use custom 'id') ===
+// === TAG MANAGEMENT ROUTES ===
 
 // Add a new tag
 router.post("/:id/tags", protect, async (req, res) => {
@@ -46,7 +46,6 @@ router.post("/:id/tags", protect, async (req, res) => {
     }
 
     try {
-        // FIX: Using findOne with 'id' field instead of findById
         const group = await Group.findOne({ id: req.params.id });
         if (!group) return res.status(404).json({ message: "Group not found" });
 
@@ -76,7 +75,6 @@ router.put("/:id/tags/:tagName", protect, async (req, res) => {
     }
 
     try {
-        // FIX: Using findOne with 'id' field
         const group = await Group.findOne({ id: req.params.id });
         if (!group) return res.status(404).json({ message: "Group not found" });
 
@@ -119,7 +117,6 @@ router.delete("/:id/tags/:tagName", protect, async (req, res) => {
     }
 
     try {
-        // FIX: Using findOne with 'id' field
         const group = await Group.findOne({ id: req.params.id });
         if (!group) return res.status(404).json({ message: "Group not found" });
 
@@ -140,24 +137,63 @@ router.delete("/:id/tags/:tagName", protect, async (req, res) => {
     }
 });
 
-// Update group settings (Logic: assumes ID is _id for standard updates, or use logic based on your frontend calls)
-// If frontend sends _id for settings, keep findById. If it sends 'noc', use findOne.
-// Usually settings updates use the _id.
+// === SETTINGS UPDATE ROUTE (Specific) ===
+router.put("/:id/settings", protect, async (req, res) => {
+    try {
+        const { shiftTypes, timeSlots } = req.body;
+
+        let group;
+        if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            group = await Group.findById(req.params.id);
+        } else {
+            group = await Group.findOne({ id: req.params.id });
+        }
+
+        if (!group) return res.status(404).json({ message: "Group not found" });
+
+        // Update settings fields specifically
+        if (shiftTypes) group.settings.shiftTypes = shiftTypes;
+        if (timeSlots) group.settings.timeSlots = timeSlots;
+
+        // Fallback if settings object is sent directly
+        if (req.body.settings) {
+            group.settings = req.body.settings;
+        }
+        if (
+            !shiftTypes &&
+            !timeSlots &&
+            (req.body.shiftTypes || req.body.timeSlots)
+        ) {
+            group.settings = req.body;
+        }
+
+        const updatedGroup = await group.save();
+        res.json(updatedGroup);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+// === GENERAL GROUP UPDATE (For emails, etc.) ===
 router.put("/:id", protect, async (req, res) => {
     try {
-        // Try by _id first (standard), if fails/invalid, try custom id
         let group;
+        // Check if ID is a valid ObjectId
         if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
             group = await Group.findByIdAndUpdate(req.params.id, req.body, {
                 new: true,
             });
         } else {
+            // Fallback to custom 'id'
             group = await Group.findOneAndUpdate(
                 { id: req.params.id },
                 req.body,
                 { new: true },
             );
         }
+
+        if (!group) return res.status(404).json({ message: "Group not found" });
+
         res.json(group);
     } catch (err) {
         res.status(400).json({ message: err.message });

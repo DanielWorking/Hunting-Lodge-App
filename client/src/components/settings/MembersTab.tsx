@@ -36,7 +36,7 @@ export default function MembersTab() {
 
     // מציאת הקבוצה הנוכחית כדי לקבל את המייל שלה
     const activeGroupData = groups.find(
-        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id)
+        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
     );
 
     const [emails, setEmails] = useState<string[]>([]);
@@ -54,18 +54,18 @@ export default function MembersTab() {
         const members = users
             .filter((u) =>
                 u.groups.some(
-                    (g) => g.groupId === (currentGroup._id || currentGroup.id)
-                )
+                    (g) => g.groupId === (currentGroup._id || currentGroup.id),
+                ),
             )
             .map((u) => {
                 const membership = u.groups.find(
-                    (g) => g.groupId === (currentGroup._id || currentGroup.id)
+                    (g) => g.groupId === (currentGroup._id || currentGroup.id),
                 );
                 return { ...u, membership };
             });
 
         members.sort(
-            (a, b) => (a.membership?.order || 0) - (b.membership?.order || 0)
+            (a, b) => (a.membership?.order || 0) - (b.membership?.order || 0),
         );
         setSortedMembers(members);
     }, [users, currentGroup]);
@@ -93,12 +93,13 @@ export default function MembersTab() {
     const handleSaveEmails = async () => {
         if (!currentGroup) return;
         try {
+            // FIX: Sending directly to group update endpoint (removing /settings suffix)
+            // and sending reportEmails as a root property, not inside settings.
             await axios.put(
-                `/api/groups/${currentGroup._id || currentGroup.id}/settings`,
+                `/api/groups/${currentGroup._id || currentGroup.id}`,
                 {
-                    ...activeGroupData?.settings,
-                    reportEmails: emails, // שליחת המערך
-                }
+                    reportEmails: emails,
+                },
             );
             showNotification("Emails updated", "success");
             refreshData();
@@ -110,7 +111,7 @@ export default function MembersTab() {
     const handleChange = (
         userId: string,
         field: "vacation" | "active",
-        value: any
+        value: any,
     ) => {
         setEditedValues((prev) => ({
             ...prev,
@@ -118,15 +119,15 @@ export default function MembersTab() {
                 vacation:
                     field === "vacation"
                         ? value
-                        : prev[userId]?.vacation ??
+                        : (prev[userId]?.vacation ??
                           sortedMembers.find((u) => (u._id || u.id) === userId)
-                              ?.vacationBalance,
+                              ?.vacationBalance),
                 active:
                     field === "active"
                         ? value
-                        : prev[userId]?.active ??
+                        : (prev[userId]?.active ??
                           sortedMembers.find((u) => (u._id || u.id) === userId)
-                              ?.isActive,
+                              ?.isActive),
             },
         }));
     };
@@ -309,7 +310,7 @@ export default function MembersTab() {
                                                 handleChange(
                                                     userId,
                                                     "active",
-                                                    e.target.checked
+                                                    e.target.checked,
                                                 )
                                             }
                                             color={
@@ -330,7 +331,7 @@ export default function MembersTab() {
                                                 handleChange(
                                                     userId,
                                                     "vacation",
-                                                    e.target.value
+                                                    e.target.value,
                                                 )
                                             }
                                         />

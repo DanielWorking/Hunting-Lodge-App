@@ -88,9 +88,9 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
                         >
                             Phone Numbers ({data.numbers.length})
                         </Typography>
-                        {data.numbers.map((num, idx) => (
+                        {data.numbers.map((num) => (
                             <Typography
-                                key={idx}
+                                key={num}
                                 variant="h5"
                                 sx={{
                                     fontFamily: "monospace",

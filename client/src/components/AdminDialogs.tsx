@@ -42,6 +42,10 @@ export function UserDialog({
     const { groups } = useData();
     const { user: currentUser } = useUser();
 
+    // 1. קריאה לשם המנהל הראשי מה-ENV
+    const SUPER_ADMIN_NAME =
+        import.meta.env.VITE_SUPER_ADMIN_USERNAME || "Super Admin";
+
     const [formData, setFormData] = useState<Partial<User>>({
         username: "",
         isActive: true,
@@ -50,9 +54,6 @@ export function UserDialog({
     });
 
     const [groupToAdd, setGroupToAdd] = useState<string>("");
-
-    const SUPER_ADMIN_NAME =
-        import.meta.env.VITE_SUPER_ADMIN_USERNAME || "Super Admin";
 
     useEffect(() => {
         if (initialData) {
@@ -68,31 +69,28 @@ export function UserDialog({
         setGroupToAdd("");
     }, [initialData, open]);
 
-    // --- זיהוי סוג המשתמש הנערך ---
-    const isSuperAdminProfile = formData.username === SUPER_ADMIN_NAME;
+    // 2. זיהוי האם הפרופיל הנערך הוא של המנהל הראשי
+    const isSuperAdminProfile =
+        formData.username?.toLowerCase() === SUPER_ADMIN_NAME.toLowerCase();
 
-    // האם המשתמש הנערך הוא אדמין כלשהו (חבר בקבוצת administrators)
+    // 3. בדיקה: האם אני עורך את עצמי?
+    const isEditingSelf = (() => {
+        if (!currentUser) return false;
+        const currentUserId = currentUser._id || currentUser.id;
+        const targetUserId = formData._id || formData.id;
+        if (currentUserId && targetUserId) {
+            return currentUserId === targetUserId;
+        }
+        return false;
+    })();
+
+    // 4. בדיקה: האם המשתמש הנערך הוא חבר בקבוצת administrators
     const isTargetUserAdmin = formData.groups?.some((membership) => {
         const groupObj = groups.find(
             (g) => (g._id || g.id) === membership.groupId,
         );
         return groupObj?.name.toLowerCase() === "administrators";
     });
-
-    // === התיקון: בדיקת "האם אני עורך את עצמי" בצורה בטוחה ===
-    const isEditingSelf = (() => {
-        if (!currentUser) return false;
-
-        // שליפת המזהים בצורה בטוחה (תמיכה ב-_id וגם ב-id)
-        const currentUserId = currentUser._id || currentUser.id;
-        const targetUserId = formData._id || formData.id;
-
-        // השוואה רק אם שני המזהים קיימים
-        if (currentUserId && targetUserId) {
-            return currentUserId === targetUserId;
-        }
-        return false;
-    })();
 
     // --- לוגיקה לשינוי נתונים ---
 
@@ -125,7 +123,11 @@ export function UserDialog({
     };
 
     const handleRoleChange = (groupId: string, isManager: boolean) => {
-        if (isTargetUserAdmin) return;
+        // מניעת שינוי תפקיד בתוך קבוצת האדמינים (הם תמיד מנהלים מעצם היותם בקבוצה)
+        if (isTargetUserAdmin) {
+            const groupObj = groups.find((g) => (g._id || g.id) === groupId);
+            if (groupObj?.name.toLowerCase() === "administrators") return;
+        }
 
         setFormData((prev) => {
             const currentGroups = prev.groups || [];
@@ -162,6 +164,7 @@ export function UserDialog({
                     gap={2}
                     sx={{ mt: 1 }}
                 >
+                    {/* Username - נעול בעריכה, פתוח ביצירה */}
                     <TextField
                         label="Username"
                         value={formData.username}
@@ -175,8 +178,8 @@ export function UserDialog({
                         disabled={!!initialData}
                         helperText={
                             !!initialData
-                                ? "Username matches SSO and cannot be changed"
-                                : ""
+                                ? "Username is managed by SSO and cannot be changed here."
+                                : "Enter the exact username as it appears in the organization SSO."
                         }
                     />
 
@@ -185,220 +188,197 @@ export function UserDialog({
                             <Typography variant="subtitle2" fontWeight="bold">
                                 Super Administrator
                             </Typography>
-                            This is the main system account. Full access
-                            granted.
+                            Core system account. Some restrictions apply.
                         </Alert>
                     )}
 
-                    {!isSuperAdminProfile && (
-                        <>
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={formData.isActive}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                isActive: e.target.checked,
-                                            })
-                                        }
-                                        // כפתור נעול רק אם: אני עורך את עצמי, או אם אני עורך אדמין אחר
-                                        disabled={
-                                            isEditingSelf || isTargetUserAdmin
-                                        }
-                                    />
+                    {/* Active Switch - נעול ל-Super Admin ולעצמך */}
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={formData.isActive}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        isActive: e.target.checked,
+                                    })
                                 }
-                                label={
-                                    formData.isActive
-                                        ? "Active User"
-                                        : "Inactive User"
-                                }
+                                disabled={isEditingSelf || isSuperAdminProfile}
                             />
+                        }
+                        label={
+                            formData.isActive ? "Active User" : "Inactive User"
+                        }
+                    />
 
-                            {isEditingSelf && (
-                                <Alert severity="info" sx={{ py: 0 }}>
-                                    You cannot deactivate your own account.
-                                </Alert>
-                            )}
-
-                            {/* אם זה אדמין אחר ואנחנו לא יכולים לשנות לו סטטוס, נוסיף הסבר קטן */}
-                            {isTargetUserAdmin && !isEditingSelf && (
-                                <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                >
-                                    Status of other administrators cannot be
-                                    changed here.
-                                </Typography>
-                            )}
-
-                            <Divider sx={{ my: 1 }}>Assigned Groups</Divider>
-
-                            <Box
-                                sx={{
-                                    maxHeight: 300,
-                                    overflow: "auto",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 1,
-                                }}
-                            >
-                                {formData.groups?.length === 0 && (
-                                    <Typography
-                                        variant="body2"
-                                        color="text.secondary"
-                                        align="center"
-                                    >
-                                        No groups assigned.
-                                    </Typography>
-                                )}
-
-                                {formData.groups?.map((membership) => {
-                                    const groupObj = groups.find(
-                                        (g) =>
-                                            (g._id || g.id) ===
-                                            membership.groupId,
-                                    );
-                                    if (!groupObj) return null;
-
-                                    const isAdministratorsGroup =
-                                        groupObj.name.toLowerCase() ===
-                                        "administrators";
-
-                                    const canRemove = !(
-                                        isAdministratorsGroup && isEditingSelf
-                                    );
-                                    const canChangeRole =
-                                        !isTargetUserAdmin &&
-                                        !isAdministratorsGroup;
-
-                                    return (
-                                        <Box
-                                            key={groupObj._id || groupObj.id}
-                                            sx={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "space-between",
-                                                p: 1.5,
-                                                border: "1px solid #eee",
-                                                borderRadius: 1,
-                                                bgcolor: "background.paper",
-                                            }}
-                                        >
-                                            <Typography
-                                                variant="body1"
-                                                fontWeight="medium"
-                                            >
-                                                {groupObj.name}
-                                            </Typography>
-
-                                            <Box
-                                                display="flex"
-                                                alignItems="center"
-                                                gap={1}
-                                            >
-                                                {!isAdministratorsGroup && (
-                                                    <FormControlLabel
-                                                        control={
-                                                            <Switch
-                                                                size="small"
-                                                                checked={
-                                                                    membership.role ===
-                                                                        "shift_manager" ||
-                                                                    isTargetUserAdmin
-                                                                }
-                                                                disabled={
-                                                                    !canChangeRole
-                                                                }
-                                                                onChange={(e) =>
-                                                                    handleRoleChange(
-                                                                        membership.groupId,
-                                                                        e.target
-                                                                            .checked,
-                                                                    )
-                                                                }
-                                                            />
-                                                        }
-                                                        label={
-                                                            <Typography
-                                                                variant="caption"
-                                                                color={
-                                                                    !canChangeRole
-                                                                        ? "text.disabled"
-                                                                        : "text.primary"
-                                                                }
-                                                            >
-                                                                Shift Manager
-                                                            </Typography>
-                                                        }
-                                                    />
-                                                )}
-
-                                                {isAdministratorsGroup && (
-                                                    <Chip
-                                                        label="Admin Access"
-                                                        size="small"
-                                                        color="error"
-                                                        variant="outlined"
-                                                    />
-                                                )}
-
-                                                <IconButton
-                                                    size="small"
-                                                    color="error"
-                                                    disabled={!canRemove}
-                                                    onClick={() =>
-                                                        handleRemoveGroup(
-                                                            membership.groupId,
-                                                        )
-                                                    }
-                                                >
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
-                                            </Box>
-                                        </Box>
-                                    );
-                                })}
-                            </Box>
-
-                            <Box
-                                sx={{
-                                    mt: 2,
-                                    display: "flex",
-                                    gap: 1,
-                                    alignItems: "flex-end",
-                                }}
-                            >
-                                <FormControl fullWidth size="small">
-                                    <InputLabel>Add Group</InputLabel>
-                                    <Select
-                                        value={groupToAdd}
-                                        label="Add Group"
-                                        onChange={(e) =>
-                                            setGroupToAdd(e.target.value)
-                                        }
-                                    >
-                                        {availableGroupsToAdd.map((g) => (
-                                            <MenuItem
-                                                key={g._id || g.id}
-                                                value={g._id || g.id}
-                                            >
-                                                {g.name}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                                <Button
-                                    variant="contained"
-                                    onClick={handleAddGroup}
-                                    disabled={!groupToAdd}
-                                    startIcon={<AddIcon />}
-                                >
-                                    Add
-                                </Button>
-                            </Box>
-                        </>
+                    {isEditingSelf && (
+                        <Alert severity="info" sx={{ py: 0 }}>
+                            You cannot deactivate your own account.
+                        </Alert>
                     )}
+
+                    <Divider sx={{ my: 1 }}>Assigned Groups</Divider>
+
+                    <Box
+                        sx={{
+                            maxHeight: 300,
+                            overflow: "auto",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 1,
+                        }}
+                    >
+                        {formData.groups?.length === 0 && (
+                            <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                align="center"
+                            >
+                                No groups assigned.
+                            </Typography>
+                        )}
+
+                        {formData.groups?.map((membership) => {
+                            const groupObj = groups.find(
+                                (g) => (g._id || g.id) === membership.groupId,
+                            );
+                            if (!groupObj) return null;
+
+                            const isAdministratorsGroup =
+                                groupObj.name.toLowerCase() ===
+                                "administrators";
+
+                            // לוגיקה להסרה: אסור להסיר אם זה SuperAdmin/Self מקבוצת הניהול
+                            const canRemove = !(
+                                isAdministratorsGroup &&
+                                (isSuperAdminProfile || isEditingSelf)
+                            );
+
+                            // שינוי רול לא רלוונטי לקבוצת האדמינים
+                            const canChangeRole = !isAdministratorsGroup;
+
+                            return (
+                                <Box
+                                    key={groupObj._id || groupObj.id}
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        p: 1.5,
+                                        border: "1px solid #eee",
+                                        borderRadius: 1,
+                                        bgcolor: "background.paper",
+                                    }}
+                                >
+                                    <Typography
+                                        variant="body1"
+                                        fontWeight="medium"
+                                    >
+                                        {groupObj.name}
+                                    </Typography>
+
+                                    <Box
+                                        display="flex"
+                                        alignItems="center"
+                                        gap={1}
+                                    >
+                                        {!isAdministratorsGroup && (
+                                            <FormControlLabel
+                                                control={
+                                                    <Switch
+                                                        size="small"
+                                                        checked={
+                                                            membership.role ===
+                                                            "shift_manager"
+                                                        }
+                                                        disabled={
+                                                            !canChangeRole
+                                                        }
+                                                        onChange={(e) =>
+                                                            handleRoleChange(
+                                                                membership.groupId,
+                                                                e.target
+                                                                    .checked,
+                                                            )
+                                                        }
+                                                    />
+                                                }
+                                                label={
+                                                    <Typography
+                                                        variant="caption"
+                                                        color={
+                                                            !canChangeRole
+                                                                ? "text.disabled"
+                                                                : "text.primary"
+                                                        }
+                                                    >
+                                                        Shift Manager
+                                                    </Typography>
+                                                }
+                                            />
+                                        )}
+
+                                        {isAdministratorsGroup && (
+                                            <Chip
+                                                label="Admin Access"
+                                                size="small"
+                                                color="error"
+                                                variant="outlined"
+                                            />
+                                        )}
+
+                                        <IconButton
+                                            size="small"
+                                            color="error"
+                                            disabled={!canRemove}
+                                            onClick={() =>
+                                                handleRemoveGroup(
+                                                    membership.groupId,
+                                                )
+                                            }
+                                        >
+                                            <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                    </Box>
+                                </Box>
+                            );
+                        })}
+                    </Box>
+
+                    <Box
+                        sx={{
+                            mt: 2,
+                            display: "flex",
+                            gap: 1,
+                            alignItems: "flex-end",
+                        }}
+                    >
+                        <FormControl fullWidth size="small">
+                            <InputLabel>Add Group</InputLabel>
+                            <Select
+                                value={groupToAdd}
+                                label="Add Group"
+                                onChange={(e) => setGroupToAdd(e.target.value)}
+                            >
+                                {availableGroupsToAdd.map((g) => (
+                                    <MenuItem
+                                        key={g._id || g.id}
+                                        value={g._id || g.id}
+                                    >
+                                        {g.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <Button
+                            variant="contained"
+                            onClick={handleAddGroup}
+                            disabled={!groupToAdd}
+                            startIcon={<AddIcon />}
+                        >
+                            Add
+                        </Button>
+                    </Box>
                 </Box>
             </DialogContent>
             <DialogActions>

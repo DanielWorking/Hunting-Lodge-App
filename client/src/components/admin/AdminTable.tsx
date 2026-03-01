@@ -68,12 +68,13 @@ export default function AdminTable({
     const renderUserRow = (rawUser: User) => {
         const user = rawUser as unknown as ExtendedUser;
 
-        // תיקון: בדיקה מקיפה יותר לזיהוי Super Admin
-        const lowerName = user.username.toLowerCase();
-        const isSuperAdmin =
-            lowerName === "super admin" ||
-            lowerName === "admin" ||
-            lowerName === "administrator";
+        const currentName = user.username.toLowerCase();
+        // קריאה למשתנה הסביבה (עם ברירת מחדל כדי לא לשבור את הפיתוח)
+        const superAdminName = (
+            import.meta.env.VITE_SUPER_ADMIN_USERNAME || "Super Admin"
+        ).toLowerCase();
+
+        const isSuperAdmin = currentName === superAdminName;
 
         return (
             <TableRow key={user._id || user.id} hover>

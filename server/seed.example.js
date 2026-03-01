@@ -15,8 +15,9 @@ if (result.error) {
     process.exit(1);
 }
 
-// === חשוב: הגדר כאן את המייל שלך ב-Auth0 / ארגון ===
-const INITIAL_ADMIN_EMAIL = "###@gmail.com";
+// ברירת המחדל תהיה לשימוש מקומי, אך בקוד הארגוני זה ייקח את מה שהוגדר
+const ADMIN_USERNAME = process.env.SUPER_ADMIN_USERNAME || "Super Admin";
+const ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || "admin@local.test";
 // ===================================================
 
 const NOC_SHIFT_TYPES = [
@@ -101,9 +102,9 @@ const importData = async () => {
         // 2. יצירת משתמשים
         const users = [
             {
-                username: "Super Admin",
+                username: ADMIN_USERNAME,
                 id: "auth0|superadmin",
-                email: INITIAL_ADMIN_EMAIL,
+                email: ADMIN_EMAIL,
                 isActive: true,
                 vacationBalance: 999,
                 groups: [

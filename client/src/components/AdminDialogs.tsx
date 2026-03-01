@@ -51,6 +51,9 @@ export function UserDialog({
 
     const [groupToAdd, setGroupToAdd] = useState<string>("");
 
+    const SUPER_ADMIN_NAME =
+        import.meta.env.VITE_SUPER_ADMIN_USERNAME || "Super Admin";
+
     useEffect(() => {
         if (initialData) {
             setFormData(initialData);
@@ -66,12 +69,12 @@ export function UserDialog({
     }, [initialData, open]);
 
     // --- זיהוי סוג המשתמש הנערך ---
-    const isSuperAdminProfile = formData.username === "Admin";
+    const isSuperAdminProfile = formData.username === SUPER_ADMIN_NAME;
 
     // האם המשתמש הנערך הוא אדמין כלשהו (חבר בקבוצת administrators)
     const isTargetUserAdmin = formData.groups?.some((membership) => {
         const groupObj = groups.find(
-            (g) => (g._id || g.id) === membership.groupId
+            (g) => (g._id || g.id) === membership.groupId,
         );
         return groupObj?.name.toLowerCase() === "administrators";
     });
@@ -90,7 +93,6 @@ export function UserDialog({
         }
         return false;
     })();
-    // ========================================================
 
     // --- לוגיקה לשינוי נתונים ---
 
@@ -132,7 +134,7 @@ export function UserDialog({
                 groups: currentGroups.map((g) =>
                     g.groupId === groupId
                         ? { ...g, role: isManager ? "shift_manager" : "member" }
-                        : g
+                        : g,
                 ),
             };
         });
@@ -170,7 +172,12 @@ export function UserDialog({
                             })
                         }
                         fullWidth
-                        disabled={isSuperAdminProfile}
+                        disabled={!!initialData}
+                        helperText={
+                            !!initialData
+                                ? "Username matches SSO and cannot be changed"
+                                : ""
+                        }
                     />
 
                     {isSuperAdminProfile && (
@@ -195,8 +202,7 @@ export function UserDialog({
                                                 isActive: e.target.checked,
                                             })
                                         }
-                                        // כפתור נעול רק אם: אני עורך את עצמי, או אם אני עורך אדמין אחר (לפי בקשתך הקודמת)
-                                        // אם תרצה לאפשר עריכת סטטוס לאדמינים אחרים, תמחק את "|| isTargetUserAdmin"
+                                        // כפתור נעול רק אם: אני עורך את עצמי, או אם אני עורך אדמין אחר
                                         disabled={
                                             isEditingSelf || isTargetUserAdmin
                                         }
@@ -251,7 +257,7 @@ export function UserDialog({
                                     const groupObj = groups.find(
                                         (g) =>
                                             (g._id || g.id) ===
-                                            membership.groupId
+                                            membership.groupId,
                                     );
                                     if (!groupObj) return null;
 
@@ -308,7 +314,7 @@ export function UserDialog({
                                                                     handleRoleChange(
                                                                         membership.groupId,
                                                                         e.target
-                                                                            .checked
+                                                                            .checked,
                                                                     )
                                                                 }
                                                             />
@@ -343,7 +349,7 @@ export function UserDialog({
                                                     disabled={!canRemove}
                                                     onClick={() =>
                                                         handleRemoveGroup(
-                                                            membership.groupId
+                                                            membership.groupId,
                                                         )
                                                     }
                                                 >

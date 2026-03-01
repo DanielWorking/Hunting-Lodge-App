@@ -54,7 +54,7 @@ router.post("/", async (req, res) => {
         if (groupIds.length > 0) {
             await Group.updateMany(
                 { _id: { $in: groupIds } },
-                { $push: { members: newUser._id } }
+                { $push: { members: newUser._id } },
             );
         }
 
@@ -91,40 +91,37 @@ router.put("/:id", async (req, res) => {
 
                 // האם המשתמש שמבצע את הפעולה הוא אדמין כרגע?
                 const isCurrentlyAdmin = req.user.groups.some(
-                    (g) => g.groupId.toString() === adminGroupId
+                    (g) => g.groupId.toString() === adminGroupId,
                 );
 
                 if (isCurrentlyAdmin) {
                     // האם ברשימה החדשה שהוא שלח עדיין קיימת הקבוצה הזו?
                     const isStillAdmin = req.body.groups.some(
-                        (g) => g.groupId === adminGroupId
+                        (g) => g.groupId === adminGroupId,
                     );
 
                     if (!isStillAdmin) {
-                        return res
-                            .status(403)
-                            .json({
-                                message:
-                                    "You cannot remove yourself from the administrators group.",
-                            });
+                        return res.status(403).json({
+                            message:
+                                "You cannot remove yourself from the administrators group.",
+                        });
                     }
                 }
             }
         }
     }
-    // ===================================
 
     try {
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
             req.body,
-            { new: true }
+            { new: true },
         );
 
         // סנכרון חברות בקבוצות (מחיקה מהישנות והוספה לחדשות)
         await Group.updateMany(
             { members: req.params.id },
-            { $pull: { members: req.params.id } }
+            { $pull: { members: req.params.id } },
         );
 
         const groupIds = updatedUser.groups.map((g) => g.groupId);
@@ -132,7 +129,7 @@ router.put("/:id", async (req, res) => {
         if (groupIds.length > 0) {
             await Group.updateMany(
                 { _id: { $in: groupIds } },
-                { $push: { members: updatedUser._id } }
+                { $push: { members: updatedUser._id } },
             );
         }
 
@@ -154,7 +151,6 @@ router.patch("/:id/manager-update", async (req, res) => {
                 .json({ message: "You cannot deactivate your own account." });
         }
     }
-    // ==============================
 
     try {
         const { isActive, vacationBalance } = req.body;
@@ -167,7 +163,7 @@ router.patch("/:id/manager-update", async (req, res) => {
         const user = await User.findByIdAndUpdate(
             req.params.id,
             { $set: updateFields },
-            { new: true }
+            { new: true },
         );
         res.json(user);
     } catch (err) {
@@ -182,7 +178,10 @@ router.delete("/:id", async (req, res) => {
     try {
         const userToDelete = await User.findById(req.params.id);
 
-        if (userToDelete && userToDelete.username === "Admin") {
+        const superAdminName =
+            process.env.SUPER_ADMIN_USERNAME || "Super Admin";
+
+        if (userToDelete && userToDelete.username === superAdminName) {
             return res
                 .status(403)
                 .json({ message: "Cannot delete Super Admin" });
@@ -192,7 +191,7 @@ router.delete("/:id", async (req, res) => {
 
         await Group.updateMany(
             { members: req.params.id },
-            { $pull: { members: req.params.id } }
+            { $pull: { members: req.params.id } },
         );
 
         res.json({ message: "User deleted" });
@@ -210,7 +209,7 @@ router.put("/reorder/group", async (req, res) => {
         const promises = updates.map((update) => {
             return User.updateOne(
                 { _id: update.userId, "groups.groupId": groupId },
-                { $set: { "groups.$.order": update.order } }
+                { $set: { "groups.$.order": update.order } },
             );
         });
 

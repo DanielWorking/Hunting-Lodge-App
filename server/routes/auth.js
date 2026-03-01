@@ -73,22 +73,41 @@ router.post("/login", async (req, res) => {
         const claims = tokenSet.claims();
         console.log("👤 SSO User Claims:", claims);
 
-        //TODO: make sure to change logic to get username insted of email
-        // המשך הקוד נשאר זהה...
         const email = claims.email;
-        const ssoUsername =
-            claims.preferred_username || claims.email || claims.sub;
 
-        if (!ssoUsername) {
-            return res
-                .status(400)
-                .json({ message: "Could not identify user from SSO" });
+        // קריאת הקונפיגורציה מה-ENV (ברירת מחדל: email)
+        const identifierMode = process.env.SSO_IDENTIFIER_FIELD || "email";
+        console.log(`⚙️ Auth Mode: ${identifierMode}`);
+
+        let ssoUsername;
+        let searchCriteria;
+
+        if (identifierMode === "username") {
+            // --- מצב ארגוני (חיבור לפי שם משתמש) ---
+            ssoUsername = claims.preferred_username;
+
+            if (!ssoUsername) {
+                return res.status(400).json({
+                    message:
+                        "SSO profile is missing 'preferred_username'. Please contact support.",
+                });
+            }
+
+            // חיפוש מדויק לפי שם משתמש בלבד
+            searchCriteria = { username: ssoUsername };
+        } else {
+            // --- מצב פיתוח/ביתי (חיבור לפי מייל) ---
+            // במצב הזה שם המשתמש הוא המייל עצמו
+            ssoUsername = email;
+
+            // חיפוש לפי מייל
+            searchCriteria = { email: email };
         }
 
+        console.log(`🔍 Searching user by:`, searchCriteria);
+
         // --- לוגיקה עסקית ---
-        let user = await User.findOne({
-            $or: [{ email: email }, { username: ssoUsername }],
-        });
+        let user = await User.findOne(searchCriteria);
 
         if (user) {
             console.log(`✅ User found: ${user.username}`);

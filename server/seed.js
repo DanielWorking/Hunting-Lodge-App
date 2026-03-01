@@ -16,20 +16,29 @@ if (result.error) {
 }
 
 // === חשוב: הגדר כאן את המייל שלך ב-Auth0 / ארגון ===
-const INITIAL_ADMIN_EMAIL = "daniel.reifer17@gmail.com";
+const INITIAL_ADMIN_EMAIL = "###@gmail.com";
 // ===================================================
 
-const DEFAULT_SHIFT_TYPES = [
-    { name: "Morning", color: "#FFB74D", isVacation: false },
-    { name: "Evening", color: "#64B5F6", isVacation: false },
-    { name: "Night", color: "#455A64", isVacation: false },
-    { name: "Vacation", color: "#E57373", isVacation: true },
+const NOC_SHIFT_TYPES = [
+    { name: "בוקר", color: "#476db5", isVacation: false },
+    { name: "ערב", color: "#a32e9d", isVacation: false },
+    { name: "לילה", color: "#2f3436", isVacation: false },
+    { name: "אפטר", color: "#bac4c8", isVacation: false },
+    { name: "אמצע", color: "#2c728e", isVacation: false },
+    { name: "שבת", color: "#eee836", isVacation: false },
+    { name: "חופש", color: "#E57373", isVacation: true },
+    { name: "חול", color: "#9d6262", isVacation: true },
 ];
 
-const DEFAULT_TIME_SLOTS = [
-    { name: "Morning Shift", startTime: "07:00", endTime: "15:00" },
-    { name: "Evening Shift", startTime: "15:00", endTime: "23:00" },
-    { name: "Night Shift", startTime: "23:00", endTime: "07:00" },
+const NOC_TIME_SLOTS = [
+    { name: "משמרת בוקר", startTime: "08:00", endTime: "14:00" },
+    { name: "משמרת ערב", startTime: "15:00", endTime: "19:30" },
+    { name: "משמרת לילה", startTime: "19:30", endTime: "08:00" },
+    { name: "אפטר", startTime: "08:00", endTime: "08:00" },
+    { name: "משמרת שבת", startTime: "08:00", endTime: "08:00" },
+    { name: "חופש", startTime: "08:00", endTime: "08:00" },
+    { name: "חול", startTime: "08:00", endTime: "08:00" },
+    { name: "משמרת אמצע", startTime: "10:00", endTime: "16:00" },
 ];
 
 const phones = [
@@ -72,15 +81,6 @@ const importData = async () => {
                 siteTags: ["General"],
             },
             {
-                id: "splunk",
-                name: "splunk",
-                settings: {
-                    shiftTypes: DEFAULT_SHIFT_TYPES,
-                    timeSlots: DEFAULT_TIME_SLOTS,
-                },
-                siteTags: ["General", "Logs", "Docs"],
-            },
-            {
                 id: "noc",
                 name: "noc",
                 settings: {
@@ -88,13 +88,7 @@ const importData = async () => {
                     timeSlots: DEFAULT_TIME_SLOTS,
                 },
                 // הגדרת התגיות שהכרטיסים ישתמשו בהן
-                siteTags: ["General", "Dashboards", "Tools"],
-            },
-            {
-                id: "zooz",
-                name: "zooz",
-                settings: { shiftTypes: [], timeSlots: [] },
-                siteTags: ["General"],
+                siteTags: ["General", "Tacti"],
             },
         ]);
 
@@ -144,7 +138,7 @@ const importData = async () => {
                 description: "Main monitoring dashboard",
                 isFavorite: true,
                 groupId: gMap["noc"],
-                tag: "Dashboards", // תגית זו קיימת ב-noc siteTags
+                tag: "General",
             },
             {
                 title: "Shift Log Tool",
@@ -154,7 +148,7 @@ const importData = async () => {
                 description: "Daily logs",
                 isFavorite: false,
                 groupId: gMap["noc"],
-                tag: "Tools", // תגית זו קיימת ב-noc siteTags
+                tag: "General",
             },
             {
                 title: "Company Portal",

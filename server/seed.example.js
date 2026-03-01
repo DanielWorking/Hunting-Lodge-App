@@ -84,8 +84,8 @@ const importData = async () => {
                 id: "noc",
                 name: "noc",
                 settings: {
-                    shiftTypes: DEFAULT_SHIFT_TYPES,
-                    timeSlots: DEFAULT_TIME_SLOTS,
+                    shiftTypes: NOC_SHIFT_TYPES,
+                    timeSlots: NOC_TIME_SLOTS,
                 },
                 // הגדרת התגיות שהכרטיסים ישתמשו בהן
                 siteTags: ["General", "Tacti"],

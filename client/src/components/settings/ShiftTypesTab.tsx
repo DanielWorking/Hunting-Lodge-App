@@ -17,7 +17,6 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    Tooltip,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -26,7 +25,7 @@ import CircleIcon from "@mui/icons-material/Circle";
 import { useUser } from "../../context/UserContext";
 import { useData } from "../../context/DataContext";
 import { useNotification } from "../../context/NotificationContext";
-import ConfirmDialog from "../ConfirmDialog"; // <-- Import
+import ConfirmDialog from "../ConfirmDialog";
 import type { ShiftType } from "../../types";
 import axios from "axios";
 

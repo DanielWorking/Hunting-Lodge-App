@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 
-// --- שינוי כאן ---
 // אנחנו מייבאים את כל הספרייה ומחלצים את Issuer ידנית לבדיקה
 const openIdClient = require("openid-client");
 const { Issuer } = openIdClient;
@@ -66,7 +65,7 @@ router.post("/login", async (req, res) => {
         const tokenSet = await ssoClient.callback(
             ssoConfig.redirectUri,
             { code },
-            {}
+            {},
         );
         // ==================
 

@@ -24,7 +24,6 @@ import {
     Checkbox,
     ListItemText,
     Typography,
-    Alert,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -43,7 +42,7 @@ export default function TimeSlotsTab() {
     const { showNotification } = useNotification();
 
     const groupSettings = groups.find(
-        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id)
+        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
     )?.settings;
     const timeSlots = groupSettings?.timeSlots || [];
     const shiftTypes = groupSettings?.shiftTypes || [];
@@ -90,7 +89,7 @@ export default function TimeSlotsTab() {
 
             if (editingSlot) {
                 updatedSlots = updatedSlots.map((s) =>
-                    s._id === editingSlot._id ? { ...s, ...formData } : s
+                    s._id === editingSlot._id ? { ...s, ...formData } : s,
                 );
             } else {
                 updatedSlots.push({ ...formData } as TimeSlot);
@@ -101,7 +100,7 @@ export default function TimeSlotsTab() {
                 {
                     ...groupSettings,
                     timeSlots: updatedSlots,
-                }
+                },
             );
 
             showNotification("Time slots updated", "success");
@@ -126,7 +125,7 @@ export default function TimeSlotsTab() {
                 {
                     ...groupSettings,
                     timeSlots: updatedSlots,
-                }
+                },
             );
             showNotification("Slot deleted", "success");
             refreshData();
@@ -361,7 +360,7 @@ export default function TimeSlotsTab() {
                                         <Checkbox
                                             checked={
                                                 formData.linkedShiftTypes.indexOf(
-                                                    type._id
+                                                    type._id,
                                                 ) > -1
                                             }
                                         />

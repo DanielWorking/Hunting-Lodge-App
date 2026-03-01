@@ -11,7 +11,6 @@ import {
     CircularProgress,
     Button,
     Chip,
-    Typography,
 } from "@mui/material";
 import EmailIcon from "@mui/icons-material/Email";
 import { useUser } from "../../context/UserContext";
@@ -34,7 +33,7 @@ export default function StatisticsTab() {
     const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
     const groupSettings = groups.find(
-        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id)
+        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
     )?.settings;
     const shiftTypes = groupSettings?.shiftTypes || [];
 
@@ -75,7 +74,7 @@ export default function StatisticsTab() {
                     // === התיקון החשוב: שימוש בתאריך של המשמרת עצמה ===
                     if (shift.date) {
                         rawStats[shift.userId].byType[shift.shiftTypeId].push(
-                            shift.date
+                            shift.date,
                         );
                     }
                 });
@@ -97,7 +96,7 @@ export default function StatisticsTab() {
                 }/send-report`,
                 {
                     stats,
-                }
+                },
             );
             showNotification(`Report sent successfully`, "success");
         } catch (e) {
@@ -116,17 +115,19 @@ export default function StatisticsTab() {
     const sortedMembers = users
         .filter((u) =>
             u.groups.some(
-                (g) => g.groupId === (currentGroup?._id || currentGroup?.id)
-            )
+                (g) => g.groupId === (currentGroup?._id || currentGroup?.id),
+            ),
         )
         .sort((a, b) => {
             const orderA =
                 a.groups.find(
-                    (g) => g.groupId === (currentGroup?._id || currentGroup?.id)
+                    (g) =>
+                        g.groupId === (currentGroup?._id || currentGroup?.id),
                 )?.order || 0;
             const orderB =
                 b.groups.find(
-                    (g) => g.groupId === (currentGroup?._id || currentGroup?.id)
+                    (g) =>
+                        g.groupId === (currentGroup?._id || currentGroup?.id),
                 )?.order || 0;
             return orderA - orderB;
         });
@@ -187,7 +188,7 @@ export default function StatisticsTab() {
                                                 flexWrap="wrap"
                                             >
                                                 {Object.entries(
-                                                    userStats.byType
+                                                    userStats.byType,
                                                 ).map(([typeId, dates]) => {
                                                     const datesArray =
                                                         dates as string[];
@@ -197,7 +198,8 @@ export default function StatisticsTab() {
                                                     const typeObj =
                                                         shiftTypes.find(
                                                             (t) =>
-                                                                t._id === typeId
+                                                                t._id ===
+                                                                typeId,
                                                         );
                                                     const typeName =
                                                         typeObj?.name ||
@@ -218,7 +220,7 @@ export default function StatisticsTab() {
                                                                     ? () =>
                                                                           handleChipClick(
                                                                               typeName,
-                                                                              datesArray
+                                                                              datesArray,
                                                                           )
                                                                     : undefined
                                                             }
@@ -226,7 +228,7 @@ export default function StatisticsTab() {
                                                                 bgcolor:
                                                                     typeColor,
                                                                 color: getContrastText(
-                                                                    typeColor
+                                                                    typeColor,
                                                                 ),
                                                                 fontWeight:
                                                                     "bold",

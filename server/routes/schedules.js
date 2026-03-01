@@ -4,7 +4,6 @@ const ShiftSchedule = require("../models/ShiftSchedule");
 const User = require("../models/User");
 const Group = require("../models/Group");
 
-// ייבוא ה-Middleware החדש
 const { protect } = require("../middleware/authMiddleware");
 
 // שימוש ב-protect עבור כל הנתיבים בקובץ הזה
@@ -30,7 +29,7 @@ router.get("/", async (req, res) => {
             const isShiftManager = req.user.groups.some(
                 (g) =>
                     g.groupId.toString() === groupId &&
-                    g.role === "shift_manager"
+                    g.role === "shift_manager",
             );
 
             if (isAdmin || isShiftManager) {
@@ -82,13 +81,13 @@ router.put("/", async (req, res) => {
                             new Date(newShift.date).toISOString() ===
                                 new Date(oldShift.date).toISOString() &&
                             vacationTypeIds.includes(
-                                String(newShift.shiftTypeId)
-                            )
+                                String(newShift.shiftTypeId),
+                            ),
                     );
 
                     if (!stillExistsAsVacation) {
                         console.log(
-                            `♻️ Refunding vacation day to user ${oldShift.userId}`
+                            `♻️ Refunding vacation day to user ${oldShift.userId}`,
                         );
                         await User.findByIdAndUpdate(oldShift.userId, {
                             $inc: { vacationBalance: 1 },
@@ -103,7 +102,7 @@ router.put("/", async (req, res) => {
                         old.userId === newShift.userId &&
                         new Date(old.date).toISOString() ===
                             new Date(newShift.date).toISOString() &&
-                        old.shiftTypeId === newShift.shiftTypeId
+                        old.shiftTypeId === newShift.shiftTypeId,
                 );
 
                 if (matchingOldShift && matchingOldShift.vacationDeducted) {
@@ -115,7 +114,7 @@ router.put("/", async (req, res) => {
         const schedule = await ShiftSchedule.findOneAndUpdate(
             { groupId, startDate },
             { groupId, startDate, endDate, shifts },
-            { new: true, upsert: true }
+            { new: true, upsert: true },
         );
 
         res.json(schedule);
@@ -185,7 +184,7 @@ router.get("/all", async (req, res) => {
             const isShiftManager = req.user.groups.some(
                 (g) =>
                     g.groupId.toString() === groupId &&
-                    g.role === "shift_manager"
+                    g.role === "shift_manager",
             );
             if (isAdmin || isShiftManager) isPrivileged = true;
         }

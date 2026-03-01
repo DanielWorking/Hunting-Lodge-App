@@ -39,7 +39,7 @@ router.put("/:id", async (req, res) => {
         const updatedPhone = await Phone.findByIdAndUpdate(
             req.params.id,
             req.body,
-            { new: true }
+            { new: true },
         );
         res.json(updatedPhone);
     } catch (err) {

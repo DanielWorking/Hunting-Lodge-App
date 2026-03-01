@@ -12,7 +12,6 @@ const SiteSchema = new mongoose.Schema({
         required: true,
     },
     createdAt: { type: Date, default: Date.now },
-    // isTacti: { type: Boolean, default: false }, <--- נמחק
     tag: { type: String, default: "General" },
 });
 

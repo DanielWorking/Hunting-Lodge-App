@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
     Dialog,
     DialogTitle,
@@ -224,8 +224,7 @@ export default function PhoneDialog({
                     Phone Numbers *
                 </Typography>
 
-                {formData.numbers.map((item, index) => (
-                    // התיקון החשוב: שימוש ב-item.id ולא ב-index
+                {formData.numbers.map((item) => (
                     <Box key={item.id} sx={{ display: "flex", gap: 1, mb: 1 }}>
                         <TextField
                             fullWidth

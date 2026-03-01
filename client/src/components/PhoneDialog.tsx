@@ -14,6 +14,7 @@ import {
     IconButton,
     FormHelperText,
     Typography,
+    Alert, // הוספנו Alert להצגת שגיאות שרת
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
@@ -22,11 +23,11 @@ import type { PhoneRow, PhoneType } from "../types";
 interface PhoneDialogProps {
     open: boolean;
     onClose: () => void;
-    onSave: (phoneData: Partial<PhoneRow>) => void;
+    // שינינו את onSave שיחזיר Promise כדי שנדע אם הצליח או נכשל
+    onSave: (phoneData: Partial<PhoneRow>) => Promise<void>;
     initialData?: PhoneRow | null;
 }
 
-// עזר ליצירת מזהים ייחודיים לשדות
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export default function PhoneDialog({
@@ -35,7 +36,6 @@ export default function PhoneDialog({
     onSave,
     initialData,
 }: PhoneDialogProps) {
-    // שינוי מבנה ה-State: המספרים הם כעת אובייקטים עם id
     const [formData, setFormData] = useState({
         name: "",
         numbers: [{ id: generateId(), value: "" }],
@@ -50,37 +50,43 @@ export default function PhoneDialog({
         description: false,
     });
 
+    // State לשגיאה כללית מהשרת (כמו "מספר כפול")
+    const [serverError, setServerError] = useState<string | null>(null);
+
     useEffect(() => {
-        if (initialData) {
-            setFormData({
-                name: initialData.name,
-                // המרה ממערך מחרוזות למערך אובייקטים בטעינה
-                numbers:
-                    initialData.numbers.length > 0
-                        ? initialData.numbers.map((num) => ({
-                              id: generateId(),
-                              value: num,
-                          }))
-                        : [{ id: generateId(), value: "" }],
-                type: initialData.type,
-                description: initialData.description,
-            });
-        } else {
-            setFormData({
-                name: "",
-                numbers: [{ id: generateId(), value: "" }],
-                type: "Mobile",
-                description: "",
+        if (open) {
+            setServerError(null); // איפוס שגיאות בפתיחה
+            if (initialData) {
+                setFormData({
+                    name: initialData.name,
+                    numbers:
+                        initialData.numbers.length > 0
+                            ? initialData.numbers.map((num) => ({
+                                  id: generateId(),
+                                  value: num,
+                              }))
+                            : [{ id: generateId(), value: "" }],
+                    type: initialData.type,
+                    description: initialData.description,
+                });
+            } else {
+                setFormData({
+                    name: "",
+                    numbers: [{ id: generateId(), value: "" }],
+                    type: "Mobile",
+                    description: "",
+                });
+            }
+            setErrors({
+                name: false,
+                type: false,
+                numbers: false,
+                description: false,
             });
         }
-        setErrors({
-            name: false,
-            type: false,
-            numbers: false,
-            description: false,
-        });
     }, [initialData, open]);
 
+    // ... פונקציית formatAsYouType נשארת ללא שינוי ...
     const formatAsYouType = (rawValue: string, type: PhoneType) => {
         const digits = rawValue.replace(/\D/g, "");
         let formatted = "";
@@ -139,50 +145,47 @@ export default function PhoneDialog({
     };
 
     const handleTypeChange = (newType: PhoneType) => {
-        let currentNumbers = [...formData.numbers];
-        if (newType === "Mobile" || newType === "Landline") {
-            // משאירים רק את האיבר הראשון
-            currentNumbers = [
-                currentNumbers[0] || { id: generateId(), value: "" },
-            ];
-        }
-
-        const reFormatted = currentNumbers.map((item) => ({
+        // --- שינוי: הסרנו את הקוד שמחק מספרים אם הסוג הוא Mobile/Landline ---
+        // כעת אנחנו פשוט מעדכנים את הפורמט של המספרים הקיימים לסוג החדש
+        const reFormatted = formData.numbers.map((item) => ({
             ...item,
-            value: formatAsYouType(item.value, newType),
+            value: formatAsYouType(item.value, newType), // שימוש בפונקציה הקיימת שלך לפורמט מחדש
         }));
         setFormData({ ...formData, type: newType, numbers: reFormatted });
     };
 
-    const handleSubmit = () => {
-        // המרה חזרה למחרוזות לפני שמירה
+    const handleSubmit = async () => {
+        setServerError(null); // איפוס שגיאות קודמות
+
         const rawNumbers = formData.numbers.map((n) => n.value);
-        const hasEmptyNumber = rawNumbers.some((n) => !n.trim());
+        // סינון מספרים ריקים במקרה שהמשתמש השאיר שדה ריק
+        const filteredNumbers = rawNumbers.filter((n) => n.trim() !== "");
 
         const newErrors = {
             name: !formData.name.trim(),
             type: !formData.type,
-            numbers: rawNumbers.length === 0 || hasEmptyNumber,
+            numbers: filteredNumbers.length === 0,
             description: !formData.description.trim(),
         };
 
         setErrors(newErrors);
 
-        if (
-            newErrors.name ||
-            newErrors.type ||
-            newErrors.numbers ||
-            newErrors.description
-        ) {
+        if (Object.values(newErrors).some((v) => v)) {
             return;
         }
 
-        // שליחה של המידע בפורמט שהאבא מצפה לו (מערך מחרוזות)
-        onSave({ ...formData, numbers: rawNumbers });
-        onClose();
+        try {
+            // ממתינים לתשובת השרת
+            await onSave({ ...formData, numbers: filteredNumbers });
+            // אם הכל עבר בשלום - סוגרים
+            onClose();
+        } catch (err: any) {
+            // אם השרת החזיר שגיאה (למשל: מספר כפול), נציג אותה ולא נסגור את הדיאלוג
+            setServerError(
+                err.response?.data?.message || "Failed to save phone",
+            );
+        }
     };
-
-    const canAddMultiple = formData.type === "Black" || formData.type === "Red";
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -190,8 +193,14 @@ export default function PhoneDialog({
                 {initialData ? "Edit Phone Number" : "Add New Phone"}
             </DialogTitle>
             <DialogContent>
+                {/* הצגת שגיאת שרת אם יש */}
+                {serverError && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        {serverError}
+                    </Alert>
+                )}
+
                 <TextField
-                    // הסרתי את autoFocus כדי לפתור את בעיית הנגישות, אפשר להחזיר אם זה קריטי ל-UX
                     margin="dense"
                     label="Name *"
                     fullWidth
@@ -236,31 +245,30 @@ export default function PhoneDialog({
                             placeholder="Type number..."
                             error={errors.numbers && !item.value}
                         />
-                        {formData.numbers.length > 1 && (
-                            <IconButton
-                                onClick={() => handleRemoveNumberField(item.id)}
-                                color="error"
-                            >
-                                <DeleteOutlineIcon />
-                            </IconButton>
-                        )}
+                        {/* תמיד מאפשרים מחיקה אם יש יותר מאחד, או אפילו אם יש אחד והמשתמש רוצה לנקות */}
+                        <IconButton
+                            onClick={() => handleRemoveNumberField(item.id)}
+                            disabled={formData.numbers.length <= 1} // משביתים אם נשאר רק אחד
+                            color="error"
+                        >
+                            <DeleteOutlineIcon />
+                        </IconButton>
                     </Box>
                 ))}
 
-                {canAddMultiple && (
-                    <Button
-                        startIcon={<AddCircleOutlineIcon />}
-                        onClick={handleAddNumberField}
-                        size="small"
-                        sx={{ mb: 2 }}
-                    >
-                        Add Another Number
-                    </Button>
-                )}
+                {/* --- שינוי: הכפתור מוצג תמיד, לכל הסוגים --- */}
+                <Button
+                    startIcon={<AddCircleOutlineIcon />}
+                    onClick={handleAddNumberField}
+                    size="small"
+                    sx={{ mb: 2 }}
+                >
+                    Add Another Number
+                </Button>
 
                 {errors.numbers && (
                     <FormHelperText error>
-                        All number fields must be filled
+                        At least one valid number is required
                     </FormHelperText>
                 )}
 

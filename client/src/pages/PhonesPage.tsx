@@ -70,69 +70,48 @@ export default function PhonesPage() {
         }
     };
 
-    const handleSavePhone = async (formData: Partial<PhoneRow>) => {
-        // 1. בדיקת כפילות מספר
-        const duplicateNumber = phones.find((p) => {
-            if (
-                editingPhone &&
-                (p._id || p.id) === (editingPhone._id || editingPhone.id)
-            )
-                return false;
-
-            const newNumbers = formData.numbers || [];
-            return p.numbers.some((existingNum) =>
-                newNumbers.includes(existingNum),
-            );
-        });
-
-        if (duplicateNumber) {
-            showNotification(
-                "One of the phone numbers already exists.",
-                "error",
-            );
-            return;
-        }
-
-        // 2. בדיקת כפילות שם
-        const duplicateName = phones.find(
-            (p) =>
-                p.name.toLowerCase() === formData.name?.toLowerCase() &&
-                (!editingPhone ||
-                    (p._id || p.id) !== (editingPhone._id || editingPhone.id)),
-        );
-
-        if (duplicateName) {
-            showNotification(
-                "A phone with this exact name already exists.",
-                "error",
-            );
-            return;
-        }
-
+    const handleSavePhone = async (phoneData: Partial<PhoneRow>) => {
+        // הסרנו את ה-try/catch מכאן כדי שהשגיאה תעבור ל-Dialog
+        // או שאנחנו משאירים אותו אבל זורקים את השגיאה הלאה (rethrow)
         try {
             if (editingPhone) {
-                const phoneId = editingPhone._id || editingPhone.id;
-                await axios.put(`/api/phones/${phoneId}`, formData);
+                // Update
+                await axios.put(
+                    `/api/phones/${editingPhone._id || editingPhone.id}`,
+                    phoneData,
+                );
                 showNotification("Phone updated successfully", "success");
             } else {
-                await axios.post("/api/phones", formData);
-                showNotification("New phone created successfully", "success");
+                // Create
+                await axios.post("/api/phones", phoneData);
+                showNotification("Phone added successfully", "success");
             }
             refreshData();
-        } catch (error) {
-            showNotification("Error saving phone", "error");
+            setIsDialogOpen(false); // זה יקרה רק אם לא הייתה שגיאה
+        } catch (err: any) {
+            // אנחנו לא סוגרים את הדיאלוג במקרה שגיאה!
+            // אנו מעבירים את השגיאה הלאה כדי שהדיאלוג יציג אותה
+            throw err;
         }
     };
 
     const handleToggleFavorite = async (phone: PhoneRow) => {
         try {
-            const phoneId = phone._id || phone.id;
-            await axios.put(`/api/phones/${phoneId}`, {
-                isFavorite: !phone.isFavorite,
-            });
+            // קריאה ל-Endpoint החדש בשרת
+            await axios.patch(`/api/phones/${phone._id || phone.id}/favorite`);
+
+            // עדכון אופטימי (Optimistic UI Update) בזיכרון עד שה-Refresh יקרה
+            // או פשוט לקרוא ל-RefreshData
             refreshData();
-        } catch (error) {
-            showNotification("Error updating favorite", "error");
+
+            // הודעה למשתמש
+            const newStatus = !phone.isFavorite;
+            showNotification(
+                newStatus ? "Added to favorites" : "Removed from favorites",
+                "success",
+            );
+        } catch (err) {
+            showNotification("Failed to update favorite", "error");
         }
     };
 

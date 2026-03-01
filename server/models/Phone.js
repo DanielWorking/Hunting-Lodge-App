@@ -17,11 +17,15 @@ const PhoneSchema = new mongoose.Schema(
             required: true,
         },
         description: { type: String },
-        isFavorite: { type: Boolean, default: false },
+        // isFavorite: { type: Boolean, default: false } // <--- שורה זו נמחקה
     },
     {
         timestamps: true,
     },
 );
+
+// מניעת כפילויות של שם וסוג זהה.
+// (למשל: לא יכול להיות פעמיים "Office" מסוג "Red", אבל יכול להיות "Office" מסוג "Black")
+PhoneSchema.index({ name: 1, type: 1 }, { unique: true });
 
 module.exports = mongoose.model("Phone", PhoneSchema);

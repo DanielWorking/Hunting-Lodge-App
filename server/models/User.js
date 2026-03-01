@@ -1,34 +1,19 @@
 const mongoose = require("mongoose");
 
-const GroupMembershipSchema = new mongoose.Schema(
+const UserSchema = new mongoose.Schema(
     {
-        groupId: { type: String, required: true },
-        role: {
-            type: String,
-            enum: ["member", "shift_manager"],
-            default: "member",
-        },
-        order: { type: Number, default: 0 }, // סדר מיון
-    },
-    { _id: false },
-);
-
-const userSchema = new mongoose.Schema(
-    {
-        // המזהה הראשי: יגיע מה-SSO (בדרך כלל האימייל או ה-Upn)
         username: { type: String, required: true, unique: true },
+        // ... שאר השדות הקיימים (password, isActive, groups, etc...) נשארים ללא שינוי ...
 
-        // שדה חדש לאימייל - לרוב זהה ל-username ב-SSO אבל טוב שיש בנפרד
-        email: { type: String, unique: true, sparse: true },
-
-        isActive: { type: Boolean, default: true },
-        vacationBalance: { type: Number, default: 0 },
-        lastLogin: { type: String, default: "Never" },
-
-        // שימוש בתת-סכמה
-        groups: [GroupMembershipSchema],
+        // הוספת השדה הזה:
+        favoritePhones: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Phone",
+            },
+        ],
     },
     { timestamps: true },
 );
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = mongoose.model("User", UserSchema);

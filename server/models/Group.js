@@ -7,9 +7,9 @@ const ShiftTypeSchema = new mongoose.Schema({
 });
 
 const TimeSlotSchema = new mongoose.Schema({
-    name: { type: String, required: true }, // e.g., "Morning", "Night"
-    startTime: { type: String, required: true }, // "07:00"
-    endTime: { type: String, required: true }, // "15:00"
+    name: { type: String, required: true },
+    startTime: { type: String, required: true },
+    endTime: { type: String, required: true },
     linkedShiftTypes: [{ type: mongoose.Schema.Types.ObjectId }], // IDs from ShiftTypeSchema (virtual reference handled in logic)
 });
 

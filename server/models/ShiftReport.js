@@ -4,17 +4,17 @@ const ShiftReportSchema = new mongoose.Schema(
     {
         groupId: { type: String, required: true },
 
-        // כותרת וזמנים [cite: 66]
-        title: { type: String, required: true }, // "משמרת בוקר - 25.11.2025"
+        // כותרת וזמנים
+        title: { type: String, required: true },
         date: { type: Date, required: true },
-        startTime: { type: String, required: true }, // "07:00"
-        endTime: { type: String, required: true }, // "15:00"
+        startTime: { type: String, required: true },
+        endTime: { type: String, required: true },
 
-        // תוכן הדוח [cite: 67-68]
+        // תוכן הדוח
         previousTasks: { type: String, default: "" }, // הועתק אוטומטית מהדוח הקודם
         currentTasks: { type: String, default: "" }, // HTML/Rich Text מהעורך
 
-        // נוכחות [cite: 69]
+        // נוכחות
         attendees: [
             {
                 userId: { type: String },
@@ -23,12 +23,12 @@ const ShiftReportSchema = new mongoose.Schema(
             },
         ],
 
-        // האם הדוח ננעל לעריכה? (אחרי 24 שעות) [cite: 75]
+        // האם הדוח ננעל לעריכה? (אחרי 24 שעות)
         isLocked: { type: Boolean, default: false },
     },
     {
         timestamps: true,
-    }
+    },
 );
 
 module.exports = mongoose.model("ShiftReport", ShiftReportSchema);

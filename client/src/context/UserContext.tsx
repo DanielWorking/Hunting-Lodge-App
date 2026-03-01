@@ -31,14 +31,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
     const isAdmin = currentGroup?.name?.toLowerCase() === "administrators";
 
+    // שימוש בסימני שאלה כדי למנוע קריסה פנימית בקומפוננטה
     const isShiftManagerBool =
-        user?.groups.some(
+        user?.groups?.some(
             (g) =>
                 g.groupId === (currentGroup?._id || currentGroup?.id) &&
-                g.role === "shift_manager"
+                g.role === "shift_manager",
         ) || false;
 
-    // === שחזור סשן (ללא שמירת אובייקטים רגישים) ===
+    // === שחזור סשן ===
     useEffect(() => {
         if (dataLoading) return;
 
@@ -48,26 +49,33 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
             if (storedUserId) {
                 const foundUser = users.find(
-                    (u) => (u._id || u.id) === storedUserId
+                    (u) => (u._id || u.id) === storedUserId,
                 );
 
                 if (foundUser) {
-                    setUser(foundUser);
+                    // תיקון קריטי: מוודאים ש-groups תמיד קיים כמערך
+                    // זה מונע קריסות בקבצים חיצוניים כמו App.tsx שמצפים למערך
+                    const safeUser: User = {
+                        ...foundUser,
+                        groups: foundUser.groups || [],
+                    };
+
+                    setUser(safeUser);
 
                     if (storedGroupId) {
                         const foundGroup = groups.find(
-                            (g) => (g._id || g.id) === storedGroupId
+                            (g) => (g._id || g.id) === storedGroupId,
                         );
                         if (foundGroup) {
                             setCurrentGroup(foundGroup);
                         } else {
-                            selectDefaultGroup(foundUser);
+                            selectDefaultGroup(safeUser);
                         }
                     } else {
-                        selectDefaultGroup(foundUser);
+                        selectDefaultGroup(safeUser);
                     }
                 } else {
-                    logout(); // המשתמש לא נמצא, ננקה את ה-ID
+                    logout();
                 }
             }
             setIsRestoringSession(false);
@@ -80,7 +88,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         if (u.groups && u.groups.length > 0) {
             const firstGroupId = u.groups[0].groupId;
             const groupObj = groups.find(
-                (g) => (g._id || g.id) === firstGroupId
+                (g) => (g._id || g.id) === firstGroupId,
             );
             if (groupObj) setCurrentGroup(groupObj);
         }
@@ -92,26 +100,32 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             const foundUser = response.data;
 
             if (foundUser) {
-                setUser(foundUser);
-                // שמירת ID בלבד (בטוח)
+                // תיקון קריטי: גם כאן מוודאים ש-groups הוא מערך תקין
+                const safeUser: User = {
+                    ...foundUser,
+                    groups: foundUser.groups || [],
+                };
+
+                setUser(safeUser);
+
                 localStorage.setItem(
                     "hunting_userId",
-                    foundUser._id || foundUser.id
+                    safeUser._id || safeUser.id,
                 );
 
                 refreshData();
 
-                if (foundUser.groups && foundUser.groups.length > 0) {
-                    const firstGroupId = foundUser.groups[0].groupId;
+                if (safeUser.groups.length > 0) {
+                    const firstGroupId = safeUser.groups[0].groupId;
                     const groupObj = groups.find(
-                        (g) => (g._id || g.id) === firstGroupId
+                        (g) => (g._id || g.id) === firstGroupId,
                     );
 
                     if (groupObj) {
                         setCurrentGroup(groupObj);
                         localStorage.setItem(
                             "hunting_groupId",
-                            groupObj._id || groupObj.id
+                            groupObj._id || groupObj.id,
                         );
                     }
                 }
@@ -132,7 +146,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const switchGroup = (groupId: string) => {
-        const membership = user?.groups.find((g) => g.groupId === groupId);
+        // שימוש ב-optional chaining להגנה
+        const membership = user?.groups?.find((g) => g.groupId === groupId);
         if (membership || isAdmin) {
             const groupObj = groups.find((g) => (g._id || g.id) === groupId);
             if (groupObj) {

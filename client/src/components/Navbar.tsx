@@ -107,11 +107,17 @@ export default function Navbar() {
                         </Typography>
                     </Box>
 
-                    <Box sx={{ flexGrow: 1, display: "flex", gap: 2 }}>
+                    <Box
+                        sx={{
+                            flexGrow: 1,
+                            display: "flex",
+                            gap: 2,
+                            justifyContent: "center",
+                        }}
+                    >
                         <Button component={RouterLink} to="/" color="inherit">
                             Sites
                         </Button>
-                        {/* TactiSites Link Removed */}
                         <Button
                             component={RouterLink}
                             to="/phones"

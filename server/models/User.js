@@ -12,7 +12,7 @@ const UserSchema = new mongoose.Schema(
         ],
         isActive: { type: Boolean, default: true },
         lastLogin: { type: String },
-        vacationBalance: { type: Number, default: 0 },
+        vacationBalance: { type: Number, default: 18 },
 
         // רשימת טלפונים מועדפים
         favoritePhones: [

@@ -30,6 +30,8 @@ const connectDB = async () => {
 
 connectDB();
 
+require("./services/cronJobs"); // ייבוא ה-Cron Jobs להפעלתם ברקע
+
 // === הגדרת הנתיבים (Routes) ===
 app.use("/api/sites", require("./routes/sites"));
 app.use("/api/phones", require("./routes/phones"));

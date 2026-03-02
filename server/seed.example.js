@@ -32,7 +32,7 @@ const NOC_SHIFT_TYPES = [
 
 const NOC_TIME_SLOTS = [
     { name: "משמרת בוקר", startTime: "08:00", endTime: "14:00" },
-    { name: "משמרת ערב", startTime: "15:00", endTime: "19:30" },
+    { name: "משמרת ערב", startTime: "14:00", endTime: "19:30" },
     { name: "משמרת לילה", startTime: "19:30", endTime: "08:00" },
     { name: "אפטר", startTime: "08:00", endTime: "08:00" },
     { name: "משמרת שבת", startTime: "08:00", endTime: "08:00" },

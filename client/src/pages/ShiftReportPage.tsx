@@ -30,6 +30,24 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import axios from "axios";
 import { format } from "date-fns";
 import ThinkingLoader from "../components/ThinkingLoader";
+import ReactQuill, { Quill } from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
+
+// --- הגדרת התנהגות קישורים (פתיחה בטאב חדש) ---
+const Link = Quill.import("formats/link") as any;
+
+class MyLink extends Link {
+    static create(value: string) {
+        const node = super.create(value);
+        value = this.sanitize(value);
+        node.setAttribute("href", value);
+        node.setAttribute("target", "_blank"); // פתיחה בטאב חדש
+        node.setAttribute("rel", "noopener noreferrer"); // אבטחה
+        return node;
+    }
+}
+
+Quill.register("formats/link", MyLink);
 
 export default function ShiftReportPage() {
     const { currentGroup } = useUser();
@@ -270,6 +288,18 @@ export default function ShiftReportPage() {
                 <Typography>Please select a group.</Typography>
             </Container>
         );
+
+    const quillModules = {
+        toolbar: [
+            [{ header: [1, 2, false] }], // כותרות
+            ["bold", "italic", "underline", "strike"], // עיצוב טקסט
+            [{ list: "ordered" }, { list: "bullet" }], // רשימות
+            [{ color: [] }, { background: [] }], // צבעים
+            ["link", "image"], // קישורים ותמונות
+            ["clean"], // ניקוי עיצוב
+            [{ direction: "rtl" }], // כפתור כיוון טקסט
+        ],
+    };
 
     return (
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4, height: "80vh" }}>
@@ -568,6 +598,53 @@ export default function ShiftReportPage() {
                                     borderRadius: 2,
                                     borderRight: "4px solid",
                                     borderColor: "warning.main",
+
+                                    "& .quill": {
+                                        backgroundColor: "background.paper",
+                                        borderRadius: 1,
+                                        display: "flex", // מבנה גמיש
+                                        flexDirection: "column",
+                                    },
+
+                                    // 1. סרגל הכלים: תמיד משמאל לימין
+                                    "& .ql-toolbar": {
+                                        direction: "ltr",
+                                        textAlign: "left",
+                                    },
+
+                                    // 2. אזור הטקסט: גובה מקסימלי וגלילה
+                                    "& .ql-container": {
+                                        fontSize: "1rem",
+                                        // כאן מגדירים שהגובה יהיה גמיש אבל עם תקרה
+                                        minHeight: "300px",
+                                        maxHeight: "500px",
+                                        overflowY: "auto", // הוספת גלילה כשיש הרבה טקסט
+                                        display: "flex",
+                                        flexDirection: "column",
+                                    },
+
+                                    // 3. העורך עצמו (כולל ה-placeholder)
+                                    "& .ql-editor": {
+                                        minHeight: "100px",
+                                        textAlign: "right", // טקסט ברירת מחדל לימין
+                                        direction: "rtl", // כיוון ברירת מחדל RTL
+                                        overflowY: "visible", // הגלילה מנוהלת בקונטיינר
+                                    },
+
+                                    // תיקון מיקום ה-placeholder שיהיה בימין
+                                    "& .ql-editor.ql-blank::before": {
+                                        right: "15px",
+                                        left: "auto",
+                                        fontStyle: "normal",
+                                        color: "text.disabled",
+                                    },
+
+                                    "& .ql-editor img": {
+                                        maxWidth: "100%",
+                                        height: "auto",
+                                        display: "block",
+                                        margin: "10px 0",
+                                    },
                                 }}
                             >
                                 <Typography
@@ -578,24 +655,19 @@ export default function ShiftReportPage() {
                                 >
                                     משימות ממשמרת קודמת (Previous Tasks)
                                 </Typography>
-                                <TextField
-                                    fullWidth
-                                    multiline
-                                    variant="standard"
-                                    value={selectedReport.previousTasks}
-                                    onChange={(e) =>
+
+                                <ReactQuill
+                                    theme="snow"
+                                    value={selectedReport.previousTasks || ""}
+                                    onChange={(value) =>
                                         setSelectedReport({
                                             ...selectedReport,
-                                            previousTasks: e.target.value,
+                                            previousTasks: value,
                                         })
                                     }
-                                    disabled={selectedReport.isLocked}
+                                    readOnly={selectedReport.isLocked}
+                                    modules={quillModules}
                                     placeholder="אין משימות ממשמרת קודמת"
-                                    sx={{
-                                        "& .MuiInputBase-root": {
-                                            fontSize: "1rem",
-                                        },
-                                    }}
                                 />
                             </Box>
 
@@ -646,7 +718,15 @@ export default function ShiftReportPage() {
                                 />
                             </Box>
 
-                            <Box sx={{ height: "40%" }}>
+                            {/* הקונטיינר הראשי של האזור התחתון */}
+                            <Box
+                                sx={{
+                                    height: "40%",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    mt: 4,
+                                }}
+                            >
                                 <Typography
                                     variant="h6"
                                     gutterBottom
@@ -654,22 +734,80 @@ export default function ShiftReportPage() {
                                 >
                                     יומן מבצעים / משימות שוטפות
                                 </Typography>
-                                <TextField
-                                    fullWidth
-                                    multiline
-                                    minRows={10}
-                                    variant="outlined"
-                                    placeholder="הכנס פירוט אירועים ומשימות כאן..."
-                                    value={selectedReport.currentTasks}
-                                    onChange={(e) =>
-                                        setSelectedReport({
-                                            ...selectedReport,
-                                            currentTasks: e.target.value,
-                                        })
-                                    }
-                                    disabled={selectedReport.isLocked}
-                                    sx={{ bgcolor: "background.default" }}
-                                />
+
+                                <Box
+                                    sx={{
+                                        flexGrow: 1,
+                                        // זה חשוב כדי שהעורך לא יחרוג מגובה האזור
+                                        height: "100%",
+                                        overflow: "hidden",
+
+                                        // --- עיצוב ה-Quill ---
+                                        "& .quill": {
+                                            height: "100%",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            backgroundColor: "white", // רקע לבן לעורך
+                                            borderRadius: 1,
+                                            border: "1px solid rgba(0, 0, 0, 0.23)", // מסגרת עדינה כמו של MUI
+                                        },
+
+                                        // 1. סרגל הכלים: תמיד משמאל לימין
+                                        "& .ql-toolbar": {
+                                            direction: "ltr",
+                                            textAlign: "left",
+                                            border: "none", // הסרת כפילות גבולות
+                                            borderBottom: "1px solid #ccc",
+                                        },
+
+                                        // 2. הקונטיינר של הטקסט
+                                        "& .ql-container": {
+                                            flexGrow: 1, // תופס את כל הגובה שנשאר
+                                            overflow: "hidden", // מסתיר גלילה כפולה
+                                            border: "none", // הסרת גבולות ברירת מחדל
+                                            fontSize: "1rem",
+                                        },
+
+                                        // 3. העורך עצמו - כאן תהיה הגלילה
+                                        "& .ql-editor": {
+                                            height: "100%",
+                                            overflowY: "auto", // גלילה פנימית רק לטקסט!
+                                            textAlign: "right", // ברירת מחדל לימין
+                                            direction: "rtl", // כיוון ברירת מחדל
+                                            padding: 2,
+                                        },
+
+                                        "& .ql-editor.ql-blank::before": {
+                                            right: "15px",
+                                            left: "auto",
+                                            fontStyle: "normal",
+                                            color: "text.disabled",
+                                        },
+
+                                        "& .ql-editor img": {
+                                            maxWidth: "100%",
+                                            height: "auto",
+                                            display: "block",
+                                            margin: "10px 0",
+                                        },
+                                    }}
+                                >
+                                    <ReactQuill
+                                        theme="snow"
+                                        value={
+                                            selectedReport.currentTasks || ""
+                                        }
+                                        onChange={(value) =>
+                                            setSelectedReport({
+                                                ...selectedReport,
+                                                currentTasks: value,
+                                            })
+                                        }
+                                        readOnly={selectedReport.isLocked}
+                                        modules={quillModules}
+                                        placeholder="הכנס פירוט אירועים ומשימות כאן..."
+                                    />
+                                </Box>
                             </Box>
                         </Paper>
                     ) : (

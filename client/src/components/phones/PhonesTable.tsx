@@ -50,7 +50,7 @@ export default function PhonesTable({
             case "Mobile":
                 return "primary";
             case "Landline":
-                return "success";
+                return "info";
             default:
                 return "default";
         }

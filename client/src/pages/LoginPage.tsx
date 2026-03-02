@@ -113,7 +113,6 @@ export default function LoginPage() {
                 </Button>
             </Paper>
 
-            {/* רכיב ההודעות החדש */}
             <Snackbar
                 open={toast.open}
                 autoHideDuration={6000}

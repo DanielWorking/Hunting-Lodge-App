@@ -71,18 +71,14 @@ export default function PhonesPage() {
     };
 
     const handleSavePhone = async (phoneData: Partial<PhoneRow>) => {
-        // הסרנו את ה-try/catch מכאן כדי שהשגיאה תעבור ל-Dialog
-        // או שאנחנו משאירים אותו אבל זורקים את השגיאה הלאה (rethrow)
         try {
             if (editingPhone) {
-                // Update
                 await axios.put(
                     `/api/phones/${editingPhone._id || editingPhone.id}`,
                     phoneData,
                 );
                 showNotification("Phone updated successfully", "success");
             } else {
-                // Create
                 await axios.post("/api/phones", phoneData);
                 showNotification("Phone added successfully", "success");
             }

@@ -14,7 +14,6 @@ router.get("/", protect, async (req, res) => {
 
 // Create a new site
 router.post("/", protect, async (req, res) => {
-    // הסרנו את isTacti מה-destructuring
     const { title, url, imageUrl, description, groupId, tag } = req.body;
 
     const site = new Site({
@@ -23,7 +22,6 @@ router.post("/", protect, async (req, res) => {
         imageUrl,
         description,
         groupId,
-        // isTacti הוסר
         tag: tag || "General",
     });
 

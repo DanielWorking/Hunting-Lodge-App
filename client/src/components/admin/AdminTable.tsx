@@ -69,7 +69,6 @@ export default function AdminTable({
         const user = rawUser as unknown as ExtendedUser;
 
         const currentName = user.username.toLowerCase();
-        // קריאה למשתנה הסביבה (עם ברירת מחדל כדי לא לשבור את הפיתוח)
         const superAdminName = (
             import.meta.env.VITE_SUPER_ADMIN_USERNAME || "Super Admin"
         ).toLowerCase();

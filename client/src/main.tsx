@@ -7,11 +7,9 @@ import { NotificationProvider } from "./context/NotificationContext.tsx";
 import { BrowserRouter } from "react-router-dom";
 import axios from "axios";
 
-// === תוספות חדשות עבור העיצוב ===
 import { CssBaseline } from "@mui/material";
 import { ColorModeProvider } from "./context/ThemeContext.tsx";
 
-// הגדרת ה-Interceptor (נשאר אותו דבר)
 axios.interceptors.request.use(
     (config) => {
         const userId = localStorage.getItem("hunting_userId");
@@ -20,7 +18,7 @@ axios.interceptors.request.use(
         }
         return config;
     },
-    (error) => Promise.reject(error)
+    (error) => Promise.reject(error),
 );
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -29,7 +27,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <DataProvider>
                 <UserProvider>
                     <NotificationProvider>
-                        {/* הוספנו את הספק של העיצוב כאן */}
                         <ColorModeProvider>
                             {/* CssBaseline דואג לאפס את ה-CSS ולהחיל את צבע הרקע (כהה/בהיר) */}
                             <CssBaseline />
@@ -39,5 +36,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                 </UserProvider>
             </DataProvider>
         </BrowserRouter>
-    </React.StrictMode>
+    </React.StrictMode>,
 );

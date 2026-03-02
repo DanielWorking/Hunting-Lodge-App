@@ -18,7 +18,6 @@ if (result.error) {
 // ברירת המחדל תהיה לשימוש מקומי, אך בקוד הארגוני זה ייקח את מה שהוגדר
 const ADMIN_USERNAME = process.env.SUPER_ADMIN_USERNAME || "Super Admin";
 const ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || "admin@local.test";
-// ===================================================
 
 const NOC_SHIFT_TYPES = [
     { name: "בוקר", color: "#476db5", isVacation: false },

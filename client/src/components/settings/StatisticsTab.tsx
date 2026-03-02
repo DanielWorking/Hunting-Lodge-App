@@ -71,7 +71,7 @@ export default function StatisticsTab() {
                         rawStats[shift.userId].byType[shift.shiftTypeId] = [];
                     }
 
-                    // === התיקון החשוב: שימוש בתאריך של המשמרת עצמה ===
+                    // === שימוש בתאריך של המשמרת עצמה ===
                     if (shift.date) {
                         rawStats[shift.userId].byType[shift.shiftTypeId].push(
                             shift.date,

@@ -56,7 +56,6 @@ export default function PhonesTable({
         }
     };
 
-    // פונקציית עזר פנימית לפורמט (כרגע מחזירה את המספר כמו שהוא, לפי הקוד המקורי)
     const formatPhoneNumber = (number: string) => {
         return number;
     };

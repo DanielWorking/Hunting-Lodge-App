@@ -36,7 +36,6 @@ export default function SiteDialog({
         tag: "General",
     });
 
-    // הוספת בדיקות שגיאה לשדות החדשים
     const [errors, setErrors] = useState({
         title: false,
         url: false,

@@ -12,7 +12,6 @@ const ShiftScheduleSchema = new mongoose.Schema(
                 userId: { type: String, required: true },
                 date: { type: Date, required: true },
                 shiftTypeId: { type: String, required: true },
-                // === השדה החדש ===
                 // מסמן האם השיבוץ הספציפי הזה כבר גרר הורדת יום חופש
                 vacationDeducted: { type: Boolean, default: false },
             },
@@ -20,7 +19,7 @@ const ShiftScheduleSchema = new mongoose.Schema(
     },
     {
         timestamps: true,
-    }
+    },
 );
 
 ShiftScheduleSchema.index({ groupId: 1, startDate: 1 }, { unique: true });

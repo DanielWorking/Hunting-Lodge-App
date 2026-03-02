@@ -64,8 +64,6 @@ function App() {
                     }
                 />
 
-                {/* TactiSites Route Removed */}
-
                 <Route
                     path="/phones"
                     element={

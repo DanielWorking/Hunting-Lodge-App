@@ -68,7 +68,7 @@ export default function ShiftTypesTab() {
 
     const handleSave = async () => {
         if (!currentGroup) return;
-        if (!formData.name.trim()) return alert("Name is required"); // כאן זה בסדר להשאיר alert או להחליף ב-notification אם תרצה
+        if (!formData.name.trim()) return alert("Name is required");
 
         try {
             let updatedTypes = [...shiftTypes];

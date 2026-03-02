@@ -7,7 +7,6 @@ const { Issuer } = openIdClient;
 
 console.log("🔍 Checking openid-client version compatibility:");
 console.log("Issuer exists?", !!Issuer); // אם זה false, הגרסה לא נכונה
-// ----------------
 
 const User = require("../models/User");
 const ssoConfig = require("../config/sso");
@@ -59,15 +58,11 @@ router.post("/login", async (req, res) => {
 
         const ssoClient = await getClient();
 
-        // === התיקון כאן ===
-        // שינינו את הפרמטר השלישי ל-{} (אובייקט ריק)
-        // כי לא שלחנו state בבקשה המקורית, אז אסור לנו לבקש מהספרייה לבדוק אותו
         const tokenSet = await ssoClient.callback(
             ssoConfig.redirectUri,
             { code },
             {},
         );
-        // ==================
 
         // שליפת פרטי המשתמש מתוך ה-Token
         const claims = tokenSet.claims();

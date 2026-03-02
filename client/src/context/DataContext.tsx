@@ -13,7 +13,6 @@ interface DataContextType {
     setSites: React.Dispatch<React.SetStateAction<SiteCard[]>>;
     phones: PhoneRow[];
     setPhones: React.Dispatch<React.SetStateAction<PhoneRow[]>>;
-    // tactiSites הוסר
     users: User[];
     setUsers: React.Dispatch<React.SetStateAction<User[]>>;
     groups: Group[];

@@ -14,7 +14,7 @@ import {
     IconButton,
     FormHelperText,
     Typography,
-    Alert, // הוספנו Alert להצגת שגיאות שרת
+    Alert,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
@@ -86,7 +86,6 @@ export default function PhoneDialog({
         }
     }, [initialData, open]);
 
-    // ... פונקציית formatAsYouType נשארת ללא שינוי ...
     const formatAsYouType = (rawValue: string, type: PhoneType) => {
         const digits = rawValue.replace(/\D/g, "");
         let formatted = "";
@@ -256,7 +255,7 @@ export default function PhoneDialog({
                     </Box>
                 ))}
 
-                {/* --- שינוי: הכפתור מוצג תמיד, לכל הסוגים --- */}
+                {/* --- הכפתור מוצג תמיד, לכל הסוגים --- */}
                 <Button
                     startIcon={<AddCircleOutlineIcon />}
                     onClick={handleAddNumberField}

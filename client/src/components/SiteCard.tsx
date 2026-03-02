@@ -114,7 +114,6 @@ export default function SiteCard({
                             >
                                 {title}
                             </Typography>
-                            {/* התיאור הוסר מכאן ועבר לצד האחורי */}
                         </CardContent>
                     </CardActionArea>
 

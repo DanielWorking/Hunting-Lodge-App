@@ -14,7 +14,7 @@ const TimeSlotSchema = new mongoose.Schema({
 });
 
 const GroupSchema = new mongoose.Schema({
-    id: { type: String, required: true, unique: true }, // unique string ID (e.g., "platoon-1")
+    id: { type: String, required: true, unique: true }, // unique string ID
     name: { type: String, required: true },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     settings: {

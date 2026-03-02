@@ -85,7 +85,7 @@ export default function SitesPage() {
     const handleSaveSite = async (formData: Partial<SiteCardType>) => {
         if (!activeGroup) return;
 
-        // FIX: Using _id (ObjectId) for the relationship, NOT the custom string id
+        // Using _id (ObjectId) for the relationship
         const groupIdToSend = activeGroup._id;
 
         try {
@@ -211,7 +211,7 @@ export default function SitesPage() {
     // === Filtering & Sorting ===
 
     const filteredSites = sites.filter((site) => {
-        // FIX: Compare ObjectId to ObjectId
+        // Compare ObjectId to ObjectId
         if (site.groupId !== activeGroup?._id) return false;
 
         // Tag Filtering

@@ -4,13 +4,13 @@ import { useUser } from "../context/UserContext";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import PeopleIcon from "@mui/icons-material/People";
-import BarChartIcon from "@mui/icons-material/BarChart"; // אייקון לסטטיסטיקות
+import BarChartIcon from "@mui/icons-material/BarChart";
 
 // ייבוא הרכיבים
 import ShiftTypesTab from "../components/settings/ShiftTypesTab";
 import TimeSlotsTab from "../components/settings/TimeSlotsTab";
 import MembersTab from "../components/settings/MembersTab";
-import StatisticsTab from "../components/settings/StatisticsTab"; // <-- הוספנו את זה
+import StatisticsTab from "../components/settings/StatisticsTab";
 
 export default function GroupSettingsPage() {
     const { currentGroup, isShiftManager, isAdmin } = useUser();
@@ -28,7 +28,7 @@ export default function GroupSettingsPage() {
 
     const handleTabChange = (
         _event: React.SyntheticEvent,
-        newValue: number
+        newValue: number,
     ) => {
         setTabValue(newValue);
     };
@@ -61,7 +61,6 @@ export default function GroupSettingsPage() {
                     <Tab icon={<ViewListIcon />} label="Shift Types" />
                     <Tab icon={<AccessTimeIcon />} label="Time Slots" />
                     <Tab icon={<PeopleIcon />} label="Members & Order" />
-                    {/* הטאב החדש */}
                     <Tab icon={<BarChartIcon />} label="Statistics" />
                 </Tabs>
 

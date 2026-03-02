@@ -53,7 +53,6 @@ export default function ShiftDatesDialog({
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-            {/* === תיקון: הסרת כפתור ה-X === */}
             <DialogTitle
                 sx={{
                     display: "flex",
@@ -125,11 +124,11 @@ export default function ShiftDatesDialog({
                                     >
                                         <ListItemText
                                             primary={date.toLocaleDateString(
-                                                "he-IL"
+                                                "he-IL",
                                             )}
                                             secondary={date.toLocaleDateString(
                                                 "en-US",
-                                                { weekday: "long" }
+                                                { weekday: "long" },
                                             )}
                                             sx={{ pl: 2 }}
                                         />

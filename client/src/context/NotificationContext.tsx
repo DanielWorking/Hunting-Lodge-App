@@ -7,7 +7,7 @@ interface NotificationContextType {
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(
-    undefined
+    undefined,
 );
 
 export const NotificationProvider = ({ children }: { children: ReactNode }) => {
@@ -24,7 +24,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
 
     const handleClose = (
         event?: React.SyntheticEvent | Event,
-        reason?: string
+        reason?: string,
     ) => {
         if (reason === "clickaway") return;
         setOpen(false);
@@ -39,7 +39,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
                 open={open}
                 autoHideDuration={3000} // נעלם אחרי 3 שניות
                 onClose={handleClose}
-                anchorOrigin={{ vertical: "bottom", horizontal: "right" }} // מיקום: ימין למטה
+                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
             >
                 <Alert
                     onClose={handleClose}
@@ -58,7 +58,7 @@ export const useNotification = () => {
     const context = useContext(NotificationContext);
     if (!context) {
         throw new Error(
-            "useNotification must be used within a NotificationProvider"
+            "useNotification must be used within a NotificationProvider",
         );
     }
     return context;

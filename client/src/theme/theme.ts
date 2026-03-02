@@ -6,15 +6,15 @@ export const getDesignTokens = (mode: PaletteMode) => ({
         mode, // כאן נקבע אם זה 'light' או 'dark'
         ...(mode === 'light'
             ? {
-                // === מצב בהיר (מה שהיה לנו עד עכשיו) ===
+                // === מצב בהיר  ===
                 primary: {
-                    main: '#2E7D32', // ירוק יער
+                    main: '#2E7D32',
                     light: '#60AD5E',
                     dark: '#005005',
                     contrastText: '#ffffff',
                 },
                 secondary: {
-                    main: '#795548', // חום
+                    main: '#795548',
                     light: '#A98274',
                     dark: '#4B2C20',
                     contrastText: '#ffffff',
@@ -29,21 +29,21 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                 },
             }
             : {
-                // === מצב כהה (חדש!) ===
+                // === מצב כהה  ===
                 primary: {
-                    main: '#66BB6A', // ירוק בהיר יותר שיראה טוב על שחור
+                    main: '#66BB6A',
                     light: '#81C784',
                     dark: '#388E3C',
                     contrastText: '#000000',
                 },
                 secondary: {
-                    main: '#A1887F', // חום בהיר יותר
+                    main: '#A1887F',
                     light: '#D7CCC8',
                     dark: '#5D4037',
                     contrastText: '#000000',
                 },
                 background: {
-                    default: '#121212', // צבע רקע כהה סטנדרטי
+                    default: '#121212',
                     paper: '#1E1E1E',   // צבע לכרטיסים (קצת יותר בהיר מהרקע)
                 },
                 text: {

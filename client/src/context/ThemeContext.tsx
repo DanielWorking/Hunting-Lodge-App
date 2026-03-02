@@ -12,7 +12,7 @@ import { type PaletteMode } from "@mui/material";
 
 interface ColorModeContextType {
     toggleColorMode: () => void;
-    setMode: (mode: PaletteMode) => void; // <-- הפונקציה החדשה
+    setMode: (mode: PaletteMode) => void;
     mode: PaletteMode;
 }
 
@@ -39,7 +39,7 @@ export const ColorModeProvider = ({ children }: { children: ReactNode }) => {
             // החלפת מצב (לכפתור ב-Navbar)
             toggleColorMode: () => {
                 setModeState((prevMode) =>
-                    prevMode === "light" ? "dark" : "light"
+                    prevMode === "light" ? "dark" : "light",
                 );
             },
             // קביעת מצב ספציפי (בשביל דף הלוגין)
@@ -48,7 +48,7 @@ export const ColorModeProvider = ({ children }: { children: ReactNode }) => {
             },
             mode,
         }),
-        [mode]
+        [mode],
     );
 
     const theme = useMemo(() => createTheme(getDesignTokens(mode)), [mode]);

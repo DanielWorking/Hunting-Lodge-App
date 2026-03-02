@@ -36,7 +36,6 @@ router.get("/", async (req, res) => {
                 isPrivileged = true;
             }
         }
-        // ----------------------------------
 
         let query = {
             groupId,

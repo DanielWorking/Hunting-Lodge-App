@@ -391,7 +391,7 @@ export function UserDialog({
     );
 }
 
-// --- Group Dialog (No Changes) ---
+// --- Group Dialog ---
 interface GroupDialogProps {
     open: boolean;
     onClose: () => void;

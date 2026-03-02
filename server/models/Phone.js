@@ -17,7 +17,6 @@ const PhoneSchema = new mongoose.Schema(
             required: true,
         },
         description: { type: String },
-        // isFavorite: { type: Boolean, default: false } // <--- שורה זו נמחקה
     },
     {
         timestamps: true,

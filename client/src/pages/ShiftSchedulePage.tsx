@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react"; // הוספנו useCallback
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
     Container,
     Typography,
@@ -41,7 +41,7 @@ import { useNotification } from "../context/NotificationContext";
 import ConfirmDialog from "../components/ConfirmDialog";
 import type { ShiftType } from "../types";
 import ThinkingLoader from "../components/ThinkingLoader";
-import ScheduleTable from "../components/ScheduleTable"; // הייבוא החדש
+import ScheduleTable from "../components/ScheduleTable";
 
 interface LocalShift {
     userId: string;
@@ -376,7 +376,6 @@ export default function ShiftSchedulePage() {
             {loading ? (
                 <ThinkingLoader />
             ) : (
-                // השימוש החדש ברכיב הנפרד
                 <ScheduleTable isFull={false} {...tableProps} />
             )}
 

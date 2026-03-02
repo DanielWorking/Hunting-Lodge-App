@@ -42,7 +42,7 @@ export default function ShiftReportPage() {
 
     const [openYears, setOpenYears] = useState<{ [key: string]: boolean }>({});
     const [openMonths, setOpenMonths] = useState<{ [key: string]: boolean }>(
-        {}
+        {},
     );
     const [openDays, setOpenDays] = useState<{ [key: string]: boolean }>({});
 
@@ -50,31 +50,55 @@ export default function ShiftReportPage() {
 
     const groupUsers = users.filter((u) =>
         u.groups.some(
-            (g) => g.groupId === (currentGroup?._id || currentGroup?.id)
-        )
+            (g) => g.groupId === (currentGroup?._id || currentGroup?.id),
+        ),
     );
 
     useEffect(() => {
         if (currentGroup) {
-            fetchReports();
+            // 1. טעינה ראשונית רגילה (עם לודר)
+            fetchReports(false);
+
+            // 2. הגדרת טיימר שרץ כל 30 שניות (30000 מילישניות)
+            const intervalId = setInterval(() => {
+                fetchReports(true); // true = טעינה שקטה ברקע
+            }, 30000);
+
+            // 3. ניקוי הטיימר כשהמשתמש יוצא מהדף או מחליף קבוצה
+            return () => clearInterval(intervalId);
         }
     }, [currentGroup]);
 
-    const fetchReports = async () => {
+    // שינינו את הפונקציה לקבל פרמטר isBackground
+    const fetchReports = async (isBackground = false) => {
         try {
-            setLoading(true);
+            // נציג את הלודר רק אם זו לא טעינה ברקע
+            if (!isBackground) setLoading(true);
+
             const res = await axios.get("/api/reports", {
                 params: { groupId: currentGroup?._id || currentGroup?.id },
             });
-            setReports(res.data);
 
+            // בדיקה האם נוסף דוח חדש (לצורך נוטיפיקציה או עדכון)
+            setReports((prevReports) => {
+                // אם מספר הדוחות גדל, סימן שנוצר דוח חדש
+                if (
+                    res.data.length > prevReports.length &&
+                    prevReports.length > 0
+                ) {
+                    showNotification("New shift report received", "info");
+                }
+                return res.data;
+            });
+
+            // בחירה אוטומטית בדוח הראשון רק אם לא נבחר כלום עדיין
             if (res.data.length > 0 && !selectedReport) {
                 setSelectedReport(res.data[0]);
             }
         } catch (error) {
             console.error(error);
         } finally {
-            setLoading(false);
+            if (!isBackground) setLoading(false);
         }
     };
 
@@ -86,7 +110,7 @@ export default function ShiftReportPage() {
         const currentTimeVal = currentHour * 60 + currentMinute;
 
         const groupSettings = groups.find(
-            (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id)
+            (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
         )?.settings;
         const timeSlots = groupSettings?.timeSlots || [];
 
@@ -160,7 +184,7 @@ export default function ShiftReportPage() {
             const workersCount = newReport.attendees?.length || 0;
             showNotification(
                 `New Report Created! (${workersCount} workers added)`,
-                "success"
+                "success",
             );
         } catch (error) {
             showNotification("Error creating report", "error");
@@ -178,8 +202,8 @@ export default function ShiftReportPage() {
             showNotification("Report saved successfully", "success");
             setReports((prev) =>
                 prev.map((r) =>
-                    r._id === selectedReport._id ? selectedReport : r
-                )
+                    r._id === selectedReport._id ? selectedReport : r,
+                ),
             );
         } catch (error) {
             showNotification("Error saving report", "error");
@@ -320,7 +344,7 @@ export default function ShiftReportPage() {
                                                 disablePadding
                                             >
                                                 {Object.keys(
-                                                    organizedReports[year]
+                                                    organizedReports[year],
                                                 ).map((month) => {
                                                     const monthKey = `${year}-${month}`;
                                                     return (
@@ -331,7 +355,7 @@ export default function ShiftReportPage() {
                                                             <ListItemButton
                                                                 onClick={() =>
                                                                     toggleMonth(
-                                                                        monthKey
+                                                                        monthKey,
                                                                     )
                                                                 }
                                                             >
@@ -365,10 +389,12 @@ export default function ShiftReportPage() {
                                                                     {Object.keys(
                                                                         organizedReports[
                                                                             year
-                                                                        ][month]
+                                                                        ][
+                                                                            month
+                                                                        ],
                                                                     ).map(
                                                                         (
-                                                                            day
+                                                                            day,
                                                                         ) => {
                                                                             const dayKey = `${monthKey}-${day}`;
                                                                             return (
@@ -383,7 +409,7 @@ export default function ShiftReportPage() {
                                                                                     <ListItemButton
                                                                                         onClick={() =>
                                                                                             toggleDay(
-                                                                                                dayKey
+                                                                                                dayKey,
                                                                                             )
                                                                                         }
                                                                                     >
@@ -422,7 +448,7 @@ export default function ShiftReportPage() {
                                                                                                 day
                                                                                             ].map(
                                                                                                 (
-                                                                                                    rep: any
+                                                                                                    rep: any,
                                                                                                 ) => (
                                                                                                     <ListItemButton
                                                                                                         key={
@@ -438,7 +464,7 @@ export default function ShiftReportPage() {
                                                                                                         }}
                                                                                                         onClick={() =>
                                                                                                             setSelectedReport(
-                                                                                                                rep
+                                                                                                                rep,
                                                                                                             )
                                                                                                         }
                                                                                                     >
@@ -450,11 +476,11 @@ export default function ShiftReportPage() {
                                                                                                         <IconButton
                                                                                                             size="small"
                                                                                                             onClick={(
-                                                                                                                e
+                                                                                                                e,
                                                                                                             ) => {
                                                                                                                 e.stopPropagation();
                                                                                                                 setDeleteReportId(
-                                                                                                                    rep._id
+                                                                                                                    rep._id,
                                                                                                                 );
                                                                                                             }}
                                                                                                             sx={{
@@ -469,13 +495,13 @@ export default function ShiftReportPage() {
                                                                                                             <DeleteIcon fontSize="small" />
                                                                                                         </IconButton>
                                                                                                     </ListItemButton>
-                                                                                                )
+                                                                                                ),
                                                                                             )}
                                                                                         </List>
                                                                                     </Collapse>
                                                                                 </Box>
                                                                             );
-                                                                        }
+                                                                        },
                                                                     )}
                                                                 </List>
                                                             </Collapse>
@@ -589,8 +615,9 @@ export default function ShiftReportPage() {
                                         .map((a: any) =>
                                             groupUsers.find(
                                                 (u) =>
-                                                    (u._id || u.id) === a.userId
-                                            )
+                                                    (u._id || u.id) ===
+                                                    a.userId,
+                                            ),
                                         )
                                         .filter(Boolean)}
                                     onChange={handleAttendanceChange}

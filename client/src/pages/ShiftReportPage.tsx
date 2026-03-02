@@ -289,13 +289,17 @@ export default function ShiftReportPage() {
             </Container>
         );
 
+    //! if you want to add image capability to the editor, the best way is by saving the images on the cloud (e.g. AWS S3) and then just saving the image URL in the editor content. This way you can easily manage the images and ensure they are properly displayed in the reports. You can use a library like react-dropzone to handle image uploads and then upload the images to your server or directly to S3, returning the URL to be inserted into the editor.
+    //! OR
+    //! use a dedicated storage service like Cloudinary that provides an API for uploading and managing images, and then integrate it with your editor to allow users to insert images directly from the editor interface.
     const quillModules = {
         toolbar: [
             [{ header: [1, 2, false] }], // כותרות
             ["bold", "italic", "underline", "strike"], // עיצוב טקסט
             [{ list: "ordered" }, { list: "bullet" }], // רשימות
             [{ color: [] }, { background: [] }], // צבעים
-            ["link", "image"], // קישורים ותמונות
+            // ["link", "image"], // קישורים ותמונות
+            ["link"], // קישורים
             ["clean"], // ניקוי עיצוב
             [{ direction: "rtl" }], // כפתור כיוון טקסט
         ],
@@ -639,12 +643,12 @@ export default function ShiftReportPage() {
                                         color: "text.disabled",
                                     },
 
-                                    "& .ql-editor img": {
-                                        maxWidth: "100%",
-                                        height: "auto",
-                                        display: "block",
-                                        margin: "10px 0",
-                                    },
+                                    // "& .ql-editor img": {
+                                    //     maxWidth: "100%",
+                                    //     height: "auto",
+                                    //     display: "block",
+                                    //     margin: "10px 0",
+                                    // },
                                 }}
                             >
                                 <Typography
@@ -784,12 +788,12 @@ export default function ShiftReportPage() {
                                             color: "text.disabled",
                                         },
 
-                                        "& .ql-editor img": {
-                                            maxWidth: "100%",
-                                            height: "auto",
-                                            display: "block",
-                                            margin: "10px 0",
-                                        },
+                                        // "& .ql-editor img": {
+                                        //     maxWidth: "100%",
+                                        //     height: "auto",
+                                        //     display: "block",
+                                        //     margin: "10px 0",
+                                        // },
                                     }}
                                 >
                                     <ReactQuill

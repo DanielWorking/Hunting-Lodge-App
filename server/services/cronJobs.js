@@ -25,8 +25,8 @@ cron.schedule("* * * * *", async () => {
                     .map(Number);
                 const slotTimeVal = slotHour * 60 + slotMinute;
 
-                // בדיקה אם הזמן הנוכחי תואם לזמן המשמרת (טווח של 2 דקות)
-                if (Math.abs(slotTimeVal - currentTimeVal) <= 2) {
+                // בדיקה אם הזמן הנוכחי תואם לזמן המשמרת (טווח של דקה אחת)
+                if (Math.abs(slotTimeVal - currentTimeVal) <= 1) {
                     // --- חישוב תאריכי התחלה וסיום מלאים ---
                     const shiftStart = new Date(now);
                     shiftStart.setHours(slotHour, slotMinute, 0, 0);
@@ -39,7 +39,6 @@ cron.schedule("* * * * *", async () => {
                     if (shiftEnd < shiftStart) {
                         shiftEnd.setDate(shiftEnd.getDate() + 1);
                     }
-                    // ----------------------------------------
 
                     // עיצוב תאריך לכותרת
                     const formattedDate = now

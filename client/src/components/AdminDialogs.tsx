@@ -44,6 +44,7 @@ export function UserDialog({
 
     // 1. קריאה לשם המנהל הראשי מה-ENV
     const SUPER_ADMIN_NAME = import.meta.env.VITE_SUPER_ADMIN_USERNAME;
+    const IS_LOCAL_MODE = import.meta.env.VITE_AUTH_MODE === "local";
 
     const [formData, setFormData] = useState<Partial<User>>({
         username: initialData?.username || "",
@@ -144,7 +145,32 @@ export function UserDialog({
     };
 
     const handleSave = () => {
-        onSave(formData);
+        // לוגיקה מותאמת למצב (Local vs Org)
+        let emailToSend = formData.email;
+        let usernameToSend = formData.username;
+
+        if (IS_LOCAL_MODE) {
+            // במצב מקומי: המזהה הוא האימייל עצמו
+            // אנו מעתיקים את הערך שהוזן גם לשדה האימייל כדי למנוע כפילות או שגיאות
+            usernameToSend = formData.username; // השדה בטופס
+            emailToSend = formData.username; // האימייל זהה למזהה
+        } else {
+            // במצב ארגוני: המזהה הוא ה-System ID
+            // אם אין אימייל, יוצרים דמה עד לכניסה הראשונה
+            if (!emailToSend) {
+                emailToSend = `${formData.username}@pending.creation`;
+            }
+        }
+
+        // אם אין שם תצוגה, נשתמש במזהה זמנית
+        const displayNameToSend = formData.displayName || usernameToSend;
+
+        onSave({
+            ...formData,
+            username: usernameToSend,
+            email: emailToSend,
+            displayName: displayNameToSend,
+        });
         onClose();
     };
 
@@ -165,34 +191,29 @@ export function UserDialog({
                     gap={2}
                     sx={{ mt: 1 }}
                 >
-                    {/* שם לתצוגה */}
+                    {/* שדה ID בלבד - מותאם למצב מקומי/ארגוני */}
                     <TextField
                         autoFocus
                         margin="dense"
-                        label="Full Name (Display Name)"
-                        type="text"
-                        fullWidth
-                        value={formData.displayName}
-                        onChange={(e) =>
-                            setFormData({
-                                ...formData,
-                                displayName: e.target.value,
-                            })
-                        }
-                    />
-                    {/* מזהה מערכת */}
-                    <TextField
-                        margin="dense"
+                        // כותרת דינמית לפי המצב
                         label={
                             initialData
-                                ? "System ID (Cannot be changed)"
-                                : "System ID / Username"
+                                ? "User ID (Cannot be changed)"
+                                : IS_LOCAL_MODE
+                                  ? "Email Address (Login ID)"
+                                  : "System ID (Organizational Username)"
                         }
-                        helperText="The unique ID from the organization (or Email for local mode)"
-                        type="text"
+                        // טקסט עזרה דינמי
+                        helperText={
+                            IS_LOCAL_MODE
+                                ? "Enter the user's email address. This will be used for login."
+                                : "Enter the unique user ID exactly as it appears in the organization."
+                        }
+                        type={IS_LOCAL_MODE ? "email" : "text"} // ולידציה בסיסית של הדפדפן
                         fullWidth
-                        disabled={!!initialData} // בדרך כלל לא נותנים לשנות ID בעריכה
-                        value={formData.username}
+                        disabled={!!initialData}
+                        // formData.username is for when in local testing at home
+                        value={formData.displayName || formData.username}
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
@@ -434,7 +455,19 @@ export function GroupDialog({
     }, [initialData, open]);
 
     const handleSave = () => {
-        onSave({ name });
+        // הכנת האובייקט לשליחה
+        const groupData: Partial<Group> = {
+            name: name.trim(),
+        };
+
+        // תיקון הבעיה:
+        // אם זו יצירת קבוצה חדשה (!initialData), השרת דורש שדה 'id'.
+        // אנו מגדירים את ה-id להיות זהה ל-name, כפי שביקשת.
+        if (!initialData) {
+            groupData.id = name.trim();
+        }
+
+        onSave(groupData);
         onClose();
     };
 
@@ -458,7 +491,11 @@ export function GroupDialog({
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose}>Cancel</Button>
-                <Button onClick={handleSave} variant="contained">
+                <Button
+                    onClick={handleSave}
+                    variant="contained"
+                    disabled={!name.trim()}
+                >
                     Save
                 </Button>
             </DialogActions>

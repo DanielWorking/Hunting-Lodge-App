@@ -64,7 +64,7 @@ export default function Navbar() {
     const getGroupName = (groupId: string) => {
         if (!groups || groups.length === 0) return "Loading...";
         const group = groups.find((g) => (g._id || g.id) === groupId);
-        return group ? group.name.toUpperCase() : "Unknown Group";
+        return group ? group.name : "Unknown Group";
     };
 
     if (!user) return null;

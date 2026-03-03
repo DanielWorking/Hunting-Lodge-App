@@ -200,4 +200,43 @@ router.put("/:id", protect, async (req, res) => {
     }
 });
 
+// === DELETE GROUP ===
+router.delete("/:id", protect, async (req, res) => {
+    try {
+        let group;
+        // בדיקה האם המזהה שהתקבל הוא ObjectId תקין של מונגו
+        // (הקליינט שולח לפעמים את ה-ID המותאם ולפעמים את ה-ObjectId)
+        if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            group = await Group.findByIdAndDelete(req.params.id);
+        } else {
+            // אם לא, חיפוש ומחיקה לפי המזהה המותאם אישית (השם של הקבוצה)
+            group = await Group.findOneAndDelete({ id: req.params.id });
+        }
+
+        if (!group) return res.status(404).json({ message: "Group not found" });
+
+        // --- ניקוי שאריות (Cleanup) ---
+
+        // 1. הסרת הקבוצה מרשימת הקבוצות של כל המשתמשים
+        // אנחנו מסירים גם לפי ה-ID המותאם וגם לפי ה-ObjectId ליתר ביטחון
+        const groupIdentifiers = [group.id, group._id.toString()].filter(
+            Boolean,
+        );
+
+        await User.updateMany(
+            { "groups.groupId": { $in: groupIdentifiers } },
+            { $pull: { groups: { groupId: { $in: groupIdentifiers } } } },
+        );
+
+        // 2. מחיקת כל האתרים (Sites) ששייכים לקבוצה הזו
+        // (בהנחה שאתרים מקושרים לפי ה-ObjectId של הקבוצה)
+        await Site.deleteMany({ groupId: group._id });
+
+        res.json({ message: "Group deleted successfully" });
+    } catch (err) {
+        console.error("Delete group error:", err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
 module.exports = router;

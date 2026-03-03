@@ -35,14 +35,21 @@ export default function GroupSettingsPage() {
 
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-            <Box sx={{ mb: 4 }}>
+            <Box
+                sx={{
+                    mb: 4,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                }}
+            >
                 <Typography
                     variant="h4"
                     component="h1"
                     gutterBottom
                     sx={{ fontWeight: "bold" }}
                 >
-                    {currentGroup.name.toUpperCase()} Settings
+                    {currentGroup.name} Settings
                 </Typography>
                 <Typography variant="subtitle1" color="text.secondary">
                     Configure shift types, report times, and manage member

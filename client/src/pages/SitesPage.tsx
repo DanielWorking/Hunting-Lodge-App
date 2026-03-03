@@ -255,7 +255,12 @@ export default function SitesPage() {
                     variant="h4"
                     component="h1"
                     gutterBottom
-                    sx={{ fontWeight: "bold" }}
+                    sx={{
+                        fontWeight: "bold",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
                 >
                     {activeGroup?.name} Sites
                 </Typography>

@@ -32,7 +32,14 @@ export default function PhonesHeader({
 }: PhonesHeaderProps) {
     return (
         <>
-            <Box sx={{ mb: 4 }}>
+            <Box
+                sx={{
+                    mb: 4,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                }}
+            >
                 <Typography
                     variant="h4"
                     component="h1"

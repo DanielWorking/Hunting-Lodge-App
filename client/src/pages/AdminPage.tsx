@@ -146,7 +146,14 @@ export default function AdminPage() {
 
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-            <Box sx={{ mb: 4 }}>
+            <Box
+                sx={{
+                    mb: 4,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                }}
+            >
                 <Typography
                     variant="h4"
                     component="h1"
@@ -156,7 +163,7 @@ export default function AdminPage() {
                     Admin Dashboard
                 </Typography>
                 <Typography variant="subtitle1" color="text.secondary">
-                    Manage users, groups, and system settings.
+                    Manage users and groups.
                 </Typography>
             </Box>
 

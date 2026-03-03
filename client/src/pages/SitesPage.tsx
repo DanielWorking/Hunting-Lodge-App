@@ -257,7 +257,7 @@ export default function SitesPage() {
                     gutterBottom
                     sx={{ fontWeight: "bold" }}
                 >
-                    {activeGroup?.name.toUpperCase()} Sites
+                    {activeGroup?.name} Sites
                 </Typography>
             </Box>
 

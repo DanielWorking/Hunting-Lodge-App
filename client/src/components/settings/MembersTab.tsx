@@ -249,7 +249,7 @@ export default function MembersTab() {
 
                             {/* עמודה 1: המזהה המערכתי (ID בארגון / מייל במקומי) */}
                             <TableCell sx={{ fontWeight: "bold" }}>
-                                System ID / Username
+                                System ID
                             </TableCell>
 
                             {/* עמודה 2: השם לתצוגה (Preferred Username / Full Name) */}

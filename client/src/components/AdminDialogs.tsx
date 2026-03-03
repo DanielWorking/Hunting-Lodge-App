@@ -43,8 +43,7 @@ export function UserDialog({
     const { user: currentUser } = useUser();
 
     // 1. קריאה לשם המנהל הראשי מה-ENV
-    const SUPER_ADMIN_NAME =
-        import.meta.env.VITE_SUPER_ADMIN_USERNAME || "Super Admin";
+    const SUPER_ADMIN_NAME = import.meta.env.VITE_SUPER_ADMIN_USERNAME;
 
     const [formData, setFormData] = useState<Partial<User>>({
         username: initialData?.username || "",

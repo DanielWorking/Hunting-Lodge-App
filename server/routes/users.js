@@ -157,8 +157,7 @@ router.delete("/:id", async (req, res) => {
     try {
         const userToDelete = await User.findById(req.params.id);
 
-        const superAdminName =
-            process.env.SUPER_ADMIN_USERNAME || "Super Admin";
+        const superAdminName = process.env.SUPER_ADMIN_USERNAME;
 
         // הגנה על מחיקת סופר-אדמין (לפי שם משתמש או ID)
         if (userToDelete && userToDelete.username === superAdminName) {

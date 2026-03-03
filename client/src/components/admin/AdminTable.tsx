@@ -78,24 +78,11 @@ export default function AdminTable({
         return (
             <TableRow key={user._id || user.id} hover>
                 <TableCell sx={{ fontWeight: "bold" }}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                        {user.username}
-                        {user.isAdmin && (
-                            <Tooltip title="Admin">
-                                <AdminPanelSettingsIcon
-                                    fontSize="small"
-                                    color="error"
-                                />
-                            </Tooltip>
-                        )}
-                        {user.isShiftManager && (
-                            <Tooltip title="Shift Manager">
-                                <SecurityIcon
-                                    fontSize="small"
-                                    color="primary"
-                                />
-                            </Tooltip>
-                        )}
+                    <Box display="flex" flexDirection="column">
+                        {/* השם לתצוגה בגדול */}
+                        <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                            {user.displayName || user.username}
+                        </Typography>
                     </Box>
                 </TableCell>
                 <TableCell>

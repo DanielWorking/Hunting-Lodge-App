@@ -14,15 +14,15 @@ import {
     Switch,
     Button,
     Typography,
+    List,
+    ListItem,
+    ListItemText,
 } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemText from "@mui/material/ListItemText";
 import { useUser } from "../../context/UserContext";
 import { useData } from "../../context/DataContext";
 import { useNotification } from "../../context/NotificationContext";
@@ -180,6 +180,7 @@ export default function MembersTab() {
 
     return (
         <Box p={3}>
+            {/* --- Report Emails Section --- */}
             <Box mb={4} p={2} bgcolor="action.hover" borderRadius={1}>
                 <Typography variant="subtitle2" gutterBottom>
                     Report Recipients
@@ -235,13 +236,27 @@ export default function MembersTab() {
                 </Button>
             </Box>
 
-            <h3>Manage Members & Order</h3>
+            {/* --- Members Table Section --- */}
+            <Typography variant="h6" gutterBottom>
+                Group Members ({sortedMembers.length})
+            </Typography>
+
             <TableContainer component={Paper}>
                 <Table>
                     <TableHead>
                         <TableRow>
                             <TableCell align="center">Order</TableCell>
-                            <TableCell>Name</TableCell>
+
+                            {/* עמודה 1: המזהה המערכתי (ID בארגון / מייל במקומי) */}
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                                System ID / Username
+                            </TableCell>
+
+                            {/* עמודה 2: השם לתצוגה (Preferred Username / Full Name) */}
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                                Full Name
+                            </TableCell>
+
                             <TableCell>Role</TableCell>
                             <TableCell align="center">
                                 Active (Global)
@@ -257,9 +272,10 @@ export default function MembersTab() {
                             const userId = user._id || user.id;
                             const isEdited = !!editedValues[userId];
 
-                            // בדיקה אם המשתמש הוא ה-Super Admin
+                            // בדיקה אם המשתמש הוא משתמש אדמין חזק
                             const isSuperAdmin =
-                                user.username === "Super Admin";
+                                user.username ===
+                                import.meta.env.VITE_SUPER_ADMIN_USERNAME;
 
                             const currentVacation = isEdited
                                 ? editedValues[userId].vacation
@@ -269,41 +285,85 @@ export default function MembersTab() {
                                 : user.isActive;
 
                             return (
-                                <TableRow key={userId}>
+                                <TableRow key={userId} hover>
+                                    {/* Order Arrows */}
                                     <TableCell align="center">
-                                        <IconButton
-                                            size="small"
-                                            disabled={index === 0}
-                                            onClick={() =>
-                                                handleMove(index, "up")
-                                            }
+                                        <Box
+                                            display="flex"
+                                            flexDirection="column"
                                         >
-                                            <ArrowUpwardIcon fontSize="small" />
-                                        </IconButton>
-                                        <IconButton
-                                            size="small"
-                                            disabled={
-                                                index ===
-                                                sortedMembers.length - 1
-                                            }
-                                            onClick={() =>
-                                                handleMove(index, "down")
-                                            }
-                                        >
-                                            <ArrowDownwardIcon fontSize="small" />
-                                        </IconButton>
+                                            <IconButton
+                                                size="small"
+                                                disabled={index === 0}
+                                                onClick={() =>
+                                                    handleMove(index, "up")
+                                                }
+                                            >
+                                                <ArrowUpwardIcon fontSize="small" />
+                                            </IconButton>
+                                            <IconButton
+                                                size="small"
+                                                disabled={
+                                                    index ===
+                                                    sortedMembers.length - 1
+                                                }
+                                                onClick={() =>
+                                                    handleMove(index, "down")
+                                                }
+                                            >
+                                                <ArrowDownwardIcon fontSize="small" />
+                                            </IconButton>
+                                        </Box>
                                     </TableCell>
 
-                                    <TableCell sx={{ fontWeight: "bold" }}>
-                                        {user.username}
+                                    {/* Column 1: System ID*/}
+                                    <TableCell>
+                                        <Typography
+                                            variant="body2"
+                                            fontFamily="monospace"
+                                        >
+                                            {/* user.email in home tests */}
+                                            {user.email || user.username}
+                                        </Typography>
                                     </TableCell>
+
+                                    {/* Column 2: Display Name */}
+                                    <TableCell>
+                                        <Typography
+                                            variant="body2"
+                                            fontWeight="medium"
+                                        >
+                                            {/* user.username in home tests */}
+                                            {user.displayName || user.username}
+                                        </Typography>
+                                    </TableCell>
+
+                                    {/* Role */}
                                     <TableCell>
                                         {user.membership?.role ===
-                                        "shift_manager"
-                                            ? "Shift Manager"
-                                            : "Member"}
+                                        "shift_manager" ? (
+                                            <Typography
+                                                variant="caption"
+                                                color="primary"
+                                                fontWeight="bold"
+                                                sx={{
+                                                    border: 1,
+                                                    borderColor: "primary.main",
+                                                    borderRadius: 1,
+                                                    px: 1,
+                                                    py: 0.5,
+                                                }}
+                                            >
+                                                Shift Manager
+                                            </Typography>
+                                        ) : (
+                                            <Typography variant="body2">
+                                                Member
+                                            </Typography>
+                                        )}
                                     </TableCell>
 
+                                    {/* Active Status */}
                                     <TableCell align="center">
                                         <Switch
                                             checked={currentActive}
@@ -319,11 +379,11 @@ export default function MembersTab() {
                                                     ? "success"
                                                     : "default"
                                             }
-                                            // כאן השינוי: נעילת המתג עבור Super Admin
                                             disabled={isSuperAdmin}
                                         />
                                     </TableCell>
 
+                                    {/* Vacation Balance */}
                                     <TableCell align="center">
                                         <TextField
                                             type="number"
@@ -340,6 +400,7 @@ export default function MembersTab() {
                                         />
                                     </TableCell>
 
+                                    {/* Actions */}
                                     <TableCell align="center">
                                         <Tooltip title="Save Changes">
                                             <span>
@@ -358,6 +419,13 @@ export default function MembersTab() {
                                 </TableRow>
                             );
                         })}
+                        {sortedMembers.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={7} align="center">
+                                    No members found in this group.
+                                </TableCell>
+                            </TableRow>
+                        )}
                     </TableBody>
                 </Table>
             </TableContainer>

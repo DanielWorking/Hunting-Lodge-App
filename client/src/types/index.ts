@@ -12,6 +12,8 @@ export interface User {
     _id?: string;
     id: string;
     username: string;
+    displayName?: string;
+    email?: string;
     groups: GroupMembership[];
     lastLogin: string;
     isActive: boolean;

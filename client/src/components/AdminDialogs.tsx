@@ -47,7 +47,9 @@ export function UserDialog({
         import.meta.env.VITE_SUPER_ADMIN_USERNAME || "Super Admin";
 
     const [formData, setFormData] = useState<Partial<User>>({
-        username: "",
+        username: initialData?.username || "",
+        displayName: initialData?.displayName || "",
+        email: initialData?.email || "",
         isActive: true,
         vacationBalance: 0,
         groups: [],
@@ -164,22 +166,39 @@ export function UserDialog({
                     gap={2}
                     sx={{ mt: 1 }}
                 >
-                    {/* Username - נעול בעריכה, פתוח ביצירה */}
+                    {/* שם לתצוגה */}
                     <TextField
-                        label="Username"
+                        autoFocus
+                        margin="dense"
+                        label="Full Name (Display Name)"
+                        type="text"
+                        fullWidth
+                        value={formData.displayName}
+                        onChange={(e) =>
+                            setFormData({
+                                ...formData,
+                                displayName: e.target.value,
+                            })
+                        }
+                    />
+                    {/* מזהה מערכת */}
+                    <TextField
+                        margin="dense"
+                        label={
+                            initialData
+                                ? "System ID (Cannot be changed)"
+                                : "System ID / Username"
+                        }
+                        helperText="The unique ID from the organization (or Email for local mode)"
+                        type="text"
+                        fullWidth
+                        disabled={!!initialData} // בדרך כלל לא נותנים לשנות ID בעריכה
                         value={formData.username}
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
                                 username: e.target.value,
                             })
-                        }
-                        fullWidth
-                        disabled={!!initialData}
-                        helperText={
-                            !!initialData
-                                ? "Username is managed by SSO and cannot be changed here."
-                                : "Enter the exact username as it appears in the organization SSO."
                         }
                     />
 

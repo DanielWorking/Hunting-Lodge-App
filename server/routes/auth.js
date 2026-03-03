@@ -68,35 +68,40 @@ router.post("/login", async (req, res) => {
         const claims = tokenSet.claims();
         console.log("👤 SSO User Claims:", claims);
 
-        const email = claims.email;
-
         // קריאת הקונפיגורציה מה-ENV (ברירת מחדל: email)
         const identifierMode = process.env.SSO_IDENTIFIER_FIELD || "email";
         console.log(`⚙️ Auth Mode: ${identifierMode}`);
 
-        let ssoUsername;
-        let searchCriteria;
+        let dbUsername; // מה נשמור בשדה username (המזהה הייחודי)
+        let dbDisplayName; // מה נשמור בשדה displayName (לתצוגה)
+        let searchCriteria; // לפי מה מחפשים ב-DB
+
+        // const email = claims.email;
+
+        // let ssoUsername;
 
         if (identifierMode === "username") {
-            // --- מצב ארגוני (חיבור לפי שם משתמש) ---
-            ssoUsername = claims.preferred_username;
+            // --- מצב ארגוני  ---
+            // המזהה הוא ה-ID שלמהשדה name
+            // השם לתצוגה הוא השם האמיתי (preferred_username)
 
-            if (!ssoUsername) {
+            // הערה: יש לוודא מול ה-IT ששדה 'name' ב-Token אכן מכיל את ה-ID.
+            // אם ה-ID נמצא ב-sub או ב-upn, יש לשנות כאן בהתאם.
+            dbUsername = claims.name;
+            dbDisplayName = claims.preferred_username || claims.name;
+
+            if (!dbUsername) {
                 return res.status(400).json({
-                    message:
-                        "SSO profile is missing 'preferred_username'. Please contact support.",
+                    message: "Missing 'name' (ID) in SSO profile.",
                 });
             }
-
-            // חיפוש מדויק לפי שם משתמש בלבד
-            searchCriteria = { username: ssoUsername };
+            searchCriteria = { username: dbUsername };
         } else {
             // --- מצב פיתוח/ביתי (חיבור לפי מייל) ---
             // במצב הזה שם המשתמש הוא המייל עצמו
-            ssoUsername = email;
-
-            // חיפוש לפי מייל
-            searchCriteria = { email: email };
+            dbUsername = claims.email;
+            dbDisplayName = claims.email;
+            searchCriteria = { email: claims.email };
         }
 
         console.log(`🔍 Searching user by:`, searchCriteria);
@@ -110,12 +115,26 @@ router.post("/login", async (req, res) => {
                 user.isActive = true;
             }
             user.lastLogin = new Date().toISOString();
+
+            // עדכון השם לתצוגה (למקרה שהשתנה ב-AD)
+            if (dbDisplayName && user.displayName !== dbDisplayName) {
+                user.displayName = dbDisplayName;
+            }
+
+            // במצב ארגוני - מוודאים שהמייל עדכני
+            if (claims.email && user.email !== claims.email) {
+                user.email = claims.email;
+            }
+
             await user.save();
         } else {
-            console.log(`🆕 Creating new Guest user: ${ssoUsername}`);
+            console.log(
+                `🆕 Creating new user: ${dbUsername} (${dbDisplayName})`,
+            );
             user = new User({
-                username: ssoUsername,
-                email: email,
+                username: dbUsername,
+                displayName: dbDisplayName,
+                email: claims.email,
                 isActive: true,
                 groups: [],
                 lastLogin: new Date().toISOString(),
@@ -134,4 +153,5 @@ router.post("/login", async (req, res) => {
         });
     }
 });
+
 module.exports = router;

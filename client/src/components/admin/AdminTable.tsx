@@ -79,7 +79,7 @@ export default function AdminTable({
                     <Box display="flex" flexDirection="column">
                         {/* השם לתצוגה בגדול */}
                         <Typography variant="body2" sx={{ fontWeight: "bold" }}>
-                            {user.displayName || user.username}
+                            {user.displayName}
                         </Typography>
                     </Box>
                 </TableCell>

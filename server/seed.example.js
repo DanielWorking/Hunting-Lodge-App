@@ -1,3 +1,4 @@
+// server/seed.example.js
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 
@@ -15,9 +16,21 @@ if (result.error) {
     process.exit(1);
 }
 
-// ברירת המחדל תהיה לשימוש מקומי, אך בקוד הארגוני זה ייקח את מה שהוגדר
-const ADMIN_USERNAME = process.env.SUPER_ADMIN_USERNAME || "Super Admin";
-const ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || "admin@local.test";
+// זיהוי מצב העבודה (מקומי מול ארגוני) בהתאם ללוגיקה ב-auth.js
+const AUTH_MODE = process.env.SSO_IDENTIFIER_FIELD;
+console.log(`⚙️  Seeding in Auth Mode: ${AUTH_MODE}`);
+
+const adminUserData = {
+    username: process.env.SUPER_ADMIN_ID,
+    displayName: process.env.SUPER_ADMIN_NAME,
+    email: process.env.SUPER_ADMIN_EMAIL,
+};
+
+const regularUserData = {
+    username: "10002",
+    displayName: "Regular User",
+    email: "regular@corp.local",
+};
 
 const NOC_SHIFT_TYPES = [
     { name: "בוקר", color: "#476db5", isVacation: false },
@@ -72,7 +85,7 @@ const importData = async () => {
         await ShiftReport.deleteMany();
         console.log("🗑️  Old Data Destroyed...");
 
-        // 1. יצירת קבוצות עם הגדרת תגיות (siteTags)
+        // 1. יצירת קבוצות
         const createdGroups = await Group.insertMany([
             {
                 id: "administrators",
@@ -87,7 +100,6 @@ const importData = async () => {
                     shiftTypes: NOC_SHIFT_TYPES,
                     timeSlots: NOC_TIME_SLOTS,
                 },
-                // הגדרת התגיות שהכרטיסים ישתמשו בהן
                 siteTags: ["General", "Tacti"],
             },
         ]);
@@ -98,12 +110,10 @@ const importData = async () => {
         });
         console.log("🏢 Groups Created...");
 
-        // 2. יצירת משתמשים
+        // 2. יצירת משתמשים (דינמית לפי המצב)
         const users = [
             {
-                username: ADMIN_USERNAME,
-                id: "auth0|superadmin",
-                email: ADMIN_EMAIL,
+                ...adminUserData, // שימוש באובייקט שהוגדר למעלה
                 isActive: true,
                 vacationBalance: 999,
                 groups: [
@@ -113,22 +123,21 @@ const importData = async () => {
                 lastLogin: "Never",
             },
             {
-                username: "Regular User",
-                id: "auth0|regular",
-                email: "regular@example.com",
+                ...regularUserData, // שימוש באובייקט שהוגדר למעלה
                 isActive: true,
                 vacationBalance: 12,
                 groups: [{ groupId: gMap["noc"], role: "member" }],
+                lastLogin: "Never",
             },
         ];
 
         await User.insertMany(users);
-        console.log("👤 Users Created...");
+        console.log(`👤 Users Created (Admin: ${adminUserData.username})...`);
 
         // 3. יצירת טלפונים
         await Phone.insertMany(phones);
 
-        // 4. יצירת אתרים (ללא isTacti ועם תגיות תואמות לקבוצות)
+        // 4. יצירת אתרים
         const sites = [
             {
                 title: "NOC Dashboard",
@@ -158,7 +167,7 @@ const importData = async () => {
                 description: "General company info",
                 isFavorite: false,
                 groupId: gMap["noc"],
-                tag: "General", // ברירת מחדל
+                tag: "General",
             },
         ];
         await Site.insertMany(sites);

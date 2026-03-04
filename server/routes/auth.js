@@ -68,17 +68,13 @@ router.post("/login", async (req, res) => {
         const claims = tokenSet.claims();
         console.log("👤 SSO User Claims:", claims);
 
-        // קריאת הקונפיגורציה מה-ENV (ברירת מחדל: email)
-        const identifierMode = process.env.SSO_IDENTIFIER_FIELD || "email";
+        // קריאת הקונפיגורציה מה-ENV
+        const identifierMode = process.env.SSO_IDENTIFIER_FIELD;
         console.log(`⚙️ Auth Mode: ${identifierMode}`);
 
         let dbUsername; // מה נשמור בשדה username (המזהה הייחודי)
         let dbDisplayName; // מה נשמור בשדה displayName (לתצוגה)
         let searchCriteria; // לפי מה מחפשים ב-DB
-
-        // const email = claims.email;
-
-        // let ssoUsername;
 
         if (identifierMode === "username") {
             // --- מצב ארגוני  ---

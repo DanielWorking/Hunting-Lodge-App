@@ -275,7 +275,7 @@ export default function MembersTab() {
                             // בדיקה אם המשתמש הוא משתמש אדמין חזק
                             const isSuperAdmin =
                                 user.username ===
-                                import.meta.env.VITE_SUPER_ADMIN_USERNAME;
+                                import.meta.env.VITE_SUPER_ADMIN_ID;
 
                             const currentVacation = isEdited
                                 ? editedValues[userId].vacation
@@ -322,8 +322,7 @@ export default function MembersTab() {
                                             variant="body2"
                                             fontFamily="monospace"
                                         >
-                                            {/* user.email in home tests */}
-                                            {user.email || user.username}
+                                            {user.username}
                                         </Typography>
                                     </TableCell>
 
@@ -334,7 +333,7 @@ export default function MembersTab() {
                                             fontWeight="medium"
                                         >
                                             {/* user.username in home tests */}
-                                            {user.displayName || user.username}
+                                            {user.displayName}
                                         </Typography>
                                     </TableCell>
 

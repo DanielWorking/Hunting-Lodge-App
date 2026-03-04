@@ -43,13 +43,13 @@ export function UserDialog({
     const { user: currentUser } = useUser();
 
     // 1. קריאה לשם המנהל הראשי מה-ENV
-    const SUPER_ADMIN_NAME = import.meta.env.VITE_SUPER_ADMIN_USERNAME;
+    const SUPER_ADMIN_ID = import.meta.env.VITE_SUPER_ADMIN_ID;
     const IS_LOCAL_MODE = import.meta.env.VITE_AUTH_MODE === "local";
 
     const [formData, setFormData] = useState<Partial<User>>({
-        username: initialData?.username || "",
-        displayName: initialData?.displayName || "",
-        email: initialData?.email || "",
+        username: initialData?.username,
+        displayName: initialData?.displayName,
+        email: initialData?.email,
         isActive: true,
         vacationBalance: 0,
         groups: [],
@@ -72,8 +72,7 @@ export function UserDialog({
     }, [initialData, open]);
 
     // 2. זיהוי האם הפרופיל הנערך הוא של המנהל הראשי
-    const isSuperAdminProfile =
-        formData.username?.toLowerCase() === SUPER_ADMIN_NAME.toLowerCase();
+    const isSuperAdminProfile = formData.username === SUPER_ADMIN_ID;
 
     // 3. בדיקה: האם אני עורך את עצמי?
     const isEditingSelf = (() => {

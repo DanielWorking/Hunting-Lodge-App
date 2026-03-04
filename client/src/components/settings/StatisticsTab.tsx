@@ -179,7 +179,7 @@ export default function StatisticsTab() {
                                 return (
                                     <TableRow key={uid}>
                                         <TableCell sx={{ fontWeight: "bold" }}>
-                                            {u.username}
+                                            {u.displayName}
                                         </TableCell>
                                         <TableCell>
                                             <Box

@@ -69,9 +69,9 @@ export default function AdminTable({
         const user = rawUser as unknown as ExtendedUser;
 
         const currentName = user.username;
-        const superAdminName = import.meta.env.VITE_SUPER_ADMIN_USERNAME;
+        const superAdminId = import.meta.env.VITE_SUPER_ADMIN_ID;
 
-        const isSuperAdmin = currentName === superAdminName;
+        const isSuperAdmin = currentName === superAdminId;
 
         return (
             <TableRow key={user._id || user.id} hover>

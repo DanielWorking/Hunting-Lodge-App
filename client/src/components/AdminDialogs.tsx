@@ -44,7 +44,6 @@ export function UserDialog({
 
     // 1. קריאה לשם המנהל הראשי מה-ENV
     const SUPER_ADMIN_ID = import.meta.env.VITE_SUPER_ADMIN_ID;
-    const IS_LOCAL_MODE = import.meta.env.VITE_AUTH_MODE === "local";
 
     const [formData, setFormData] = useState<Partial<User>>({
         username: initialData?.username,
@@ -90,7 +89,7 @@ export function UserDialog({
         const groupObj = groups.find(
             (g) => (g._id || g.id) === membership.groupId,
         );
-        return groupObj?.name.toLowerCase() === "administrators";
+        return groupObj?.name === "administrators";
     });
 
     // --- לוגיקה לשינוי נתונים ---
@@ -127,7 +126,7 @@ export function UserDialog({
         // מניעת שינוי תפקיד בתוך קבוצת האדמינים (הם תמיד מנהלים מעצם היותם בקבוצה)
         if (isTargetUserAdmin) {
             const groupObj = groups.find((g) => (g._id || g.id) === groupId);
-            if (groupObj?.name.toLowerCase() === "administrators") return;
+            if (groupObj?.name === "administrators") return;
         }
 
         setFormData((prev) => {
@@ -144,25 +143,9 @@ export function UserDialog({
     };
 
     const handleSave = () => {
-        // לוגיקה מותאמת למצב (Local vs Org)
-        let emailToSend = formData.email;
-        let usernameToSend = formData.username;
-
-        if (IS_LOCAL_MODE) {
-            // במצב מקומי: המזהה הוא האימייל עצמו
-            // אנו מעתיקים את הערך שהוזן גם לשדה האימייל כדי למנוע כפילות או שגיאות
-            usernameToSend = formData.username; // השדה בטופס
-            emailToSend = formData.username; // האימייל זהה למזהה
-        } else {
-            // במצב ארגוני: המזהה הוא ה-System ID
-            // אם אין אימייל, יוצרים דמה עד לכניסה הראשונה
-            if (!emailToSend) {
-                emailToSend = `${formData.username}@pending.creation`;
-            }
-        }
-
-        // אם אין שם תצוגה, נשתמש במזהה זמנית
-        const displayNameToSend = formData.displayName || usernameToSend;
+        const usernameToSend = formData.username;
+        const displayNameToSend = formData.displayName;
+        const emailToSend = formData.email;
 
         onSave({
             ...formData,
@@ -190,29 +173,18 @@ export function UserDialog({
                     gap={2}
                     sx={{ mt: 1 }}
                 >
-                    {/* שדה ID בלבד - מותאם למצב מקומי/ארגוני */}
                     <TextField
                         autoFocus
                         margin="dense"
-                        // כותרת דינמית לפי המצב
-                        label={
-                            initialData
-                                ? "User ID (Cannot be changed)"
-                                : IS_LOCAL_MODE
-                                  ? "Email Address (Login ID)"
-                                  : "System ID (Organizational Username)"
-                        }
+                        label={"User ID (Cannot be changed)"}
                         // טקסט עזרה דינמי
                         helperText={
-                            IS_LOCAL_MODE
-                                ? "Enter the user's email address. This will be used for login."
-                                : "Enter the unique user ID exactly as it appears in the organization."
+                            "Enter the unique user ID exactly as it appears in the organization."
                         }
-                        type={IS_LOCAL_MODE ? "email" : "text"} // ולידציה בסיסית של הדפדפן
+                        type={"text"} // ולידציה בסיסית של הדפדפן
                         fullWidth
                         disabled={!!initialData}
-                        // formData.username is for when in local testing at home
-                        value={formData.displayName || formData.username}
+                        value={formData.displayName}
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
@@ -283,8 +255,7 @@ export function UserDialog({
                             if (!groupObj) return null;
 
                             const isAdministratorsGroup =
-                                groupObj.name.toLowerCase() ===
-                                "administrators";
+                                groupObj.name === "administrators";
 
                             // לוגיקה להסרה: אסור להסיר אם זה SuperAdmin/Self מקבוצת הניהול
                             const canRemove = !(
@@ -459,9 +430,6 @@ export function GroupDialog({
             name: name.trim(),
         };
 
-        // תיקון הבעיה:
-        // אם זו יצירת קבוצה חדשה (!initialData), השרת דורש שדה 'id'.
-        // אנו מגדירים את ה-id להיות זהה ל-name, כפי שביקשת.
         if (!initialData) {
             groupData.id = name.trim();
         }
@@ -483,9 +451,7 @@ export function GroupDialog({
                     fullWidth
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    disabled={
-                        initialData?.name?.toLowerCase() === "administrators"
-                    }
+                    disabled={initialData?.name === "administrators"}
                 />
             </DialogContent>
             <DialogActions>

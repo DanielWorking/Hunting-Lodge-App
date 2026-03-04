@@ -214,7 +214,7 @@ export default function Navbar() {
                                             : theme.palette.primary.main,
                                     }}
                                 >
-                                    {user.username.charAt(0).toUpperCase()}
+                                    {user.displayName?.charAt(0).toUpperCase()}
                                 </Avatar>
                             </Badge>
                         </IconButton>
@@ -253,7 +253,7 @@ export default function Navbar() {
                                 color: "text.primary",
                             }}
                         >
-                            Hi, {user.username}
+                            Hi, {user.displayName}
                         </MenuItem>
 
                         {!user.isActive && (

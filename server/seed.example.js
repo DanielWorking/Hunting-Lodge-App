@@ -22,7 +22,7 @@ console.log(`⚙️  Seeding in Auth Mode: ${AUTH_MODE}`);
 
 const adminUserData = {
     username: process.env.SUPER_ADMIN_ID,
-    displayName: process.env.SUPER_ADMIN_NAME,
+    displayName: process.env.SUPER_ADMIN_USERNAME,
     email: process.env.SUPER_ADMIN_EMAIL,
 };
 

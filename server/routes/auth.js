@@ -76,27 +76,14 @@ router.post("/login", async (req, res) => {
         let dbDisplayName; // מה נשמור בשדה displayName (לתצוגה)
         let searchCriteria; // לפי מה מחפשים ב-DB
 
+        dbUsername = claims.name;
+        dbDisplayName = claims.preferred_username;
+
         if (identifierMode === "username") {
             // --- מצב ארגוני  ---
-            // המזהה הוא ה-ID שלמהשדה name
-            // השם לתצוגה הוא השם האמיתי (preferred_username)
-
-            // הערה: יש לוודא מול ה-IT ששדה 'name' ב-Token אכן מכיל את ה-ID.
-            // אם ה-ID נמצא ב-sub או ב-upn, יש לשנות כאן בהתאם.
-            dbUsername = claims.name;
-            dbDisplayName = claims.preferred_username || claims.name;
-
-            if (!dbUsername) {
-                return res.status(400).json({
-                    message: "Missing 'name' (ID) in SSO profile.",
-                });
-            }
             searchCriteria = { username: dbUsername };
         } else {
             // --- מצב פיתוח/ביתי (חיבור לפי מייל) ---
-            // במצב הזה שם המשתמש הוא המייל עצמו
-            dbUsername = claims.email;
-            dbDisplayName = claims.email;
             searchCriteria = { email: claims.email };
         }
 
@@ -112,15 +99,15 @@ router.post("/login", async (req, res) => {
             }
             user.lastLogin = new Date().toISOString();
 
-            // עדכון השם לתצוגה (למקרה שהשתנה ב-AD)
-            if (dbDisplayName && user.displayName !== dbDisplayName) {
-                user.displayName = dbDisplayName;
-            }
+            // // עדכון השם לתצוגה (למקרה שהשתנה ב-AD)
+            // if (dbDisplayName && user.displayName !== dbDisplayName) {
+            //     user.displayName = dbDisplayName;
+            // }
 
-            // במצב ארגוני - מוודאים שהמייל עדכני
-            if (claims.email && user.email !== claims.email) {
-                user.email = claims.email;
-            }
+            // // במצב ארגוני - מוודאים שהמייל עדכני
+            // if (claims.email && user.email !== claims.email) {
+            //     user.email = claims.email;
+            // }
 
             await user.save();
         } else {

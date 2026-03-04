@@ -126,7 +126,7 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
                                         zIndex: 10,
                                     }}
                                 >
-                                    {user.username}
+                                    {user.displayName}
                                 </TableCell>
                                 {weekDays.map((day) => {
                                     const shift = getShiftForCell(

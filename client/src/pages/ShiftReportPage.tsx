@@ -686,7 +686,9 @@ export default function ShiftReportPage() {
                                 <Autocomplete
                                     multiple
                                     options={groupUsers}
-                                    getOptionLabel={(option) => option.username}
+                                    getOptionLabel={(option) =>
+                                        option.displayName
+                                    }
                                     value={selectedReport.attendees
                                         .map((a: any) =>
                                             groupUsers.find(
@@ -706,7 +708,7 @@ export default function ShiftReportPage() {
                                             return (
                                                 <Chip
                                                     key={key} // מעבירים אותו במפורש
-                                                    label={option?.username}
+                                                    label={option?.displayName}
                                                     {...tagProps} // ואת השאר שופכים כרגיל
                                                 />
                                             );

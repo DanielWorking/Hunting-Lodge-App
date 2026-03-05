@@ -67,6 +67,12 @@ export default function Navbar() {
         return group ? group.name : "Unknown Group";
     };
 
+    // === Ghost Groups Fix ===
+    // Filter user groups against actual existing groups
+    const validUserGroups = (user?.groups || []).filter((userGroup) =>
+        groups.some((g) => (g._id || g.id) === userGroup.groupId),
+    );
+
     if (!user) return null;
 
     return (
@@ -277,7 +283,7 @@ export default function Navbar() {
                             Switch Group:
                         </MenuItem>
 
-                        {user.groups.map((membership) => {
+                        {validUserGroups.map((membership) => {
                             const groupId = membership.groupId;
                             const isActive =
                                 (currentGroup?._id || currentGroup?.id) ===

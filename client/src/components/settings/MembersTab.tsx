@@ -50,14 +50,16 @@ export default function MembersTab() {
     useEffect(() => {
         if (!currentGroup || users.length === 0) return;
 
+        // חישוב חברי הקבוצה מתוך רשימת המשתמשים הכללית
+        // הוספנו סימני שאלה (?.) כדי למנוע קריסה אם למשתמש אין קבוצות
         const members = users
             .filter((u) =>
-                u.groups.some(
+                u.groups?.some(
                     (g) => g.groupId === (currentGroup._id || currentGroup.id),
                 ),
             )
             .map((u) => {
-                const membership = u.groups.find(
+                const membership = u.groups?.find(
                     (g) => g.groupId === (currentGroup._id || currentGroup.id),
                 );
                 return { ...u, membership };

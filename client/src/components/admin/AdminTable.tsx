@@ -77,8 +77,16 @@ export default function AdminTable({
             <TableRow key={user._id || user.id} hover>
                 <TableCell sx={{ fontWeight: "bold" }}>
                     <Box display="flex" flexDirection="column">
-                        {/* השם לתצוגה בגדול */}
-                        <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                        <Typography variant="body2">
+                            {/* מזהה יייחודי של המשתמש */}
+                            {user.username}
+                        </Typography>
+                    </Box>
+                </TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>
+                    <Box display="flex" flexDirection="column">
+                        {/* שם משתמש */}
+                        <Typography variant="body2">
                             {user.displayName}
                         </Typography>
                     </Box>
@@ -112,6 +120,7 @@ export default function AdminTable({
                     </Box>
                 </TableCell>
                 <TableCell>{formatDate(user.createdAt)}</TableCell>
+                <TableCell>{formatDate(user.lastLogin)}</TableCell>
                 <TableCell>
                     <Chip
                         label={user.isActive ? "Active" : "Inactive"}
@@ -154,7 +163,8 @@ export default function AdminTable({
 
         return (
             <TableRow key={group._id || group.id} hover>
-                <TableCell sx={{ fontWeight: "bold" }}>{group.name}</TableCell>
+                <TableCell>{group.name}</TableCell>
+                <TableCell>{group.members.length}</TableCell>
                 <TableCell>{formatDate(group.createdAt)}</TableCell>
                 <TableCell align="center">
                     {/* הסתרת כפתורי עריכה ומחיקה לקבוצת המערכת */}
@@ -200,6 +210,14 @@ export default function AdminTable({
                                         fontWeight: "bold",
                                     }}
                                 >
+                                    System ID
+                                </TableCell>
+                                <TableCell
+                                    sx={{
+                                        bgcolor: headerBgColor,
+                                        fontWeight: "bold",
+                                    }}
+                                >
                                     Username
                                 </TableCell>
                                 <TableCell
@@ -217,6 +235,14 @@ export default function AdminTable({
                                     }}
                                 >
                                     Created
+                                </TableCell>
+                                <TableCell
+                                    sx={{
+                                        bgcolor: headerBgColor,
+                                        fontWeight: "bold",
+                                    }}
+                                >
+                                    Last Login
                                 </TableCell>
                                 <TableCell
                                     sx={{
@@ -245,6 +271,14 @@ export default function AdminTable({
                                     }}
                                 >
                                     Group Name
+                                </TableCell>
+                                <TableCell
+                                    sx={{
+                                        bgcolor: headerBgColor,
+                                        fontWeight: "bold",
+                                    }}
+                                >
+                                    User Count
                                 </TableCell>
                                 <TableCell
                                     sx={{

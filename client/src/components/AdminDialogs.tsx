@@ -417,6 +417,7 @@ export function GroupDialog({
     initialData,
 }: GroupDialogProps) {
     const { users } = useData();
+    const { user: currentUser } = useUser();
     const [formData, setFormData] = useState<Partial<Group>>({
         name: "",
         members: [],
@@ -556,8 +557,14 @@ export function GroupDialog({
                             const isSuperAdminUser =
                                 userObj.username ===
                                 import.meta.env.VITE_SUPER_ADMIN_ID;
+                            // בדיקה אם זה המשתמש הנוכחי (כדי למנוע הסרה עצמית)
+                            const isSelf =
+                                userObj._id ===
+                                (currentUser?._id || currentUser?.id);
+                            // תנאי הגנה: אי אפשר להסיר אם זו קבוצת מערכת וגם (משתמש על או אני עצמי)
                             const canRemove = !(
-                                isSystemGroup && isSuperAdminUser
+                                isSystemGroup &&
+                                (isSuperAdminUser || isSelf)
                             );
 
                             return (

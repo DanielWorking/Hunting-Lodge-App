@@ -215,7 +215,8 @@ router.put("/:id", protect, async (req, res) => {
                     {
                         $addToSet: {
                             groups: {
-                                groupId: updatedGroup.id, // משתמשים ב-ID המותאם (String) לקשר
+                                // ולא ב-ObjectId או ערך חסר שעלול להגיע מ-updatedGroup
+                                groupId: oldGroup.id,
                                 role: "member",
                                 order: 99,
                             },
@@ -233,10 +234,7 @@ router.put("/:id", protect, async (req, res) => {
                 // שמכיל את ה-groupId של הקבוצה הזו.
 
                 // נחפש גם לפי ה-ID הרגיל וגם לפי ה-ObjectId למקרה של אי תאימות היסטורית
-                const groupIdentifiers = [
-                    updatedGroup.id,
-                    updatedGroup._id.toString(),
-                ];
+                const groupIdentifiers = [oldGroup.id, oldGroup._id.toString()];
 
                 await User.updateMany(
                     { _id: { $in: usersRemoved } },

@@ -258,39 +258,36 @@ export default function AdminTable({
                 <TableCell>{formatDate(group.createdAt)}</TableCell>
 
                 <TableCell align="center">
+                    {/* כפתור עריכה - זמין כעת לכולם כולל administrators */}
+                    <Tooltip title="Edit">
+                        <IconButton
+                            size="small"
+                            onClick={() => onEdit(rawGroup)}
+                        >
+                            <EditIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+
+                    {/* כפתור מחיקה - מוסתר עבור קבוצת מערכת */}
                     {!isSystemGroup && (
-                        <>
-                            <Tooltip title="Edit">
+                        <Tooltip
+                            title={
+                                !canDelete
+                                    ? "Cannot delete group with active members"
+                                    : "Delete"
+                            }
+                        >
+                            <span>
                                 <IconButton
                                     size="small"
-                                    onClick={() => onEdit(rawGroup)}
+                                    color="error"
+                                    onClick={() => onDelete(rawGroup)}
+                                    disabled={!canDelete}
                                 >
-                                    <EditIcon fontSize="small" />
+                                    <DeleteIcon fontSize="small" />
                                 </IconButton>
-                            </Tooltip>
-
-                            {/* כפתור מחיקה עם הגנה ו-Tooltip */}
-                            <Tooltip
-                                title={
-                                    !canDelete
-                                        ? "Cannot delete group with active members"
-                                        : "Delete"
-                                }
-                            >
-                                <span>
-                                    {" "}
-                                    {/* Span wrapper required for Tooltip on disabled button */}
-                                    <IconButton
-                                        size="small"
-                                        color="error"
-                                        onClick={() => onDelete(rawGroup)}
-                                        disabled={!canDelete}
-                                    >
-                                        <DeleteIcon fontSize="small" />
-                                    </IconButton>
-                                </span>
-                            </Tooltip>
-                        </>
+                            </span>
+                        </Tooltip>
                     )}
                 </TableCell>
             </TableRow>

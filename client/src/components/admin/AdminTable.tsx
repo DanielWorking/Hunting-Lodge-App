@@ -64,37 +64,85 @@ export default function AdminTable({
         });
     };
 
+    const getLastLoginDisplay = (dateString?: string) => {
+        // 1. אם אין מחרוזת בכלל
+        if (!dateString) {
+            return (
+                <Typography variant="body2" color="error" fontWeight="bold">
+                    Never
+                </Typography>
+            );
+        }
+
+        const date = new Date(dateString);
+
+        // 2. אם התאריך לא תקין (Invalid Date)
+        if (isNaN(date.getTime())) {
+            return (
+                <Typography variant="body2" color="error" fontWeight="bold">
+                    Never
+                </Typography>
+            );
+        }
+
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - date.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        // פורמט תאריך
+        const formatted = date.toLocaleDateString("he-IL", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+        });
+
+        // אם עברו יותר מ-90 יום
+        if (diffDays > 90) {
+            return (
+                <Typography variant="body2" color="error" fontWeight="bold">
+                    {formatted}
+                </Typography>
+            );
+        }
+
+        return formatted;
+    };
+
     // --- User Row Render ---
     const renderUserRow = (rawUser: User) => {
         const user = rawUser as unknown as ExtendedUser;
-
-        const currentName = user.username;
         const superAdminId = import.meta.env.VITE_SUPER_ADMIN_ID;
+        const isSuperAdmin = user.username === superAdminId;
 
-        const isSuperAdmin = currentName === superAdminId;
+        // לוגיקת תצוגת קבוצות - מקסימום 2
+        const userGroups = user.groups || [];
+        const visibleGroups = userGroups.slice(0, 2);
+        const hiddenGroupsCount = userGroups.length - 2;
 
         return (
             <TableRow key={user._id || user.id} hover>
-                <TableCell sx={{ fontWeight: "bold" }}>
-                    <Box display="flex" flexDirection="column">
-                        <Typography variant="body2">
-                            {/* מזהה יייחודי של המשתמש */}
-                            {user.username}
-                        </Typography>
-                    </Box>
-                </TableCell>
-                <TableCell sx={{ fontWeight: "bold" }}>
-                    <Box display="flex" flexDirection="column">
-                        {/* שם משתמש */}
-                        <Typography variant="body2">
-                            {user.displayName}
-                        </Typography>
-                    </Box>
-                </TableCell>
+                {/* 1. System ID (Username) */}
                 <TableCell>
-                    <Box display="flex" flexWrap="wrap" gap={0.5}>
-                        {user.groups && user.groups.length > 0 ? (
-                            user.groups.map((g, idx) => {
+                    <Typography variant="body2" fontFamily="monospace">
+                        {user.username}
+                    </Typography>
+                </TableCell>
+
+                {/* 2. Name (Display Name) */}
+                <TableCell sx={{ fontWeight: "bold" }}>
+                    <Typography variant="body2">{user.displayName}</Typography>
+                </TableCell>
+
+                {/* 3. Groups (Max 2 + Chip) */}
+                <TableCell>
+                    <Box
+                        display="flex"
+                        flexWrap="wrap"
+                        gap={0.5}
+                        alignItems="center"
+                    >
+                        {visibleGroups.length > 0 ? (
+                            visibleGroups.map((g, idx) => {
                                 const groupName =
                                     allGroups.find(
                                         (grp) =>
@@ -117,10 +165,26 @@ export default function AdminTable({
                                 No Groups
                             </Typography>
                         )}
+
+                        {/* תצוגת היתרה אם יש יותר מ-2 קבוצות */}
+                        {hiddenGroupsCount > 0 && (
+                            <Chip
+                                label={`+${hiddenGroupsCount}`}
+                                size="small"
+                                color="default"
+                                sx={{ fontWeight: "bold", minWidth: 30 }}
+                            />
+                        )}
                     </Box>
                 </TableCell>
+
+                {/* 4. Created */}
                 <TableCell>{formatDate(user.createdAt)}</TableCell>
-                <TableCell>{formatDate(user.lastLogin)}</TableCell>
+
+                {/* 5. Last Login */}
+                <TableCell>{getLastLoginDisplay(user.lastLogin)}</TableCell>
+
+                {/* 6. Status */}
                 <TableCell>
                     <Chip
                         label={user.isActive ? "Active" : "Inactive"}
@@ -128,6 +192,8 @@ export default function AdminTable({
                         size="small"
                     />
                 </TableCell>
+
+                {/* 7. Actions */}
                 <TableCell align="center">
                     <Tooltip title="Edit">
                         <IconButton
@@ -138,7 +204,6 @@ export default function AdminTable({
                         </IconButton>
                     </Tooltip>
 
-                    {/* המחיקה מוסתרת לחלוטין אם זה Super Admin */}
                     {!isSuperAdmin && (
                         <Tooltip title="Delete">
                             <IconButton
@@ -158,16 +223,35 @@ export default function AdminTable({
     // --- Group Row Render ---
     const renderGroupRow = (rawGroup: Group) => {
         const group = rawGroup as unknown as ExtendedGroup;
-        // בדיקה שאינה רגישה לאותיות גדולות/קטנות
-        const isSystemGroup = group.name.toLowerCase() === "administrators";
+        const isSystemGroup = group.name === "administrators";
+        const groupId = group._id || group.id;
+
+        // חישוב מספר המשתמשים בקבוצה בזמן אמת (מתוך רשימת המשתמשים הכללית)
+        const userCount = users.filter((u) =>
+            u.groups?.some((g) => g.groupId === groupId),
+        ).length;
+
+        // האם ניתן למחוק? (לא קבוצת מערכת וגם אין משתמשים)
+        const canDelete = !isSystemGroup && userCount === 0;
 
         return (
-            <TableRow key={group._id || group.id} hover>
+            <TableRow key={groupId} hover>
                 <TableCell>{group.name}</TableCell>
-                <TableCell>{group.members.length}</TableCell>
+
+                {/* <TableCell>{userCount}</TableCell> */}
+                <TableCell>
+                    {userCount === 0 ? (
+                        <Typography variant="body2" color="error">
+                            0
+                        </Typography>
+                    ) : (
+                        userCount
+                    )}
+                </TableCell>
+
                 <TableCell>{formatDate(group.createdAt)}</TableCell>
+
                 <TableCell align="center">
-                    {/* הסתרת כפתורי עריכה ומחיקה לקבוצת המערכת */}
                     {!isSystemGroup && (
                         <>
                             <Tooltip title="Edit">
@@ -178,14 +262,27 @@ export default function AdminTable({
                                     <EditIcon fontSize="small" />
                                 </IconButton>
                             </Tooltip>
-                            <Tooltip title="Delete">
-                                <IconButton
-                                    size="small"
-                                    color="error"
-                                    onClick={() => onDelete(rawGroup)}
-                                >
-                                    <DeleteIcon fontSize="small" />
-                                </IconButton>
+
+                            {/* כפתור מחיקה עם הגנה ו-Tooltip */}
+                            <Tooltip
+                                title={
+                                    !canDelete
+                                        ? "Cannot delete group with active members"
+                                        : "Delete"
+                                }
+                            >
+                                <span>
+                                    {" "}
+                                    {/* Span wrapper required for Tooltip on disabled button */}
+                                    <IconButton
+                                        size="small"
+                                        color="error"
+                                        onClick={() => onDelete(rawGroup)}
+                                        disabled={!canDelete}
+                                    >
+                                        <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                </span>
                             </Tooltip>
                         </>
                     )}
@@ -218,7 +315,7 @@ export default function AdminTable({
                                         fontWeight: "bold",
                                     }}
                                 >
-                                    Username
+                                    Name
                                 </TableCell>
                                 <TableCell
                                     sx={{

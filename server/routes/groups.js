@@ -174,62 +174,122 @@ router.put("/:id/settings", protect, async (req, res) => {
     }
 });
 
-// === GENERAL GROUP UPDATE (For emails, etc.) ===
+// === GENERAL GROUP UPDATE (with Member Synchronization) ===
 router.put("/:id", protect, async (req, res) => {
     try {
-        let group;
-        // Check if ID is a valid ObjectId
-        if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-            group = await Group.findByIdAndUpdate(req.params.id, req.body, {
-                new: true,
-            });
+        let groupIdToFind = req.params.id;
+        let query = {};
+
+        // זיהוי האם זה ObjectId או ID מותאם
+        if (groupIdToFind.match(/^[0-9a-fA-F]{24}$/)) {
+            query = { _id: groupIdToFind };
         } else {
-            // Fallback to custom 'id'
-            group = await Group.findOneAndUpdate(
-                { id: req.params.id },
-                req.body,
-                { new: true },
-            );
+            query = { id: groupIdToFind };
         }
 
-        if (!group) return res.status(404).json({ message: "Group not found" });
+        // 1. שליפת הקבוצה הנוכחית (לפני השינוי) כדי להשוות חברים
+        const oldGroup = await Group.findOne(query);
+        if (!oldGroup)
+            return res.status(404).json({ message: "Group not found" });
 
-        res.json(group);
+        // 2. עדכון הקבוצה עצמה
+        // אנו משתמשים ב-req.body.members אם הוא קיים
+        const updatedGroup = await Group.findOneAndUpdate(
+            query,
+            req.body,
+            { new: true }, // מחזיר את המסמך החדש
+        );
+
+        // 3. לוגיקת סנכרון משתמשים (רק אם נשלח שדה members)
+        if (req.body.members) {
+            const oldMembers = oldGroup.members.map((m) => m.toString());
+            const newMembers = req.body.members.map((m) => m.toString());
+
+            // A. משתמשים שנוספו לקבוצה -> צריך לעדכן את ה-User שלהם
+            const usersAdded = newMembers.filter(
+                (id) => !oldMembers.includes(id),
+            );
+            if (usersAdded.length > 0) {
+                await User.updateMany(
+                    { _id: { $in: usersAdded } },
+                    {
+                        $addToSet: {
+                            groups: {
+                                groupId: updatedGroup.id, // משתמשים ב-ID המותאם (String) לקשר
+                                role: "member",
+                                order: 99,
+                            },
+                        },
+                    },
+                );
+            }
+
+            // B. משתמשים שהוסרו מהקבוצה -> צריך לעדכן את ה-User שלהם
+            const usersRemoved = oldMembers.filter(
+                (id) => !newMembers.includes(id),
+            );
+            if (usersRemoved.length > 0) {
+                // כאן אנחנו חייבים להיזהר: למחוק רק את האובייקט הספציפי במערך groups
+                // שמכיל את ה-groupId של הקבוצה הזו.
+
+                // נחפש גם לפי ה-ID הרגיל וגם לפי ה-ObjectId למקרה של אי תאימות היסטורית
+                const groupIdentifiers = [
+                    updatedGroup.id,
+                    updatedGroup._id.toString(),
+                ];
+
+                await User.updateMany(
+                    { _id: { $in: usersRemoved } },
+                    {
+                        $pull: {
+                            groups: { groupId: { $in: groupIdentifiers } },
+                        },
+                    },
+                );
+            }
+        }
+
+        res.json(updatedGroup);
     } catch (err) {
+        console.error("Update group error:", err);
         res.status(400).json({ message: err.message });
     }
 });
 
-// === DELETE GROUP ===
+// === DELETE GROUP (Protected) ===
 router.delete("/:id", protect, async (req, res) => {
     try {
-        let group;
-        // בדיקה האם המזהה שהתקבל הוא ObjectId תקין של מונגו
-        // (הקליינט שולח לפעמים את ה-ID המותאם ולפעמים את ה-ObjectId)
+        let query = {};
         if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-            group = await Group.findByIdAndDelete(req.params.id);
+            query = { _id: req.params.id };
         } else {
-            // אם לא, חיפוש ומחיקה לפי המזהה המותאם אישית (השם של הקבוצה)
-            group = await Group.findOneAndDelete({ id: req.params.id });
+            query = { id: req.params.id };
         }
 
+        const group = await Group.findOne(query);
         if (!group) return res.status(404).json({ message: "Group not found" });
 
-        // --- ניקוי שאריות (Cleanup) ---
-
-        // 1. הסרת הקבוצה מרשימת הקבוצות של כל המשתמשים
-        // אנחנו מסירים גם לפי ה-ID המותאם וגם לפי ה-ObjectId ליתר ביטחון
+        // === הגנה: בדיקה האם יש משתמשים המקושרים לקבוצה זו ===
+        // אנו בודקים האם קיים משתמש כלשהו שיש לו את הקבוצה הזו ברשימת ה-groups שלו
         const groupIdentifiers = [group.id, group._id.toString()].filter(
             Boolean,
         );
 
-        await User.updateMany(
-            { "groups.groupId": { $in: groupIdentifiers } },
-            { $pull: { groups: { groupId: { $in: groupIdentifiers } } } },
-        );
+        const activeUserCount = await User.countDocuments({
+            "groups.groupId": { $in: groupIdentifiers },
+        });
 
-        // 2. מחיקת כל האתרים (Sites) ששייכים לקבוצה הזו
-        // (בהנחה שאתרים מקושרים לפי ה-ObjectId של הקבוצה)
+        if (activeUserCount > 0) {
+            return res.status(400).json({
+                message:
+                    "Cannot delete group with active members. Please remove members first.",
+            });
+        }
+        // === סוף הגנה ===
+
+        await Group.findOneAndDelete(query);
+
+        // ניקוי שאריות (אתרים וכו') - נשאר אותו דבר, אך סנכרון המשתמשים מיותר כי וידאנו שהם 0
         await Site.deleteMany({ groupId: group._id });
 
         res.json({ message: "Group deleted successfully" });

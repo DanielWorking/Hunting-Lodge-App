@@ -36,6 +36,7 @@ interface AdminTableProps {
     users: User[];
     groups: Group[];
     allGroups: Group[];
+    allUsers: User[];
     onEdit: (item: User | Group) => void;
     onDelete: (item: User | Group) => void;
 }
@@ -45,6 +46,7 @@ export default function AdminTable({
     users,
     groups,
     allGroups,
+    allUsers,
     onEdit,
     onDelete,
 }: AdminTableProps) {
@@ -114,10 +116,15 @@ export default function AdminTable({
         const superAdminId = import.meta.env.VITE_SUPER_ADMIN_ID;
         const isSuperAdmin = user.username === superAdminId;
 
-        // לוגיקת תצוגת קבוצות - מקסימום 2
-        const userGroups = user.groups || [];
-        const visibleGroups = userGroups.slice(0, 2);
-        const hiddenGroupsCount = userGroups.length - 2;
+        // תיקון: סינון קבוצות שאינן קיימות ברשימת הקבוצות הכללית (ghost groups)
+        // זה מונע את המצב שבו מופיע +1 על קבוצה מחוקה/לא קיימת או שארית מ-Seed
+        const validUserGroups = (user.groups || []).filter((g) =>
+            allGroups.some((grp) => (grp._id || grp.id) === g.groupId),
+        );
+
+        // לוגיקת תצוגה מבוססת על הקבוצות התקינות בלבד
+        const visibleGroups = validUserGroups.slice(0, 2);
+        const hiddenGroupsCount = validUserGroups.length - 2;
 
         return (
             <TableRow key={user._id || user.id} hover>
@@ -227,7 +234,7 @@ export default function AdminTable({
         const groupId = group._id || group.id;
 
         // חישוב מספר המשתמשים בקבוצה בזמן אמת (מתוך רשימת המשתמשים הכללית)
-        const userCount = users.filter((u) =>
+        const userCount = allUsers.filter((u) =>
             u.groups?.some((g) => g.groupId === groupId),
         ).length;
 
@@ -238,7 +245,6 @@ export default function AdminTable({
             <TableRow key={groupId} hover>
                 <TableCell>{group.name}</TableCell>
 
-                {/* <TableCell>{userCount}</TableCell> */}
                 <TableCell>
                     {userCount === 0 ? (
                         <Typography variant="body2" color="error">

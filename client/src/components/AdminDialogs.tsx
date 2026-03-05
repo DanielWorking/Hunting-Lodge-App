@@ -14,10 +14,7 @@ import {
     Divider,
     Alert,
     IconButton,
-    Select,
-    MenuItem,
-    InputLabel,
-    FormControl,
+    Autocomplete,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
@@ -54,7 +51,7 @@ export function UserDialog({
         groups: [],
     });
 
-    const [groupToAdd, setGroupToAdd] = useState<string>("");
+    const [groupToAdd, setGroupToAdd] = useState<Group | null>(null);
 
     useEffect(() => {
         if (initialData) {
@@ -67,7 +64,7 @@ export function UserDialog({
                 groups: [],
             });
         }
-        setGroupToAdd("");
+        setGroupToAdd(null);
     }, [initialData, open]);
 
     // 2. זיהוי האם הפרופיל הנערך הוא של המנהל הראשי
@@ -96,20 +93,21 @@ export function UserDialog({
 
     const handleAddGroup = () => {
         if (!groupToAdd) return;
+        const groupId = groupToAdd._id || groupToAdd.id;
+
         setFormData((prev) => {
             const currentGroups = prev.groups || [];
-            if (currentGroups.some((g) => g.groupId === groupToAdd))
-                return prev;
+            if (currentGroups.some((g) => g.groupId === groupId)) return prev;
 
             return {
                 ...prev,
                 groups: [
                     ...currentGroups,
-                    { groupId: groupToAdd, role: "member", order: 0 },
+                    { groupId: groupId, role: "member", order: 0 },
                 ],
             };
         });
-        setGroupToAdd("");
+        setGroupToAdd(null);
     };
 
     const handleRemoveGroup = (groupId: string) => {
@@ -123,7 +121,6 @@ export function UserDialog({
     };
 
     const handleRoleChange = (groupId: string, isManager: boolean) => {
-        // מניעת שינוי תפקיד בתוך קבוצת האדמינים (הם תמיד מנהלים מעצם היותם בקבוצה)
         if (isTargetUserAdmin) {
             const groupObj = groups.find((g) => (g._id || g.id) === groupId);
             if (groupObj?.name === "administrators") return;
@@ -143,8 +140,10 @@ export function UserDialog({
     };
 
     const handleSave = () => {
+        // שומרים רק את ה-username (System ID) ודואגים שגם ה-displayName יעודכן אם לא הוזן
         const usernameToSend = formData.username;
-        const displayNameToSend = formData.displayName;
+        // במקרה שאין שדה עריכה ל-Display Name, נשתמש בקיים או ביוזרניים כברירת מחדל
+        const displayNameToSend = formData.displayName || formData.username;
         const emailToSend = formData.email;
 
         onSave({
@@ -156,7 +155,8 @@ export function UserDialog({
         onClose();
     };
 
-    const availableGroupsToAdd = groups.filter((g) => {
+    // סינון קבוצות שכבר נבחרו לטובת ה-Autocomplete
+    const availableGroups = groups.filter((g) => {
         const gid = g._id || g.id;
         return !formData.groups?.some((mg) => mg.groupId === gid);
     });
@@ -176,15 +176,14 @@ export function UserDialog({
                     <TextField
                         autoFocus
                         margin="dense"
-                        label={"User ID (Cannot be changed)"}
-                        // טקסט עזרה דינמי
+                        label={"System ID (Username)"}
                         helperText={
                             "Enter the unique user ID exactly as it appears in the organization."
                         }
-                        type={"text"} // ולידציה בסיסית של הדפדפן
+                        type={"text"}
                         fullWidth
                         disabled={!!initialData}
-                        value={formData.displayName}
+                        value={formData.username || ""}
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
@@ -202,11 +201,10 @@ export function UserDialog({
                         </Alert>
                     )}
 
-                    {/* Active Switch - נעול ל-Super Admin ולעצמך */}
                     <FormControlLabel
                         control={
                             <Switch
-                                checked={formData.isActive}
+                                checked={formData.isActive || false}
                                 onChange={(e) =>
                                     setFormData({
                                         ...formData,
@@ -231,11 +229,13 @@ export function UserDialog({
 
                     <Box
                         sx={{
-                            maxHeight: 300,
-                            overflow: "auto",
+                            maxHeight: 200,
+                            overflowY: "auto",
                             display: "flex",
                             flexDirection: "column",
                             gap: 1,
+                            mb: 2,
+                            p: 0.5,
                         }}
                     >
                         {formData.groups?.length === 0 && (
@@ -257,13 +257,11 @@ export function UserDialog({
                             const isAdministratorsGroup =
                                 groupObj.name === "administrators";
 
-                            // לוגיקה להסרה: אסור להסיר אם זה SuperAdmin/Self מקבוצת הניהול
                             const canRemove = !(
                                 isAdministratorsGroup &&
                                 (isSuperAdminProfile || isEditingSelf)
                             );
 
-                            // שינוי רול לא רלוונטי לקבוצת האדמינים
                             const canChangeRole = !isAdministratorsGroup;
 
                             return (
@@ -359,31 +357,35 @@ export function UserDialog({
                             mt: 2,
                             display: "flex",
                             gap: 1,
-                            alignItems: "flex-end",
+                            alignItems: "flex-start",
                         }}
                     >
-                        <FormControl fullWidth size="small">
-                            <InputLabel>Add Group</InputLabel>
-                            <Select
-                                value={groupToAdd}
-                                label="Add Group"
-                                onChange={(e) => setGroupToAdd(e.target.value)}
-                            >
-                                {availableGroupsToAdd.map((g) => (
-                                    <MenuItem
-                                        key={g._id || g.id}
-                                        value={g._id || g.id}
-                                    >
-                                        {g.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                        <Autocomplete
+                            options={availableGroups}
+                            getOptionLabel={(option) => option.name}
+                            value={groupToAdd}
+                            onChange={(_, newValue) => setGroupToAdd(newValue)}
+                            fullWidth
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    label="Add Group"
+                                    size="small"
+                                    placeholder="Search group..."
+                                />
+                            )}
+                            renderOption={(props, option) => (
+                                <li {...props} key={option._id || option.id}>
+                                    {option.name}
+                                </li>
+                            )}
+                        />
                         <Button
                             variant="contained"
                             onClick={handleAddGroup}
                             disabled={!groupToAdd}
                             startIcon={<AddIcon />}
+                            sx={{ mt: 0.2 }}
                         >
                             Add
                         </Button>
@@ -414,52 +416,250 @@ export function GroupDialog({
     onSave,
     initialData,
 }: GroupDialogProps) {
-    const [name, setName] = useState("");
+    const { users } = useData();
+    const [formData, setFormData] = useState<Partial<Group>>({
+        name: "",
+        members: [],
+    });
 
+    const [userToAdd, setUserToAdd] = useState<User | null>(null);
+
+    // חישוב החברים מתוך היוזרים ולא מהקבוצה
     useEffect(() => {
         if (initialData) {
-            setName(initialData.name);
+            // זיהוי הקבוצה (תמיכה ב-ID רגיל ו-ObjectId)
+            const groupId = initialData.id;
+            const groupObjectId = initialData._id;
+
+            // מציאת כל המשתמשים שמשויכים לקבוצה הזו בפועל
+            const actualMembers = users
+                .filter((u) =>
+                    u.groups?.some(
+                        (g) =>
+                            g.groupId === groupId ||
+                            g.groupId === groupObjectId,
+                    ),
+                )
+                .map((u) => u._id); // לוקחים את ה-ObjectId של המשתמשים
+
+            setFormData({
+                ...initialData,
+                // דריסת רשימת החברים שמגיעה מהקבוצה ברשימה המחושבת מהמשתמשים
+                members: actualMembers.filter((id): id is string => !!id),
+            });
         } else {
-            setName("");
+            setFormData({ name: "", members: [] });
         }
-    }, [initialData, open]);
+        setUserToAdd(null);
+    }, [initialData, open, users]);
+
+    const handleAddMember = () => {
+        if (!userToAdd) return;
+
+        const userId = userToAdd._id || userToAdd.id;
+        if (!userId) return;
+
+        setFormData((prev) => {
+            const currentMembers = prev.members || [];
+            if (currentMembers.includes(userId)) return prev;
+            return {
+                ...prev,
+                members: [...currentMembers, userId],
+            };
+        });
+        setUserToAdd(null);
+    };
+
+    const handleRemoveMember = (userId: string) => {
+        setFormData((prev) => ({
+            ...prev,
+            members: (prev.members || []).filter((id) => id !== userId),
+        }));
+    };
 
     const handleSave = () => {
-        // הכנת האובייקט לשליחה
         const groupData: Partial<Group> = {
-            name: name.trim(),
+            ...formData,
+            name: formData.name?.trim(),
         };
 
         if (!initialData) {
-            groupData.id = name.trim();
+            groupData.id = formData.name?.trim();
         }
 
         onSave(groupData);
         onClose();
     };
 
+    const availableUsers = users.filter((u) => {
+        const uid = u._id || u.id;
+        if (!uid) return false;
+        return !formData.members?.includes(uid);
+    });
+
+    const isSystemGroup = initialData?.name === "administrators";
+
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle>
                 {initialData ? "Edit Group" : "Add New Group"}
             </DialogTitle>
             <DialogContent>
-                <TextField
-                    autoFocus
-                    margin="dense"
-                    label="Group Name"
-                    fullWidth
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    disabled={initialData?.name === "administrators"}
-                />
+                <Box
+                    display="flex"
+                    flexDirection="column"
+                    gap={2}
+                    sx={{ mt: 1 }}
+                >
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        label="Group Name"
+                        fullWidth
+                        value={formData.name || ""}
+                        onChange={(e) =>
+                            setFormData({ ...formData, name: e.target.value })
+                        }
+                        disabled={isSystemGroup}
+                    />
+
+                    <Divider sx={{ my: 1 }}>Group Members</Divider>
+
+                    <Box
+                        sx={{
+                            maxHeight: 200,
+                            overflowY: "auto",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 1,
+                            p: 0.5,
+                        }}
+                    >
+                        {(!formData.members ||
+                            formData.members.length === 0) && (
+                            <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                align="center"
+                            >
+                                No members yet.
+                            </Typography>
+                        )}
+
+                        {formData.members?.map((memberId) => {
+                            const userObj = users.find(
+                                (u) => u._id === memberId || u.id === memberId,
+                            );
+
+                            if (!userObj) return null;
+
+                            const isSuperAdminUser =
+                                userObj.username ===
+                                import.meta.env.VITE_SUPER_ADMIN_ID;
+                            const canRemove = !(
+                                isSystemGroup && isSuperAdminUser
+                            );
+
+                            return (
+                                <Box
+                                    key={memberId}
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        p: 1,
+                                        border: "1px solid #eee",
+                                        borderRadius: 1,
+                                        bgcolor: "background.paper",
+                                    }}
+                                >
+                                    <Box>
+                                        <Typography
+                                            variant="body2"
+                                            fontWeight="medium"
+                                        >
+                                            {userObj.displayName}
+                                        </Typography>
+                                        <Typography
+                                            variant="caption"
+                                            color="text.secondary"
+                                        >
+                                            ({userObj.username})
+                                        </Typography>
+                                    </Box>
+
+                                    <IconButton
+                                        size="small"
+                                        color="error"
+                                        disabled={!canRemove}
+                                        onClick={() =>
+                                            handleRemoveMember(memberId)
+                                        }
+                                    >
+                                        <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                </Box>
+                            );
+                        })}
+                    </Box>
+
+                    <Box
+                        sx={{
+                            mt: 2,
+                            display: "flex",
+                            gap: 1,
+                            alignItems: "flex-start",
+                        }}
+                    >
+                        <Autocomplete
+                            options={availableUsers}
+                            getOptionLabel={(option) =>
+                                `${option.displayName} (${option.username})`
+                            }
+                            value={userToAdd}
+                            onChange={(_, newValue) => setUserToAdd(newValue)}
+                            fullWidth
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    label="Add User to Group"
+                                    size="small"
+                                />
+                            )}
+                            renderOption={(props, option) => (
+                                <li {...props} key={option._id || option.id}>
+                                    <Box>
+                                        <Typography variant="body2">
+                                            {option.displayName}
+                                        </Typography>
+                                        <Typography
+                                            variant="caption"
+                                            color="text.secondary"
+                                        >
+                                            {option.username}
+                                        </Typography>
+                                    </Box>
+                                </li>
+                            )}
+                        />
+                        <Button
+                            variant="contained"
+                            onClick={handleAddMember}
+                            disabled={!userToAdd}
+                            startIcon={<AddIcon />}
+                            sx={{ mt: 0.2 }}
+                        >
+                            Add
+                        </Button>
+                    </Box>
+                </Box>
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose}>Cancel</Button>
                 <Button
                     onClick={handleSave}
                     variant="contained"
-                    disabled={!name.trim()}
+                    disabled={!formData.name?.trim()}
                 >
                     Save
                 </Button>

@@ -30,8 +30,11 @@ export default function AdminPage() {
     const [deleteItem, setDeleteItem] = useState<User | Group | null>(null);
 
     // === Filtering ===
-    const filteredUsers = users.filter((u) =>
-        u.username.toLowerCase().includes(searchTerm.toLowerCase()),
+    const filteredUsers = users.filter(
+        (u) =>
+            u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (u.displayName &&
+                u.displayName.toLowerCase().includes(searchTerm.toLowerCase())),
     );
 
     const filteredGroups = groups.filter((g) =>
@@ -182,6 +185,7 @@ export default function AdminPage() {
                 users={filteredUsers}
                 groups={filteredGroups}
                 allGroups={groups}
+                allUsers={users}
                 onEdit={handleEditClick}
                 onDelete={handleDeleteClick}
             />

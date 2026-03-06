@@ -15,10 +15,6 @@ import {
     Alert,
     IconButton,
     Autocomplete,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemAvatar,
     Avatar,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -435,11 +431,15 @@ export function GroupDialog({
         }
     }, [initialData, open]);
 
-    // חישוב חברי הקבוצה (רק במצב עריכה)
+    // חישוב חברי הקבוצה (רק במצב עריכה) - תיקון: בדיקה מול ID טקסטואלי ומול מונגו ID
     const groupMembers = useMemo(() => {
         if (!initialData) return [];
         return users.filter((user) =>
-            user.groups?.some((g) => g.groupId === initialData.id),
+            user.groups?.some(
+                (g) =>
+                    g.groupId === initialData.id ||
+                    g.groupId === initialData._id,
+            ),
         );
     }, [users, initialData]);
 
@@ -495,7 +495,7 @@ export function GroupDialog({
                         />
                     </Box>
 
-                    {/* רשימת חברים - מוצגת רק במצב עריכה */}
+                    {/* רשימת חברים - מוצגת רק במצב עריכה - עיצוב מחודש */}
                     {!isCreateMode && (
                         <Box>
                             <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -510,32 +510,91 @@ export function GroupDialog({
                                     maxHeight: 200,
                                     overflowY: "auto",
                                     bgcolor: "background.default",
+                                    p: 1,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 1,
                                 }}
                             >
                                 {groupMembers.length > 0 ? (
-                                    <List dense>
-                                        {groupMembers.map((member) => (
-                                            <ListItem key={member._id}>
-                                                <ListItemAvatar>
+                                    groupMembers.map((member) => {
+                                        // מציאת פרטי החברות כדי להציג את התפקיד
+                                        const membership = member.groups?.find(
+                                            (g) =>
+                                                g.groupId === initialData.id ||
+                                                g.groupId === initialData._id,
+                                        );
+                                        const isManager =
+                                            membership?.role ===
+                                            "shift_manager";
+
+                                        return (
+                                            <Box
+                                                key={member._id || member.id}
+                                                sx={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent:
+                                                        "space-between",
+                                                    p: 1,
+                                                    bgcolor: "background.paper",
+                                                    borderRadius: 1,
+                                                    border: "1px solid #eee",
+                                                }}
+                                            >
+                                                <Box
+                                                    display="flex"
+                                                    alignItems="center"
+                                                    gap={2}
+                                                >
                                                     <Avatar
                                                         sx={{
                                                             width: 32,
                                                             height: 32,
+                                                            bgcolor:
+                                                                "primary.light",
                                                         }}
                                                     >
                                                         <PersonIcon fontSize="small" />
                                                     </Avatar>
-                                                </ListItemAvatar>
-                                                <ListItemText
-                                                    primary={
-                                                        member.displayName ||
-                                                        member.username
+                                                    <Box>
+                                                        <Typography
+                                                            variant="body2"
+                                                            fontWeight="bold"
+                                                        >
+                                                            {member.displayName ||
+                                                                member.username}
+                                                        </Typography>
+                                                        <Typography
+                                                            variant="caption"
+                                                            color="text.secondary"
+                                                        >
+                                                            {member.username}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+
+                                                <Chip
+                                                    label={
+                                                        isManager
+                                                            ? "Shift Manager"
+                                                            : "Member"
                                                     }
-                                                    secondary={member.username}
+                                                    size="small"
+                                                    color={
+                                                        isManager
+                                                            ? "primary"
+                                                            : "default"
+                                                    }
+                                                    variant={
+                                                        isManager
+                                                            ? "filled"
+                                                            : "outlined"
+                                                    }
                                                 />
-                                            </ListItem>
-                                        ))}
-                                    </List>
+                                            </Box>
+                                        );
+                                    })
                                 ) : (
                                     <Typography
                                         variant="body2"

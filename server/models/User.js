@@ -4,7 +4,7 @@ const UserSchema = new mongoose.Schema(
     {
         username: { type: String, required: true, unique: true },
         displayName: { type: String },
-        email: { type: String, required: true, unique: true },
+        email: { type: String, required: true, unique: true, sparse: true },
         groups: [
             {
                 groupId: { type: String },

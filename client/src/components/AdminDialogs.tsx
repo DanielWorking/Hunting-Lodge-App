@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     Dialog,
     DialogTitle,
@@ -15,9 +15,15 @@ import {
     Alert,
     IconButton,
     Autocomplete,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemAvatar,
+    Avatar,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
+import PersonIcon from "@mui/icons-material/Person";
 import { useData } from "../context/DataContext";
 import { useUser } from "../context/UserContext";
 import type { User, Group } from "../types";
@@ -417,248 +423,136 @@ export function GroupDialog({
     initialData,
 }: GroupDialogProps) {
     const { users } = useData();
-    const { user: currentUser } = useUser();
-    const [formData, setFormData] = useState<Partial<Group>>({
-        name: "",
-        members: [],
-    });
+    const [name, setName] = useState("");
 
-    const [userToAdd, setUserToAdd] = useState<User | null>(null);
+    // זיהוי האם מדובר בקבוצת המערכת המוגנת
+    const isSystemGroup = initialData?.id === "administrators";
+    const isCreateMode = !initialData;
 
-    // חישוב החברים מתוך היוזרים ולא מהקבוצה
     useEffect(() => {
-        if (initialData) {
-            // זיהוי הקבוצה (תמיכה ב-ID רגיל ו-ObjectId)
-            const groupId = initialData.id;
-            const groupObjectId = initialData._id;
-
-            // מציאת כל המשתמשים שמשויכים לקבוצה הזו בפועל
-            const actualMembers = users
-                .filter((u) =>
-                    u.groups?.some(
-                        (g) =>
-                            g.groupId === groupId ||
-                            g.groupId === groupObjectId,
-                    ),
-                )
-                .map((u) => u._id); // לוקחים את ה-ObjectId של המשתמשים
-
-            setFormData({
-                ...initialData,
-                // דריסת רשימת החברים שמגיעה מהקבוצה ברשימה המחושבת מהמשתמשים
-                members: actualMembers.filter((id): id is string => !!id),
-            });
-        } else {
-            setFormData({ name: "", members: [] });
+        if (open) {
+            setName(initialData?.name || "");
         }
-        setUserToAdd(null);
-    }, [initialData, open, users]);
+    }, [initialData, open]);
 
-    const handleAddMember = () => {
-        if (!userToAdd) return;
-
-        const userId = userToAdd._id || userToAdd.id;
-        if (!userId) return;
-
-        setFormData((prev) => {
-            const currentMembers = prev.members || [];
-            if (currentMembers.includes(userId)) return prev;
-            return {
-                ...prev,
-                members: [...currentMembers, userId],
-            };
-        });
-        setUserToAdd(null);
-    };
-
-    const handleRemoveMember = (userId: string) => {
-        setFormData((prev) => ({
-            ...prev,
-            members: (prev.members || []).filter((id) => id !== userId),
-        }));
-    };
+    // חישוב חברי הקבוצה (רק במצב עריכה)
+    const groupMembers = useMemo(() => {
+        if (!initialData) return [];
+        return users.filter((user) =>
+            user.groups?.some((g) => g.groupId === initialData.id),
+        );
+    }, [users, initialData]);
 
     const handleSave = () => {
-        const groupData: Partial<Group> = {
-            ...formData,
-            name: formData.name?.trim(),
-        };
+        if (!name.trim()) return;
 
-        if (!initialData) {
-            groupData.id = formData.name?.trim();
+        if (isCreateMode) {
+            // --- מצב יצירה: יצירת ID אוטומטית ---
+            // הופך "Shift Managers" ל- "shift_managers"
+            const generatedId = name.trim().toLowerCase().replace(/\s+/g, "_");
+
+            onSave({
+                name: name.trim(),
+                id: generatedId,
+            });
+        } else {
+            // --- מצב עריכה: עדכון שם בלבד ---
+            onSave({ ...initialData, name: name.trim() });
         }
-
-        onSave(groupData);
-        onClose();
     };
-
-    const availableUsers = users.filter((u) => {
-        const uid = u._id || u.id;
-        if (!uid) return false;
-        return !formData.members?.includes(uid);
-    });
-
-    const isSystemGroup = initialData?.name === "administrators";
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle>
-                {initialData ? "Edit Group" : "Add New Group"}
+                {isCreateMode
+                    ? "Create New Group"
+                    : `Edit Group: ${initialData?.name}`}
             </DialogTitle>
             <DialogContent>
                 <Box
-                    display="flex"
-                    flexDirection="column"
-                    gap={2}
-                    sx={{ mt: 1 }}
+                    sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 3,
+                        mt: 1,
+                    }}
                 >
-                    <TextField
-                        autoFocus
-                        margin="dense"
-                        label="Group Name"
-                        fullWidth
-                        value={formData.name || ""}
-                        onChange={(e) =>
-                            setFormData({ ...formData, name: e.target.value })
-                        }
-                        disabled={isSystemGroup}
-                    />
-
-                    <Divider sx={{ my: 1 }}>Group Members</Divider>
-
-                    <Box
-                        sx={{
-                            maxHeight: 200,
-                            overflowY: "auto",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 1,
-                            p: 0.5,
-                        }}
-                    >
-                        {(!formData.members ||
-                            formData.members.length === 0) && (
-                            <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                align="center"
-                            >
-                                No members yet.
-                            </Typography>
-                        )}
-
-                        {formData.members?.map((memberId) => {
-                            const userObj = users.find(
-                                (u) => u._id === memberId || u.id === memberId,
-                            );
-
-                            if (!userObj) return null;
-
-                            const isSuperAdminUser =
-                                userObj.username ===
-                                import.meta.env.VITE_SUPER_ADMIN_ID;
-                            // בדיקה אם זה המשתמש הנוכחי (כדי למנוע הסרה עצמית)
-                            const isSelf =
-                                userObj._id ===
-                                (currentUser?._id || currentUser?.id);
-                            // תנאי הגנה: אי אפשר להסיר אם זו קבוצת מערכת וגם (משתמש על או אני עצמי)
-                            const canRemove = !(
-                                isSystemGroup &&
-                                (isSuperAdminUser || isSelf)
-                            );
-
-                            return (
-                                <Box
-                                    key={memberId}
-                                    sx={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        p: 1,
-                                        border: "1px solid #eee",
-                                        borderRadius: 1,
-                                        bgcolor: "background.paper",
-                                    }}
-                                >
-                                    <Box>
-                                        <Typography
-                                            variant="body2"
-                                            fontWeight="medium"
-                                        >
-                                            {userObj.displayName}
-                                        </Typography>
-                                        <Typography
-                                            variant="caption"
-                                            color="text.secondary"
-                                        >
-                                            ({userObj.username})
-                                        </Typography>
-                                    </Box>
-
-                                    <IconButton
-                                        size="small"
-                                        color="error"
-                                        disabled={!canRemove}
-                                        onClick={() =>
-                                            handleRemoveMember(memberId)
-                                        }
-                                    >
-                                        <DeleteIcon fontSize="small" />
-                                    </IconButton>
-                                </Box>
-                            );
-                        })}
-                    </Box>
-
-                    <Box
-                        sx={{
-                            mt: 2,
-                            display: "flex",
-                            gap: 1,
-                            alignItems: "flex-start",
-                        }}
-                    >
-                        <Autocomplete
-                            options={availableUsers}
-                            getOptionLabel={(option) =>
-                                `${option.displayName} (${option.username})`
-                            }
-                            value={userToAdd}
-                            onChange={(_, newValue) => setUserToAdd(newValue)}
+                    {/* שם הקבוצה */}
+                    <Box>
+                        <TextField
+                            label="Group Name"
                             fullWidth
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label="Add User to Group"
-                                    size="small"
-                                />
-                            )}
-                            renderOption={(props, option) => (
-                                <li {...props} key={option._id || option.id}>
-                                    <Box>
-                                        <Typography variant="body2">
-                                            {option.displayName}
-                                        </Typography>
-                                        <Typography
-                                            variant="caption"
-                                            color="text.secondary"
-                                        >
-                                            {option.username}
-                                        </Typography>
-                                    </Box>
-                                </li>
-                            )}
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            disabled={isSystemGroup} // נעילה לאדמיניסטרטורים
+                            helperText={
+                                isSystemGroup
+                                    ? "System group name cannot be changed."
+                                    : isCreateMode
+                                      ? "Group ID will be generated automatically from the name."
+                                      : "Change the group name (updates everywhere)"
+                            }
                         />
-                        <Button
-                            variant="contained"
-                            onClick={handleAddMember}
-                            disabled={!userToAdd}
-                            startIcon={<AddIcon />}
-                            sx={{ mt: 0.2 }}
-                        >
-                            Add
-                        </Button>
                     </Box>
+
+                    {/* רשימת חברים - מוצגת רק במצב עריכה */}
+                    {!isCreateMode && (
+                        <Box>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                Current Members ({groupMembers.length})
+                            </Typography>
+
+                            <Box
+                                sx={{
+                                    border: "1px solid",
+                                    borderColor: "divider",
+                                    borderRadius: 1,
+                                    maxHeight: 200,
+                                    overflowY: "auto",
+                                    bgcolor: "background.default",
+                                }}
+                            >
+                                {groupMembers.length > 0 ? (
+                                    <List dense>
+                                        {groupMembers.map((member) => (
+                                            <ListItem key={member._id}>
+                                                <ListItemAvatar>
+                                                    <Avatar
+                                                        sx={{
+                                                            width: 32,
+                                                            height: 32,
+                                                        }}
+                                                    >
+                                                        <PersonIcon fontSize="small" />
+                                                    </Avatar>
+                                                </ListItemAvatar>
+                                                <ListItemText
+                                                    primary={
+                                                        member.displayName ||
+                                                        member.username
+                                                    }
+                                                    secondary={member.username}
+                                                />
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                ) : (
+                                    <Typography
+                                        variant="body2"
+                                        color="text.secondary"
+                                        sx={{ p: 2, textAlign: "center" }}
+                                    >
+                                        No members in this group.
+                                    </Typography>
+                                )}
+                            </Box>
+
+                            <Alert severity="info" sx={{ mt: 2 }}>
+                                To add or remove members, please edit the
+                                specific User in the Users tab.
+                            </Alert>
+                        </Box>
+                    )}
                 </Box>
             </DialogContent>
             <DialogActions>
@@ -666,9 +560,12 @@ export function GroupDialog({
                 <Button
                     onClick={handleSave}
                     variant="contained"
-                    disabled={!formData.name?.trim()}
+                    disabled={
+                        !name.trim() ||
+                        (isSystemGroup && name === initialData?.name)
+                    }
                 >
-                    Save
+                    {isCreateMode ? "Create Group" : "Save Changes"}
                 </Button>
             </DialogActions>
         </Dialog>

@@ -29,35 +29,39 @@ export default function AdminFilterBar({
     return (
         <Box
             sx={{
-                display: "flex",
-                flexDirection: { xs: "column", sm: "row" },
-                justifyContent: "space-between",
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr auto 1fr" }, // חלוקה ל-3 עמודות לאיזון מושלם
+                gap: 2,
                 alignItems: "center",
                 mb: 4,
-                gap: 2,
                 bgcolor: "background.paper",
                 p: 2,
                 borderRadius: 2,
                 boxShadow: 1,
             }}
         >
-            <ToggleButtonGroup
-                color="primary"
-                value={viewMode}
-                exclusive
-                onChange={(_, newMode) => {
-                    if (newMode) onViewModeChange(newMode);
-                }}
-                size="small"
-            >
-                <ToggleButton value="users" sx={{ px: 3 }}>
-                    <PersonIcon sx={{ mr: 1 }} /> Users
-                </ToggleButton>
-                <ToggleButton value="groups" sx={{ px: 3 }}>
-                    <GroupIcon sx={{ mr: 1 }} /> Groups
-                </ToggleButton>
-            </ToggleButtonGroup>
+            {/* צד שמאל: כפתורי סינון */}
+            <Box sx={{ justifySelf: { xs: "center", sm: "start" } }}>
+                <ToggleButtonGroup
+                    color="primary"
+                    value={viewMode}
+                    exclusive
+                    onChange={(_, newMode) => {
+                        if (newMode) onViewModeChange(newMode);
+                    }}
+                    aria-label="Platform"
+                    size="small"
+                >
+                    <ToggleButton value="users" sx={{ px: 3 }}>
+                        <PersonIcon sx={{ mr: 1 }} /> Users
+                    </ToggleButton>
+                    <ToggleButton value="groups" sx={{ px: 3 }}>
+                        <GroupIcon sx={{ mr: 1 }} /> Groups
+                    </ToggleButton>
+                </ToggleButtonGroup>
+            </Box>
 
+            {/* אמצע: שדה חיפוש (תמיד במרכז) */}
             <TextField
                 placeholder={
                     viewMode === "users"
@@ -67,7 +71,11 @@ export default function AdminFilterBar({
                 size="small"
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
-                sx={{ flexGrow: 1, maxWidth: { xs: "100%", sm: "400px" } }}
+                sx={{
+                    width: "100%",
+                    maxWidth: "400px",
+                    justifySelf: "center",
+                }}
                 InputProps={{
                     startAdornment: (
                         <InputAdornment position="start">
@@ -77,13 +85,18 @@ export default function AdminFilterBar({
                 }}
             />
 
-            <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={onAddClick}
-            >
-                Add {viewMode === "users" ? "User" : "Group"}
-            </Button>
+            {/* צד ימין: כפתור הוספה (רק לקבוצות) */}
+            <Box sx={{ justifySelf: { xs: "center", sm: "end" } }}>
+                {viewMode === "groups" && (
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={onAddClick}
+                    >
+                        Add Group
+                    </Button>
+                )}
+            </Box>
         </Box>
     );
 }

@@ -44,11 +44,9 @@ export default function AdminPage() {
     // === Handlers ===
 
     const handleAddClick = () => {
-        if (viewMode === "users") {
-            setEditingUser(null);
-            setIsUserDialogOpen(true);
-        } else {
-            setEditingGroup(null);
+        // אנו מוודאים שאנחנו במצב קבוצות (למרות שהכפתור מוסתר במשתמשים, ליתר ביטחון)
+        if (viewMode === "groups") {
+            setEditingGroup(null); // איפוס כדי לסמן "מצב יצירה"
             setIsGroupDialogOpen(true);
         }
     };
@@ -98,27 +96,33 @@ export default function AdminPage() {
     const handleSaveGroup = async (groupData: Partial<Group>) => {
         try {
             if (editingGroup) {
-                // בעדכון - שולחים רק מה שהשתנה
-                await axios.put(
-                    `/api/groups/${editingGroup._id || editingGroup.id}`,
-                    groupData,
-                );
+                // === מצב עריכה (Update) ===
+                // אנו שולחים PUT לשרת. השרת מצפה לעדכון שם בלבד.
+                // נשתמש ב-_id (מזהה מונגו) אם קיים, ליתר ביטחון.
+                const identifier = editingGroup._id || editingGroup.id;
+
+                await axios.put(`/api/groups/${identifier}`, {
+                    name: groupData.name,
+                });
                 showNotification("Group updated successfully", "success");
             } else {
-                // ביצירה - התיקון לשגיאת 400: הוספת שדות חובה כברירת מחדל
-                const newGroupPayload = {
-                    ...groupData,
-                    settings: { shiftTypes: [] }, // אתחול הגדרות ריקות
-                    members: [], // אתחול רשימת חברים ריקה
-                };
-                await axios.post("/api/groups", newGroupPayload);
+                // === מצב יצירה (Create) ===
+                // הדיאלוג (AdminDialogs) כבר דאג לייצר שדה id ושדה name
+                // אז אנחנו שולחים את האובייקט כמו שהוא ב-POST
+                await axios.post("/api/groups", groupData);
                 showNotification("Group created successfully", "success");
             }
-            refreshData();
+
+            // רענון הנתונים בטבלה ובאפליקציה
+            await refreshData();
+
+            // איפוס וסגירה
             setIsGroupDialogOpen(false);
-        } catch (error) {
-            console.error(error);
-            showNotification("Error saving group", "error");
+            setEditingGroup(null);
+        } catch (err: any) {
+            console.error("Error saving group:", err);
+            const msg = err.response?.data?.message || "Failed to save group";
+            showNotification(msg, "error");
         }
     };
 

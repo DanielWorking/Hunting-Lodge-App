@@ -63,15 +63,6 @@ router.post("/", async (req, res) => {
         const newPhone = await phone.save();
         res.status(201).json(newPhone);
     } catch (err) {
-        // טיפול בשגיאת אינדקס ייחודי (שם + סוג)
-        if (err.code === 11000) {
-            return res
-                .status(400)
-                .json({
-                    message:
-                        "A contact with this name and type already exists.",
-                });
-        }
         res.status(400).json({ message: err.message });
     }
 });
@@ -91,14 +82,6 @@ router.put("/:id", async (req, res) => {
         );
         res.json(updatedPhone);
     } catch (err) {
-        if (err.code === 11000) {
-            return res
-                .status(400)
-                .json({
-                    message:
-                        "A contact with this name and type already exists.",
-                });
-        }
         res.status(400).json({ message: err.message });
     }
 });

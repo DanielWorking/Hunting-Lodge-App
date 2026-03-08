@@ -23,8 +23,4 @@ const PhoneSchema = new mongoose.Schema(
     },
 );
 
-// מניעת כפילויות של שם וסוג זהה.
-// (למשל: לא יכול להיות פעמיים "Office" מסוג "Red", אבל יכול להיות "Office" מסוג "Black")
-PhoneSchema.index({ name: 1, type: 1 }, { unique: true });
-
 module.exports = mongoose.model("Phone", PhoneSchema);

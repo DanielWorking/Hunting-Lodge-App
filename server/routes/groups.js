@@ -170,8 +170,20 @@ router.put("/:id/settings", protect, async (req, res) => {
 
         if (!group) return res.status(404).json({ message: "Group not found" });
 
-        // Update settings fields specifically
-        if (shiftTypes) group.settings.shiftTypes = shiftTypes;
+        if (shiftTypes) {
+            // בדיקה שאין שמות כפולים ברשימה החדשה שנשלחה
+            const names = shiftTypes.map((t) => t.name.trim());
+            const uniqueNames = new Set(names);
+
+            if (names.length !== uniqueNames.size) {
+                return res.status(400).json({
+                    message:
+                        "Validation Error: Duplicate shift type names are not allowed.",
+                });
+            }
+            group.settings.shiftTypes = shiftTypes;
+        }
+
         if (timeSlots) group.settings.timeSlots = timeSlots;
 
         // Fallback if settings object is sent directly

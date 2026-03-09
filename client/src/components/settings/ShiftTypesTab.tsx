@@ -70,6 +70,20 @@ export default function ShiftTypesTab() {
         if (!currentGroup) return;
         if (!formData.name.trim()) return alert("Name is required");
 
+        // בדיקת כפילות שם
+        const isDuplicate = shiftTypes.some(
+            (t) =>
+                t.name.trim() === formData.name.trim() &&
+                t._id !== editingType?._id, // מוודא שאנחנו לא משווים את המשמרת לעצמה במקרה של עריכה
+        );
+
+        if (isDuplicate) {
+            return showNotification(
+                "שגיאה: קיים כבר סוג משמרת עם שם זהה",
+                "error",
+            );
+        }
+
         try {
             let updatedTypes = [...shiftTypes];
 

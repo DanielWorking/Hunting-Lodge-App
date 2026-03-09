@@ -198,4 +198,65 @@ router.put("/reorder/group", async (req, res) => {
     }
 });
 
+// Manager specific update (Active status & Vacation balance)
+// הגנה: רק אדמין על או מנהל משמרת בקבוצה משותפת יכולים לערוך
+router.patch("/:id/manager-update", async (req, res) => {
+    try {
+        const { isActive, vacationBalance } = req.body;
+
+        // 1. שליפת המשתמש עליו מבוצע השינוי
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // 2. בדיקת הרשאות למבצע הפעולה (req.user מגיע מה-middleware)
+        const requestingUser = req.user;
+        const isSuperAdmin =
+            requestingUser.username === process.env.SUPER_ADMIN_USERNAME;
+
+        let isAuthorized = isSuperAdmin;
+
+        if (!isAuthorized) {
+            // בדיקה האם למבקש יש תפקיד 'shift_manager' באחת הקבוצות שהמשתמש היעד חבר בהן
+            const managerGroupIds = requestingUser.groups
+                .filter((g) => g.role === "shift_manager")
+                .map((g) => g.groupId.toString()); // המרה ל-String להשוואה
+
+            const targetGroupIds = targetUser.groups.map((g) =>
+                g.groupId.toString(),
+            );
+
+            // האם יש חיתוך בין הקבוצות שאני מנהל לקבוצות שהמשתמש חבר בהן?
+            const hasCommonGroup = managerGroupIds.some((id) =>
+                targetGroupIds.includes(id),
+            );
+
+            if (hasCommonGroup) {
+                isAuthorized = true;
+            }
+        }
+
+        if (!isAuthorized) {
+            return res
+                .status(403)
+                .json({
+                    message:
+                        "Not authorized: You must be a Shift Manager of this user's group.",
+                });
+        }
+
+        // 3. ביצוע העדכון
+        if (isActive !== undefined) targetUser.isActive = isActive;
+        if (vacationBalance !== undefined)
+            targetUser.vacationBalance = vacationBalance;
+
+        const updatedUser = await targetUser.save();
+        res.json(updatedUser);
+    } catch (err) {
+        console.error("Manager Update Error:", err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
 module.exports = router;

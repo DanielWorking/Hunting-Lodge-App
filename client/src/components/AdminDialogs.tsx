@@ -448,8 +448,8 @@ export function GroupDialog({
 
         if (isCreateMode) {
             // --- מצב יצירה: יצירת ID אוטומטית ---
-            // הופך "Shift Managers" ל- "shift_managers"
-            const generatedId = name.trim().toLowerCase().replace(/\s+/g, "_");
+            // הופך "Shift Managers" ל- "Shift_Managers"
+            const generatedId = name.trim().replace(/\s+/g, "_");
 
             onSave({
                 name: name.trim(),

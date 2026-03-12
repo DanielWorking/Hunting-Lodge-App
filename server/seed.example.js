@@ -85,8 +85,8 @@ const importData = async () => {
         // 1. יצירת קבוצות
         const createdGroups = await Group.insertMany([
             {
-                id: "administrators",
-                name: "administrators",
+                id: process.env.SUPER_ADMIN_GROUP_NAME,
+                name: process.env.SUPER_ADMIN_GROUP_NAME,
                 settings: { shiftTypes: [], timeSlots: [] },
                 siteTags: ["General"],
             },
@@ -123,7 +123,8 @@ const importData = async () => {
                 vacationBalance: 999,
                 groups: [
                     {
-                        groupId: gMap["administrators"].stringId,
+                        groupId:
+                            gMap[process.env.SUPER_ADMIN_GROUP_NAME].stringId,
                         role: "shift_manager",
                         order: 0,
                     },

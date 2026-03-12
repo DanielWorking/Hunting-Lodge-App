@@ -29,7 +29,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const [currentGroup, setCurrentGroup] = useState<Group | null>(null);
     const [isRestoringSession, setIsRestoringSession] = useState(true);
 
-    const isAdmin = currentGroup?.name?.toLowerCase() === "administrators";
+    const isAdmin =
+        currentGroup?.name === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
 
     // שימוש בסימני שאלה כדי למנוע קריסה פנימית בקומפוננטה
     const isShiftManagerBool =

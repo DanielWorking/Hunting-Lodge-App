@@ -230,7 +230,8 @@ export default function AdminTable({
     // --- Group Row Render ---
     const renderGroupRow = (rawGroup: Group) => {
         const group = rawGroup as unknown as ExtendedGroup;
-        const isSystemGroup = group.name === "administrators";
+        const isSystemGroup =
+            group.name === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
         const groupId = group._id || group.id;
 
         // חישוב מספר המשתמשים בקבוצה בזמן אמת (מתוך רשימת המשתמשים הכללית)

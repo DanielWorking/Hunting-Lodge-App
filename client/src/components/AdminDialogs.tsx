@@ -88,7 +88,7 @@ export function UserDialog({
         const groupObj = groups.find(
             (g) => (g._id || g.id) === membership.groupId,
         );
-        return groupObj?.name === "administrators";
+        return groupObj?.name === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
     });
 
     // --- לוגיקה לשינוי נתונים ---
@@ -125,7 +125,8 @@ export function UserDialog({
     const handleRoleChange = (groupId: string, isManager: boolean) => {
         if (isTargetUserAdmin) {
             const groupObj = groups.find((g) => (g._id || g.id) === groupId);
-            if (groupObj?.name === "administrators") return;
+            if (groupObj?.name === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME)
+                return;
         }
 
         setFormData((prev) => {
@@ -257,7 +258,8 @@ export function UserDialog({
                             if (!groupObj) return null;
 
                             const isAdministratorsGroup =
-                                groupObj.name === "administrators";
+                                groupObj.name ===
+                                import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
 
                             const canRemove = !(
                                 isAdministratorsGroup &&
@@ -422,7 +424,8 @@ export function GroupDialog({
     const [name, setName] = useState("");
 
     // זיהוי האם מדובר בקבוצת המערכת המוגנת
-    const isSystemGroup = initialData?.id === "administrators";
+    const isSystemGroup =
+        initialData?.id === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
     const isCreateMode = !initialData;
 
     useEffect(() => {

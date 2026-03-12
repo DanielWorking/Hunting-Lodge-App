@@ -227,10 +227,9 @@ router.put("/:id", protect, async (req, res) => {
 
         // === SECURITY LAYER: הגנה על קבוצת האדמינים ===
         // מונע שינוי שם או הגדרות לקבוצת המערכת
-        if (group.id === "administrators") {
+        if (group.id === process.env.SUPER_ADMIN_GROUP_NAME) {
             return res.status(403).json({
-                message:
-                    "System Security: The 'administrators' group cannot be modified.",
+                message: `System Security: The '${process.env.SUPER_ADMIN_GROUP_NAME}' group cannot be modified.`,
             });
         }
 

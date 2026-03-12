@@ -76,8 +76,8 @@ router.post("/login", async (req, res) => {
         let dbDisplayName; // מה נשמור בשדה displayName (לתצוגה)
         let searchCriteria; // לפי מה מחפשים ב-DB
 
-        dbUsername = claims.name;
-        dbDisplayName = claims.preferred_username;
+        dbUsername = claims.preferred_username;
+        dbDisplayName = claims.name;
 
         if (identifierMode === "username") {
             // --- מצב ארגוני  ---

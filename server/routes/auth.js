@@ -99,16 +99,6 @@ router.post("/login", async (req, res) => {
             }
             user.lastLogin = new Date().toISOString();
 
-            // // עדכון השם לתצוגה (למקרה שהשתנה ב-AD)
-            // if (dbDisplayName && user.displayName !== dbDisplayName) {
-            //     user.displayName = dbDisplayName;
-            // }
-
-            // // במצב ארגוני - מוודאים שהמייל עדכני
-            // if (claims.email && user.email !== claims.email) {
-            //     user.email = claims.email;
-            // }
-
             await user.save();
         } else {
             console.log(
@@ -121,7 +111,6 @@ router.post("/login", async (req, res) => {
                 isActive: true,
                 groups: [],
                 lastLogin: new Date().toISOString(),
-                vacationBalance: 0,
             });
             await user.save();
         }

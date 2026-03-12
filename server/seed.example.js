@@ -1,4 +1,3 @@
-// server/seed.example.js
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 
@@ -16,7 +15,7 @@ if (result.error) {
     process.exit(1);
 }
 
-// זיהוי מצב העבודה (מקומי מול ארגוני) בהתאם ללוגיקה ב-auth.js
+// זיהוי מצב העבודה (מקומי מול ארגוני)
 const AUTH_MODE = process.env.SSO_IDENTIFIER_FIELD;
 console.log(`⚙️  Seeding in Auth Mode: ${AUTH_MODE}`);
 
@@ -60,14 +59,12 @@ const phones = [
         numbers: ["050-123-4567"],
         type: "Mobile",
         description: "NOC Manager",
-        isFavorite: true,
     },
     {
         name: "HQ",
         numbers: ["03-1234567"],
         type: "Landline",
         description: "Main Office",
-        isFavorite: false,
     },
 ];
 
@@ -104,38 +101,55 @@ const importData = async () => {
             },
         ]);
 
+        // מיפוי חכם: יצירת מחרוזת מזהה (למשתמשים) ואובייקט מזהה (לאתרים) מתוך ה-_id האמיתי של מונגו
         const gMap = {};
         createdGroups.forEach((g) => {
-            gMap[g.name] = g._id;
+            gMap[g.name] = {
+                objectId: g._id,
+                stringId: g._id.toString(),
+            };
         });
         console.log("🏢 Groups Created...");
 
-        // 2. יצירת משתמשים (דינמית לפי המצב)
+        // 2. יצירת טלפונים ראשית
+        const createdPhones = await Phone.insertMany(phones);
+        console.log("📞 Phones Created...");
+
+        // 3. יצירת משתמשים
         const users = [
             {
-                ...adminUserData, // שימוש באובייקט שהוגדר למעלה
+                ...adminUserData,
                 isActive: true,
                 vacationBalance: 999,
                 groups: [
-                    { groupId: gMap["administrators"], role: "shift_manager" },
-                    { groupId: gMap["noc"], role: "shift_manager" },
+                    {
+                        groupId: gMap["administrators"].stringId,
+                        role: "shift_manager",
+                        order: 0,
+                    },
+                    {
+                        groupId: gMap["noc"].stringId,
+                        role: "shift_manager",
+                        order: 1,
+                    },
                 ],
+                favoritePhones: [createdPhones[0]._id],
                 lastLogin: "Never",
             },
             {
-                ...regularUserData, // שימוש באובייקט שהוגדר למעלה
+                ...regularUserData,
                 isActive: true,
                 vacationBalance: 12,
-                groups: [{ groupId: gMap["noc"], role: "member" }],
+                groups: [
+                    { groupId: gMap["noc"].stringId, role: "member", order: 0 },
+                ],
+                favoritePhones: [],
                 lastLogin: "Never",
             },
         ];
 
         await User.insertMany(users);
         console.log(`👤 Users Created (Admin: ${adminUserData.username})...`);
-
-        // 3. יצירת טלפונים
-        await Phone.insertMany(phones);
 
         // 4. יצירת אתרים
         const sites = [
@@ -145,9 +159,9 @@ const importData = async () => {
                 imageUrl:
                     "https://via.placeholder.com/300/0000FF/808080?text=Dashboard",
                 description: "Main monitoring dashboard",
-                isFavorite: true,
-                groupId: gMap["noc"],
+                groupId: gMap["noc"].objectId,
                 tag: "General",
+                favoritedBy: [],
             },
             {
                 title: "Shift Log Tool",
@@ -155,9 +169,9 @@ const importData = async () => {
                 imageUrl:
                     "https://via.placeholder.com/300/FF0000/FFFFFF?text=Logs",
                 description: "Daily logs",
-                isFavorite: false,
-                groupId: gMap["noc"],
+                groupId: gMap["noc"].objectId,
                 tag: "General",
+                favoritedBy: [],
             },
             {
                 title: "Company Portal",
@@ -165,12 +179,13 @@ const importData = async () => {
                 imageUrl:
                     "https://via.placeholder.com/300/FFFF00/000000?text=Portal",
                 description: "General company info",
-                isFavorite: false,
-                groupId: gMap["noc"],
+                groupId: gMap["noc"].objectId,
                 tag: "General",
+                favoritedBy: [],
             },
         ];
         await Site.insertMany(sites);
+        console.log("🌐 Sites Created...");
 
         console.log("✨ DATA IMPORTED SUCCESSFULLY!");
         process.exit();

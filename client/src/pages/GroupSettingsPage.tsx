@@ -13,14 +13,16 @@ import MembersTab from "../components/settings/MembersTab";
 import StatisticsTab from "../components/settings/StatisticsTab";
 
 export default function GroupSettingsPage() {
-    const { currentGroup, isShiftManager, isAdmin } = useUser();
+    const { currentGroup, isShiftManager } = useUser();
     const [tabValue, setTabValue] = useState(0);
 
-    if (!currentGroup || (!isShiftManager && !isAdmin)) {
+    // בדיקה: אם אין קבוצה נוכחית או שהמשתמש הוא לא אחראי משמרת, נחסום את הגישה
+    if (!currentGroup || !isShiftManager) {
         return (
             <Container sx={{ mt: 4, textAlign: "center" }}>
                 <Typography variant="h5" color="error">
-                    Access Denied. You must be a Shift Manager.
+                    Access Denied. You must be a Shift Manager of this group to
+                    view this page.
                 </Typography>
             </Container>
         );

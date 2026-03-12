@@ -147,7 +147,7 @@ export default function Navbar() {
                             Reports
                         </Button>
 
-                        {(isShiftManager || isAdmin) && currentGroup && (
+                        {isShiftManager && currentGroup && (
                             <Tooltip title="Group Settings">
                                 <Button
                                     component={RouterLink}

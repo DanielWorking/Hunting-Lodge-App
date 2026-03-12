@@ -9,6 +9,7 @@ const UserSchema = new mongoose.Schema(
             {
                 groupId: { type: String },
                 role: { type: String, enum: ["member", "shift_manager"] },
+                order: { type: Number, default: 0 },
             },
         ],
         isActive: { type: Boolean, default: true },

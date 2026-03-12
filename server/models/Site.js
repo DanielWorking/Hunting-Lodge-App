@@ -5,7 +5,7 @@ const SiteSchema = new mongoose.Schema({
     url: { type: String, required: true },
     imageUrl: { type: String },
     description: { type: String },
-    isFavorite: { type: Boolean, default: false },
+    favoritedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     groupId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Group",

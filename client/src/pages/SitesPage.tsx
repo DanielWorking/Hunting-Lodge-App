@@ -34,7 +34,7 @@ import axios from "axios";
 import ThinkingLoader from "../components/ThinkingLoader";
 
 export default function SitesPage() {
-    const { currentGroup } = useUser();
+    const { user, currentGroup } = useUser();
     const { showNotification } = useNotification();
     const { sites, setSites, groups, refreshData, loading } = useData();
 
@@ -133,9 +133,7 @@ export default function SitesPage() {
     const handleToggleFavorite = async (site: SiteCardType) => {
         try {
             const siteId = site._id || site.id;
-            await axios.put(`/api/sites/${siteId}`, {
-                isFavorite: !site.isFavorite,
-            });
+            await axios.put(`/api/sites/${siteId}/favorite`);
             refreshData();
         } catch (error) {
             showNotification("Error updating favorite", "error");
@@ -218,8 +216,13 @@ export default function SitesPage() {
         const siteTag = site.tag || "General";
         if (selectedTag !== "All" && siteTag !== selectedTag) return false;
 
-        // Favorite Filtering
-        if (filterFav === "fav" && !site.isFavorite) return false;
+        // Favorite Filtering (Per User)
+        const userId = user?._id || user?.id;
+        const isFav =
+            userId && site.favoritedBy
+                ? site.favoritedBy.includes(userId)
+                : false;
+        if (filterFav === "fav" && !isFav) return false;
 
         // Search Filtering
         const matchesSearch = site.title
@@ -416,7 +419,16 @@ export default function SitesPage() {
                             size={{ xs: 12, sm: 6, md: 4 }}
                         >
                             <SiteCard
-                                data={site}
+                                data={{
+                                    ...site,
+                                    isFavorite:
+                                        (user?._id || user?.id) &&
+                                        site.favoritedBy
+                                            ? site.favoritedBy.includes(
+                                                  user._id || user.id,
+                                              )
+                                            : false,
+                                }}
                                 onEdit={() => handleEditSiteClick(site)}
                                 onDelete={() => handleDeleteSiteClick(site)}
                                 onToggleFavorite={() =>

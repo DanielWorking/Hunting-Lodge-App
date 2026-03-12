@@ -60,11 +60,9 @@ router.put("/:id", protect, async (req, res) => {
                 });
 
                 if (duplicateSite) {
-                    return res
-                        .status(400)
-                        .json({
-                            message: "קיים כבר כרטיס עם קישור זה בקבוצה זו.",
-                        });
+                    return res.status(400).json({
+                        message: "קיים כבר כרטיס עם קישור זה בקבוצה זו.",
+                    });
                 }
             }
         }
@@ -85,6 +83,35 @@ router.delete("/:id", protect, async (req, res) => {
     try {
         await Site.findByIdAndDelete(req.params.id);
         res.json({ message: "Site deleted" });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Toggle favorite for a site (Per User)
+router.put("/:id/favorite", protect, async (req, res) => {
+    try {
+        const site = await Site.findById(req.params.id);
+        if (!site) {
+            return res.status(404).json({ message: "Site not found" });
+        }
+
+        // שולפים את מזהה המשתמש מתוך הטוקן (middleware)
+        const userId = req.user._id;
+
+        // בודקים אם המשתמש כבר נמצא במערך הלייקים
+        const index = site.favoritedBy.indexOf(userId);
+
+        if (index === -1) {
+            // המשתמש עדיין לא עשה לייק - נוסיף אותו
+            site.favoritedBy.push(userId);
+        } else {
+            // המשתמש כבר עשה לייק - נסיר אותו מהמערך
+            site.favoritedBy.splice(index, 1);
+        }
+
+        const updatedSite = await site.save();
+        res.json(updatedSite);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

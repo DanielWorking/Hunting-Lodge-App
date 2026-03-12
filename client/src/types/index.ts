@@ -58,7 +58,8 @@ export interface SiteCard {
     url: string;
     imageUrl: string;
     description: string;
-    isFavorite: boolean;
+    favoritedBy?: string[];
+    isFavorite?: boolean; // נשאר לתצוגה בלבד
     groupId: string;
     createdAt: string;
     tag?: string;

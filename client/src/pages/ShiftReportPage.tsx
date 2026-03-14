@@ -30,24 +30,377 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import axios from "axios";
 import { format } from "date-fns";
 import ThinkingLoader from "../components/ThinkingLoader";
-import ReactQuill, { Quill } from "react-quill-new";
-import "react-quill-new/dist/quill.snow.css";
 
-// --- הגדרת התנהגות קישורים (פתיחה בטאב חדש) ---
-const Link = Quill.import("formats/link") as any;
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
+import { TextStyleKit } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
+import Highlight from "@tiptap/extension-highlight";
+import TiptapLink from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
+import Tooltip from "@mui/material/Tooltip";
+import FormatBoldIcon from "@mui/icons-material/FormatBold";
+import FormatItalicIcon from "@mui/icons-material/FormatItalic";
+import FormatUnderlinedIcon from "@mui/icons-material/FormatUnderlined";
+import StrikethroughSIcon from "@mui/icons-material/StrikethroughS";
+import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
+import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
+import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
+import FormatAlignLeftIcon from "@mui/icons-material/FormatAlignLeft";
+import FormatColorTextIcon from "@mui/icons-material/FormatColorText";
+import HighlightIcon from "@mui/icons-material/Highlight";
+import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
 
-class MyLink extends Link {
-    static create(value: string) {
-        const node = super.create(value);
-        value = this.sanitize(value);
-        node.setAttribute("href", value);
-        node.setAttribute("target", "_blank"); // פתיחה בטאב חדש
-        node.setAttribute("rel", "noopener noreferrer"); // אבטחה
-        return node;
+// --- רכיב ה-Tiptap המותאם אישית שלנו ---
+const TiptapEditor = ({
+    value,
+    onChange,
+    placeholder,
+    readOnly,
+}: {
+    value: string;
+    onChange: (val: string) => void;
+    placeholder: string;
+    readOnly: boolean;
+}) => {
+    const editor = useEditor({
+        extensions: [
+            StarterKit,
+            Underline,
+            TextAlign.configure({
+                types: ["heading", "paragraph"],
+                defaultAlignment: "right", // תמיכה נוחה ב-RTL
+            }),
+            TextStyleKit,
+            Color,
+            Highlight.configure({ multicolor: true }), // תמיכה במרקר בצבעים
+            TiptapLink.configure({
+                openOnClick: false,
+                HTMLAttributes: {
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                },
+            }),
+            Placeholder.configure({
+                placeholder: placeholder,
+            }),
+        ],
+        content: value,
+        editable: !readOnly,
+        onUpdate: ({ editor }) => {
+            onChange(editor.getHTML());
+        },
+    });
+
+    if (!editor) {
+        return null;
     }
-}
 
-Quill.register("formats/link", MyLink);
+    return (
+        <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+            {/* סרגל כלים עם אייקונים */}
+            {!readOnly && (
+                <Box
+                    sx={{
+                        display: "flex",
+                        gap: 0.5,
+                        p: 1,
+                        borderBottom: "1px solid #ccc",
+                        flexWrap: "wrap",
+                        direction: "ltr",
+                        alignItems: "center",
+                    }}
+                >
+                    {/* עיצוב טקסט בסיסי */}
+                    <Tooltip title="Bold">
+                        <IconButton
+                            size="small"
+                            color={
+                                editor.isActive("bold") ? "primary" : "default"
+                            }
+                            onClick={() =>
+                                editor.chain().focus().toggleBold().run()
+                            }
+                        >
+                            <FormatBoldIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Italic">
+                        <IconButton
+                            size="small"
+                            color={
+                                editor.isActive("italic")
+                                    ? "primary"
+                                    : "default"
+                            }
+                            onClick={() =>
+                                editor.chain().focus().toggleItalic().run()
+                            }
+                        >
+                            <FormatItalicIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Underline">
+                        <IconButton
+                            size="small"
+                            color={
+                                editor.isActive("underline")
+                                    ? "primary"
+                                    : "default"
+                            }
+                            onClick={() =>
+                                editor.chain().focus().toggleUnderline().run()
+                            }
+                        >
+                            <FormatUnderlinedIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Strike">
+                        <IconButton
+                            size="small"
+                            color={
+                                editor.isActive("strike")
+                                    ? "primary"
+                                    : "default"
+                            }
+                            onClick={() =>
+                                editor.chain().focus().toggleStrike().run()
+                            }
+                        >
+                            <StrikethroughSIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+
+                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+                    {/* יישור טקסט */}
+                    {/* יישור טקסט */}
+                    <Tooltip title="Align Right (RTL)">
+                        <IconButton
+                            size="small"
+                            color={
+                                editor.isActive({ textAlign: "right" })
+                                    ? "primary"
+                                    : "default"
+                            }
+                            onClick={() =>
+                                editor
+                                    .chain()
+                                    .focus()
+                                    .setTextAlign("right")
+                                    .run()
+                            }
+                        >
+                            <FormatAlignRightIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    {/* הוספנו את כפתור היישור למרכז ממש כאן */}
+                    <Tooltip title="Align Center">
+                        <IconButton
+                            size="small"
+                            color={
+                                editor.isActive({ textAlign: "center" })
+                                    ? "primary"
+                                    : "default"
+                            }
+                            onClick={() =>
+                                editor
+                                    .chain()
+                                    .focus()
+                                    .setTextAlign("center")
+                                    .run()
+                            }
+                        >
+                            <FormatAlignCenterIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Align Left (LTR)">
+                        <IconButton
+                            size="small"
+                            color={
+                                editor.isActive({ textAlign: "left" })
+                                    ? "primary"
+                                    : "default"
+                            }
+                            onClick={() =>
+                                editor
+                                    .chain()
+                                    .focus()
+                                    .setTextAlign("left")
+                                    .run()
+                            }
+                        >
+                            <FormatAlignLeftIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+
+                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+                    {/* רשימות */}
+                    <Tooltip title="Bullet List">
+                        <IconButton
+                            size="small"
+                            color={
+                                editor.isActive("bulletList")
+                                    ? "primary"
+                                    : "default"
+                            }
+                            onClick={() =>
+                                editor.chain().focus().toggleBulletList().run()
+                            }
+                        >
+                            <FormatListBulletedIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Ordered List">
+                        <IconButton
+                            size="small"
+                            color={
+                                editor.isActive("orderedList")
+                                    ? "primary"
+                                    : "default"
+                            }
+                            onClick={() =>
+                                editor.chain().focus().toggleOrderedList().run()
+                            }
+                        >
+                            <FormatListNumberedIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+
+                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+                    {/* צבעים והדגשות */}
+                    <Tooltip title="Text Color">
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                position: "relative",
+                                cursor: "pointer",
+                                width: 26,
+                                height: 26,
+                                ml: 1,
+                                mr: 1,
+                            }}
+                        >
+                            <FormatColorTextIcon
+                                fontSize="small"
+                                sx={{
+                                    color:
+                                        editor.getAttributes("textStyle")
+                                            .color || "inherit",
+                                    position: "absolute",
+                                    pointerEvents: "none",
+                                }}
+                            />
+                            <input
+                                type="color"
+                                onInput={(event) =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .setColor(
+                                            (event.target as HTMLInputElement)
+                                                .value,
+                                        )
+                                        .run()
+                                }
+                                value={
+                                    editor.getAttributes("textStyle").color ||
+                                    "#000000"
+                                }
+                                style={{
+                                    opacity: 0,
+                                    width: "100%",
+                                    height: "100%",
+                                    cursor: "pointer",
+                                }}
+                            />
+                        </Box>
+                    </Tooltip>
+
+                    {/* שינינו את המרקר שיהיה עם בוחר צבעים, כמו ב-Word */}
+                    <Tooltip title="Highlight Color">
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                position: "relative",
+                                cursor: "pointer",
+                                width: 26,
+                                height: 26,
+                                ml: 1,
+                                mr: 1,
+                            }}
+                        >
+                            <HighlightIcon
+                                fontSize="small"
+                                sx={{
+                                    color:
+                                        editor.getAttributes("highlight")
+                                            .color || "inherit",
+                                    position: "absolute",
+                                    pointerEvents: "none",
+                                }}
+                            />
+                            <input
+                                type="color"
+                                onInput={(event) =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .setHighlight({
+                                            color: (
+                                                event.target as HTMLInputElement
+                                            ).value,
+                                        })
+                                        .run()
+                                }
+                                value={
+                                    editor.getAttributes("highlight").color ||
+                                    "#ffff00"
+                                }
+                                style={{
+                                    opacity: 0,
+                                    width: "100%",
+                                    height: "100%",
+                                    cursor: "pointer",
+                                }}
+                            />
+                        </Box>
+                    </Tooltip>
+                </Box>
+            )}
+
+            {/* אזור העריכה עצמו */}
+            <Box
+                sx={{
+                    flexGrow: 1,
+                    overflowY: "auto",
+                    p: 2,
+                    "& .tiptap": {
+                        outline: "none",
+                        minHeight: "100px",
+                        direction: "rtl",
+                        textAlign: "right",
+                    },
+                    "& .tiptap p.is-editor-empty:first-child::before": {
+                        color: "text.disabled",
+                        content: "attr(data-placeholder)",
+                        float: "right",
+                        height: 0,
+                        pointerEvents: "none",
+                    },
+                }}
+            >
+                <EditorContent editor={editor} style={{ height: "100%" }} />
+            </Box>
+        </Box>
+    );
+};
 
 export default function ShiftReportPage() {
     const { currentGroup } = useUser();
@@ -288,22 +641,6 @@ export default function ShiftReportPage() {
                 <Typography>Please select a group.</Typography>
             </Container>
         );
-
-    //! if you want to add image capability to the editor, the best way is by saving the images on the cloud (e.g. AWS S3) and then just saving the image URL in the editor content. This way you can easily manage the images and ensure they are properly displayed in the reports. You can use a library like react-dropzone to handle image uploads and then upload the images to your server or directly to S3, returning the URL to be inserted into the editor.
-    //! OR
-    //! use a dedicated storage service like Cloudinary that provides an API for uploading and managing images, and then integrate it with your editor to allow users to insert images directly from the editor interface.
-    const quillModules = {
-        toolbar: [
-            [{ header: [1, 2, false] }], // כותרות
-            ["bold", "italic", "underline", "strike"], // עיצוב טקסט
-            [{ list: "ordered" }, { list: "bullet" }], // רשימות
-            [{ color: [] }, { background: [] }], // צבעים
-            // ["link", "image"], // קישורים ותמונות
-            ["link"], // קישורים
-            ["clean"], // ניקוי עיצוב
-            [{ direction: "rtl" }], // כפתור כיוון טקסט
-        ],
-    };
 
     return (
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4, height: "80vh" }}>
@@ -597,71 +934,26 @@ export default function ShiftReportPage() {
                             <Box
                                 mb={4}
                                 sx={{
+                                    height: "100%",
                                     bgcolor: "action.hover",
-                                    p: 3,
+                                    p: 0,
                                     borderRadius: 2,
                                     borderRight: "4px solid",
                                     borderColor: "warning.main",
-
-                                    "& .quill": {
-                                        backgroundColor: "background.paper",
-                                        borderRadius: 1,
-                                        display: "flex", // מבנה גמיש
-                                        flexDirection: "column",
-                                    },
-
-                                    // 1. סרגל הכלים: תמיד משמאל לימין
-                                    "& .ql-toolbar": {
-                                        direction: "ltr",
-                                        textAlign: "left",
-                                    },
-
-                                    // 2. אזור הטקסט: גובה מקסימלי וגלילה
-                                    "& .ql-container": {
-                                        fontSize: "1rem",
-                                        // כאן מגדירים שהגובה יהיה גמיש אבל עם תקרה
-                                        minHeight: "300px",
-                                        maxHeight: "500px",
-                                        overflowY: "auto", // הוספת גלילה כשיש הרבה טקסט
-                                        display: "flex",
-                                        flexDirection: "column",
-                                    },
-
-                                    // 3. העורך עצמו (כולל ה-placeholder)
-                                    "& .ql-editor": {
-                                        minHeight: "100px",
-                                        textAlign: "right", // טקסט ברירת מחדל לימין
-                                        direction: "rtl", // כיוון ברירת מחדל RTL
-                                        overflowY: "visible", // הגלילה מנוהלת בקונטיינר
-                                    },
-
-                                    // תיקון מיקום ה-placeholder שיהיה בימין
-                                    "& .ql-editor.ql-blank::before": {
-                                        right: "15px",
-                                        left: "auto",
-                                        fontStyle: "normal",
-                                        color: "text.disabled",
-                                    },
-
-                                    // "& .ql-editor img": {
-                                    //     maxWidth: "100%",
-                                    //     height: "auto",
-                                    //     display: "block",
-                                    //     margin: "10px 0",
-                                    // },
+                                    overflow: "hidden",
                                 }}
                             >
                                 <Typography
                                     variant="subtitle2"
                                     color="text.secondary"
+                                    sx={{ p: 2, pb: 0 }}
                                     gutterBottom
                                     fontWeight="bold"
                                 >
-                                    משימות ממשמרת קודמת (Previous Tasks)
+                                    משימות ממשמרת קודמת
                                 </Typography>
 
-                                <ReactQuill
-                                    theme="snow"
+                                <TiptapEditor
                                     value={selectedReport.previousTasks || ""}
                                     onChange={(value) =>
                                         setSelectedReport({
@@ -670,7 +962,6 @@ export default function ShiftReportPage() {
                                         })
                                     }
                                     readOnly={selectedReport.isLocked}
-                                    modules={quillModules}
                                     placeholder="אין משימות ממשמרת קודמת"
                                 />
                             </Box>
@@ -727,7 +1018,7 @@ export default function ShiftReportPage() {
                             {/* הקונטיינר הראשי של האזור התחתון */}
                             <Box
                                 sx={{
-                                    height: "40%",
+                                    height: "100%",
                                     display: "flex",
                                     flexDirection: "column",
                                     mt: 4,
@@ -744,62 +1035,17 @@ export default function ShiftReportPage() {
                                 <Box
                                     sx={{
                                         flexGrow: 1,
-                                        // זה חשוב כדי שהעורך לא יחרוג מגובה האזור
                                         height: "100%",
                                         overflow: "hidden",
-
-                                        // --- עיצוב ה-Quill ---
-                                        "& .quill": {
-                                            height: "100%",
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            backgroundColor: "white", // רקע לבן לעורך
-                                            borderRadius: 1,
-                                            border: "1px solid rgba(0, 0, 0, 0.23)", // מסגרת עדינה כמו של MUI
-                                        },
-
-                                        // 1. סרגל הכלים: תמיד משמאל לימין
-                                        "& .ql-toolbar": {
-                                            direction: "ltr",
-                                            textAlign: "left",
-                                            border: "none", // הסרת כפילות גבולות
-                                            borderBottom: "1px solid #ccc",
-                                        },
-
-                                        // 2. הקונטיינר של הטקסט
-                                        "& .ql-container": {
-                                            flexGrow: 1, // תופס את כל הגובה שנשאר
-                                            overflow: "hidden", // מסתיר גלילה כפולה
-                                            border: "none", // הסרת גבולות ברירת מחדל
-                                            fontSize: "1rem",
-                                        },
-
-                                        // 3. העורך עצמו - כאן תהיה הגלילה
-                                        "& .ql-editor": {
-                                            height: "100%",
-                                            overflowY: "auto", // גלילה פנימית רק לטקסט!
-                                            textAlign: "right", // ברירת מחדל לימין
-                                            direction: "rtl", // כיוון ברירת מחדל
-                                            padding: 2,
-                                        },
-
-                                        "& .ql-editor.ql-blank::before": {
-                                            right: "15px",
-                                            left: "auto",
-                                            fontStyle: "normal",
-                                            color: "text.disabled",
-                                        },
-
-                                        // "& .ql-editor img": {
-                                        //     maxWidth: "100%",
-                                        //     height: "auto",
-                                        //     display: "block",
-                                        //     margin: "10px 0",
-                                        // },
+                                        bgcolor: "background.paper",
+                                        borderRadius: 1,
+                                        border: 1,
+                                        borderColor: "divider",
+                                        display: "flex",
+                                        flexDirection: "column",
                                     }}
                                 >
-                                    <ReactQuill
-                                        theme="snow"
+                                    <TiptapEditor
                                         value={
                                             selectedReport.currentTasks || ""
                                         }
@@ -810,7 +1056,6 @@ export default function ShiftReportPage() {
                                             })
                                         }
                                         readOnly={selectedReport.isLocked}
-                                        modules={quillModules}
                                         placeholder="הכנס פירוט אירועים ומשימות כאן..."
                                     />
                                 </Box>

@@ -144,8 +144,12 @@ export default function PhonesTable({
                                     : row.description}
                             </TableCell>
 
-                            <TableCell sx={{ fontWeight: "bold" }}>
-                                {row.name}
+                            <TableCell
+                                sx={{ fontWeight: "bold", maxWidth: 250 }}
+                            >
+                                {row.name.length > 15
+                                    ? `${row.name.slice(0, 15)}...`
+                                    : row.name}
                             </TableCell>
 
                             <TableCell align="center">

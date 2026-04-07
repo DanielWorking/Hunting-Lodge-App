@@ -39,7 +39,6 @@ export default function SiteDialog({
     const [errors, setErrors] = useState({
         title: false,
         url: false,
-        imageUrl: false,
         description: false,
     });
 
@@ -53,7 +52,7 @@ export default function SiteDialog({
             setFormData({
                 title: initialData.title,
                 url: initialData.url,
-                imageUrl: initialData.imageUrl,
+                imageUrl: initialData.imageUrl || "",
                 description: initialData.description,
                 tag: initialData.tag || "General",
             });
@@ -69,7 +68,6 @@ export default function SiteDialog({
         setErrors({
             title: false,
             url: false,
-            imageUrl: false,
             description: false,
         });
     }, [initialData, open]);
@@ -79,7 +77,6 @@ export default function SiteDialog({
         const newErrors = {
             title: !formData.title.trim(),
             url: !formData.url.trim(),
-            imageUrl: !formData.imageUrl.trim(),
             description: !formData.description.trim(),
         };
         setErrors(newErrors);
@@ -143,13 +140,11 @@ export default function SiteDialog({
 
                 <TextField
                     margin="dense"
-                    label="Image URL *"
+                    label="Image URL"
                     fullWidth
                     variant="outlined"
                     placeholder="https://example.com/image.jpg"
                     value={formData.imageUrl}
-                    error={errors.imageUrl}
-                    helperText={errors.imageUrl ? "Image URL is required" : ""}
                     onChange={(e) =>
                         setFormData({ ...formData, imageUrl: e.target.value })
                     }

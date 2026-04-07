@@ -36,7 +36,7 @@ export default function SiteCard({
     const [isFlipped, setIsFlipped] = useState(false);
 
     // פונקציה לבדיקת תקינות התמונה
-    const isValidImage = (img: string) => {
+    const isValidImage = (img?: string) => {
         return (
             img &&
             (img.startsWith("http") || img.startsWith("data:image")) &&

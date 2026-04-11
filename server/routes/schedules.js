@@ -1,3 +1,11 @@
+/**
+ * @module ScheduleRoutes
+ * 
+ * Provides API endpoints for managing shift schedules.
+ * Features include schedule retrieval, saving (with vacation balance management),
+ * and publishing schedules to members.
+ */
+
 const express = require("express");
 const router = express.Router();
 const ShiftSchedule = require("../models/ShiftSchedule");
@@ -6,11 +14,25 @@ const Group = require("../models/Group");
 
 const { protect } = require("../middleware/authMiddleware");
 
-// שימוש ב-protect עבור כל הנתיבים בקובץ הזה
-// (או שאפשר להוסיף אותו ספציפית לכל נתיב: router.get('/', protect, ...))
+// Use protect middleware for all routes in this file
+// (Alternatively, it can be added specifically to each route: router.get('/', protect, ...))
 router.use(protect);
 
-// 1. קבלת לוח ספציפי
+/**
+ * GET /
+ * 
+ * Retrieves a specific schedule for a group based on a start date.
+ * Filters unpublished schedules for non-privileged users.
+ * 
+ * @name getSchedule
+ * @route {GET} /
+ * @authentication Requires valid JWT.
+ * @query {string} groupId - The ID of the group.
+ * @query {string} date - The start date of the schedule (ISO string).
+ * @returns {Object} 200 - The ShiftSchedule document, or null if not found.
+ * @returns {Error}  400 - If groupId or date is missing.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.get("/", async (req, res) => {
     try {
         const { groupId, date } = req.query;
@@ -19,10 +41,10 @@ router.get("/", async (req, res) => {
 
         const startDate = new Date(date);
 
-        // --- בדיקת הרשאות (נקייה יותר) ---
+        // --- Permission check (cleaner) ---
         let isPrivileged = false;
 
-        // req.user קיים בזכות ה-middleware!
+        // req.user exists thanks to the middleware!
         if (req.user) {
             const isAdmin = req.user.username === "Admin";
 
@@ -53,16 +75,32 @@ router.get("/", async (req, res) => {
     }
 });
 
-// 2. שמירת לוח (ללא שינוי מהותי, רק הוספת הגנה שהמשתמש קיים)
+/**
+ * PUT /
+ * 
+ * Saves or updates a shift schedule.
+ * Handles vacation day refunds if a previously published vacation shift is changed.
+ * 
+ * @name saveSchedule
+ * @route {PUT} /
+ * @authentication Requires valid JWT.
+ * @bodyparam {string} groupId - The ID of the group.
+ * @bodyparam {string} startDate - Start date of the schedule.
+ * @bodyparam {string} endDate - End date of the schedule.
+ * @bodyparam {Object[]} shifts - Array of shift assignments.
+ * @returns {Object} 200 - The updated/saved ShiftSchedule document.
+ * @returns {Error}  400 - If validation fails or update error occurs.
+ * @returns {Error}  401 - If user is not authenticated.
+ */
 router.put("/", async (req, res) => {
-    // הגנה נוספת: רק משתמש רשום יכול לשמור
+    // Additional protection: only a registered user can save
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 
     try {
         const { groupId, startDate, endDate, shifts } = req.body;
 
-        // כאן אפשר להוסיף בדיקה ש-req.user הוא אכן מנהל בקבוצה הזו
-        // אבל לצורך הפשטות נשאיר את הלוגיקה המקורית שעובדת
+        // Here you can add a check that req.user is indeed a manager in this group
+        // But for simplicity, we will leave the original working logic
 
         const oldSchedule = await ShiftSchedule.findOne({ groupId, startDate });
 
@@ -123,7 +161,20 @@ router.put("/", async (req, res) => {
     }
 });
 
-// 3. פרסום לוח
+/**
+ * POST /publish
+ * 
+ * Publishes a schedule, making it visible to all group members.
+ * Automatically deducts vacation days from users assigned to vacation shifts.
+ * 
+ * @name publishSchedule
+ * @route {POST} /publish
+ * @authentication Requires valid JWT.
+ * @bodyparam {string} scheduleId - The ObjectId of the schedule to publish.
+ * @returns {Object} 200 - The published ShiftSchedule document.
+ * @returns {Error}  404 - If schedule or group is not found.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.post("/publish", async (req, res) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 
@@ -170,13 +221,25 @@ router.post("/publish", async (req, res) => {
     }
 });
 
-// 4. קבלת כל הלוחות
+/**
+ * GET /all
+ * 
+ * Retrieves all schedules for a specific group.
+ * Filters unpublished schedules for non-privileged users.
+ * 
+ * @name getAllSchedules
+ * @route {GET} /all
+ * @authentication Requires valid JWT.
+ * @query {string} groupId - The ID of the group.
+ * @returns {Array<Object>} 200 - List of ShiftSchedule documents.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.get("/all", async (req, res) => {
     try {
         const { groupId } = req.query;
         let query = { groupId };
 
-        // שימוש ב-req.user מהמידלוויר
+        // Using req.user from the middleware
         let isPrivileged = false;
         if (req.user) {
             const isAdmin = req.user.username === "Admin";

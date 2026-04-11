@@ -1,3 +1,11 @@
+/**
+ * @module ReportRoutes
+ * 
+ * Provides API endpoints for managing shift reports.
+ * Features include report retrieval with date filtering, automatic attendance 
+ * detection based on shift schedules, and historical task tracking.
+ */
+
 const express = require("express");
 const router = express.Router();
 const ShiftReport = require("../models/ShiftReport");
@@ -6,9 +14,26 @@ const Group = require("../models/Group");
 const User = require("../models/User");
 const { protect } = require("../middleware/authMiddleware");
 
+// Ensure all routes are protected by authentication
 router.use(protect);
 
-// Get All
+/**
+ * GET /
+ * 
+ * Retrieves shift reports for a specific group, with optional temporal filtering.
+ * 
+ * @name getReports
+ * @route {GET} /
+ * @authentication Requires valid JWT.
+ * @query {string} groupId - The ID of the group to fetch reports for.
+ * @query {number} [year] - Filter by year.
+ * @query {number} [month] - Filter by month (1-12).
+ * @query {number} [day] - Filter by day of the month.
+ * @returns {Array<Object>} 200 - List of ShiftReport documents, sorted by start time descending.
+ * @returns {Error}  400 - If groupId is missing.
+ * @returns {Error}  401 - If user is not authenticated.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.get("/", async (req, res) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 
@@ -19,6 +44,7 @@ router.get("/", async (req, res) => {
 
         let query = { groupId };
 
+        // Handle temporal filtering logic
         if (year) {
             const startDate = new Date(year, month ? month - 1 : 0, day || 1);
             const endDate = new Date(year, month ? month : 12, 0, 23, 59, 59);
@@ -39,13 +65,31 @@ router.get("/", async (req, res) => {
     }
 });
 
-// Create
+/**
+ * POST /
+ * 
+ * Creates a new shift report.
+ * Automatically inherits pending tasks from the previous report and attempts
+ * to identify attendees based on the published shift schedule.
+ * 
+ * @name createReport
+ * @route {POST} /
+ * @authentication Requires valid JWT.
+ * @bodyparam {string} groupId - The ID of the group.
+ * @bodyparam {string} title - The title of the report.
+ * @bodyparam {string} startTime - ISO date string for the shift start.
+ * @bodyparam {string} endTime - ISO date string for the shift end.
+ * @returns {Object} 201 - The newly created ShiftReport document.
+ * @returns {Error}  400 - If validation fails or data is malformed.
+ * @returns {Error}  401 - If user is not authenticated.
+ */
 router.post("/", async (req, res) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 
     try {
         const { groupId, title, startTime, endTime } = req.body;
 
+        // Inherit tasks from the most recent report of the same group
         const lastReport = await ShiftReport.findOne({ groupId }).sort({
             startTime: -1,
         });
@@ -54,6 +98,7 @@ router.post("/", async (req, res) => {
         let attendees = [];
         const reportStart = new Date(startTime);
 
+        // Attempt to pull attendees automatically from the published schedule
         const schedule = await ShiftSchedule.findOne({
             groupId,
             isPublished: true,
@@ -67,6 +112,7 @@ router.post("/", async (req, res) => {
             const reportStartMinute = reportStart.getMinutes();
             const reportTimeVal = reportStartHour * 60 + reportStartMinute;
 
+            // Match report start time with defined time slots in group settings
             const matchingSlot = group.settings.timeSlots.find((slot) => {
                 const [h, m] = slot.startTime.split(":").map(Number);
                 const slotVal = h * 60 + m;
@@ -77,6 +123,7 @@ router.post("/", async (req, res) => {
                 ? matchingSlot.linkedShiftTypes
                 : null;
 
+            // Filter shifts that match the date and optionally the shift type
             const shiftsToday = schedule.shifts.filter((s) => {
                 const isSameDate =
                     new Date(s.date).toDateString() ===
@@ -118,7 +165,23 @@ router.post("/", async (req, res) => {
     }
 });
 
-// Update
+/**
+ * PUT /:id
+ * 
+ * Updates an existing shift report.
+ * 
+ * @name updateReport
+ * @route {PUT} /:id
+ * @authentication Requires valid JWT.
+ * @routeparam {string} id - The ObjectId of the report to update.
+ * @bodyparam {string} [currentTasks] - Updated work documentation.
+ * @bodyparam {Object[]} [attendees] - Updated list of attendees.
+ * @bodyparam {boolean} [isLocked] - Lock status for the report.
+ * @bodyparam {string} [previousTasks] - Manually updated previous tasks.
+ * @returns {Object} 200 - The updated ShiftReport document.
+ * @returns {Error}  400 - If update fails.
+ * @returns {Error}  401 - If user is not authenticated.
+ */
 router.put("/:id", async (req, res) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 
@@ -137,7 +200,19 @@ router.put("/:id", async (req, res) => {
     }
 });
 
-// Delete
+/**
+ * DELETE /:id
+ * 
+ * Deletes a shift report from the database.
+ * 
+ * @name deleteReport
+ * @route {DELETE} /:id
+ * @authentication Requires valid JWT.
+ * @routeparam {string} id - The ObjectId of the report to delete.
+ * @returns {Object} 200 - Success message.
+ * @returns {Error}  401 - If user is not authenticated.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.delete("/:id", async (req, res) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 

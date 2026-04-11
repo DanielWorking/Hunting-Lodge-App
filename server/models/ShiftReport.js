@@ -25,26 +25,26 @@ const ShiftReportSchema = new mongoose.Schema(
     {
         groupId: { type: String, required: true },
 
-        // כותרת וזמנים
+        // Title and times
         title: { type: String, required: true },
         date: { type: Date, required: true },
         startTime: { type: String, required: true },
         endTime: { type: String, required: true },
 
-        // תוכן הדוח
-        previousTasks: { type: String, default: "" }, // הועתק אוטומטית מהדוח הקודם
-        currentTasks: { type: String, default: "" }, // HTML/Rich Text מהעורך
+        // Report content
+        previousTasks: { type: String, default: "" }, // Automatically copied from the previous report
+        currentTasks: { type: String, default: "" }, // HTML/Rich Text from the editor
 
-        // נוכחות
+        // Attendance
         attendees: [
             {
                 userId: { type: String },
-                name: { type: String }, // שומרים את השם למקרה שהמשתמש יימחק בעתיד (היסטוריה)
-                isManual: { type: Boolean, default: false }, // האם הוסף ידנית או נמשך מהלוח?
+                name: { type: String }, // Storing the name in case the user is deleted in the future (history)
+                isManual: { type: Boolean, default: false }, // Was added manually or pulled from the schedule?
             },
         ],
 
-        // האם הדוח ננעל לעריכה? (אחרי 24 שעות)
+        // Is the report locked for editing? (After 24 hours)
         isLocked: { type: Boolean, default: false },
     },
     {

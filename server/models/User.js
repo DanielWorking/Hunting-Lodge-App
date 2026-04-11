@@ -39,7 +39,7 @@ const UserSchema = new mongoose.Schema(
         lastLogin: { type: String },
         vacationBalance: { type: Number, default: 18 },
 
-        // רשימת טלפונים מועדפים
+        // List of favorite phones
         favoritePhones: [
             {
                 type: mongoose.Schema.Types.ObjectId,

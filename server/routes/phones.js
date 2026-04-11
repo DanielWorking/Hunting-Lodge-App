@@ -1,14 +1,32 @@
+/**
+ * @module PhoneRoutes
+ * 
+ * Provides API endpoints for managing a shared contact directory.
+ * Includes features for contact creation, duplicate number validation,
+ * and user-specific favorite phone lists.
+ */
+
 const express = require("express");
 const router = express.Router();
 const Phone = require("../models/Phone");
-const User = require("../models/User"); // נצטרך את זה למועדפים
+const User = require("../models/User"); // Needed for favorites management
 const { protect } = require("../middleware/authMiddleware");
 
+// Ensure all routes are protected by authentication
 router.use(protect);
 
-// --- פונקציית עזר לבדיקת כפילות מספרים ---
+/**
+ * Helper function to check for duplicate phone numbers across the collection.
+ * 
+ * Searches for any existing phone documents that contain any of the provided
+ * numbers, optionally excluding a specific document ID (useful for updates).
+ * 
+ * @param {string[]} numbers - Array of phone numbers to check for duplicates.
+ * @param {string} [excludeId=null] - Optional MongoDB ObjectId to exclude from the search.
+ * @throws {Error} If a duplicate number is found, with a message identifying the conflicting contact.
+ */
 async function checkDuplicateNumbers(numbers, excludeId = null) {
-    // מחפש האם קיים מסמך כלשהו (שאינו המסמך הנוכחי) שמכיל אחד מהמספרים החדשים
+    // Search for any document (excluding current) that contains any of the new numbers
     const query = {
         numbers: { $in: numbers },
     };
@@ -18,7 +36,7 @@ async function checkDuplicateNumbers(numbers, excludeId = null) {
 
     const existing = await Phone.findOne(query);
     if (existing) {
-        // מצאנו טלפון קיים עם אחד המספרים. בוא נמצא איזה מספר בדיוק מתנגש כדי להחזיר הודעה ברורה
+        // Find exactly which number conflicts to provide a clear error message
         const conflictNumber = numbers.find((n) =>
             existing.numbers.includes(n),
         );
@@ -28,20 +46,32 @@ async function checkDuplicateNumbers(numbers, excludeId = null) {
     }
 }
 
-// Get All
+/**
+ * GET /
+ * 
+ * Retrieves all phone contacts, sorted alphabetically by name.
+ * Dynamically adds an `isFavorite` flag based on the current user's preferences.
+ * 
+ * @name getPhones
+ * @route {GET} /
+ * @authentication Requires valid JWT.
+ * @returns {Array<Object>} 200 - List of phone contacts with virtual `isFavorite` field.
+ * @returns {Error}  401 - If user is not authenticated.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.get("/", async (req, res) => {
     if (!req.user) return res.status(401).json({ message: "Login required" });
 
     try {
-        const phones = await Phone.find().sort({ name: 1 }).lean(); // lean() מחזיר אובייקט JS רגיל שקל לערוך
+        // Use lean() to return plain JS objects for easier dynamic manipulation
+        const phones = await Phone.find().sort({ name: 1 }).lean();
 
-        // יצירת מפה של המועדפים של המשתמש הנוכחי
-        // המרה למחרוזות כדי להשוות IDs בקלות
+        // Map the current user's favorite phone IDs for quick comparison
         const userFavorites = (req.user.favoritePhones || []).map((id) =>
             id.toString(),
         );
 
-        // הוספת שדה isFavorite וירטואלי לתוצאות
+        // Add the virtual isFavorite field to the result objects
         const phonesWithFavorites = phones.map((phone) => ({
             ...phone,
             isFavorite: userFavorites.includes(phone._id.toString()),
@@ -53,10 +83,24 @@ router.get("/", async (req, res) => {
     }
 });
 
-// Create
+/**
+ * POST /
+ * 
+ * Creates a new phone contact entry.
+ * Validates that the provided numbers do not already exist in the directory.
+ * 
+ * @name createPhone
+ * @route {POST} /
+ * @authentication Requires valid JWT.
+ * @bodyparam {string} name - The contact name.
+ * @bodyparam {string[]} numbers - List of unique phone numbers.
+ * @bodyparam {string} type - Contact type (e.g., Mobile, Red, Black).
+ * @returns {Object} 201 - The newly created Phone document.
+ * @returns {Error}  400 - If validation fails or duplicate numbers are found.
+ */
 router.post("/", async (req, res) => {
     try {
-        // 1. בדיקת כפילות מספרים
+        // 1. Check for duplicate numbers across all contacts
         await checkDuplicateNumbers(req.body.numbers);
 
         const phone = new Phone(req.body);
@@ -67,10 +111,23 @@ router.post("/", async (req, res) => {
     }
 });
 
-// Update
+/**
+ * PUT /:id
+ * 
+ * Updates an existing phone contact entry.
+ * Ensures that updated numbers do not conflict with other existing contacts.
+ * 
+ * @name updatePhone
+ * @route {PUT} /:id
+ * @authentication Requires valid JWT.
+ * @routeparam {string} id - The ObjectId of the contact to update.
+ * @bodyparam {Object} - Updated contact fields.
+ * @returns {Object} 200 - The updated Phone document.
+ * @returns {Error}  400 - If validation fails or duplicate numbers are found.
+ */
 router.put("/:id", async (req, res) => {
     try {
-        // 1. בדיקת כפילות מספרים (מחריגים את ה-ID הנוכחי)
+        // 1. Check for duplicate numbers (excluding the current contact ID)
         if (req.body.numbers) {
             await checkDuplicateNumbers(req.body.numbers, req.params.id);
         }
@@ -86,20 +143,31 @@ router.put("/:id", async (req, res) => {
     }
 });
 
-// Toggle Favorite (New Route)
+/**
+ * PATCH /:id/favorite
+ * 
+ * Toggles the favorite status of a specific phone contact for the current user.
+ * 
+ * @name toggleFavorite
+ * @route {PATCH} /:id/favorite
+ * @authentication Requires valid JWT.
+ * @routeparam {string} id - The ObjectId of the contact to toggle.
+ * @returns {Object} 200 - The updated favoritePhones array for the user.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.patch("/:id/favorite", async (req, res) => {
     try {
         const user = await User.findById(req.user._id);
         const phoneId = req.params.id;
 
-        // בדיקה האם כבר במועדפים
+        // Check if the phone is already in the user's favorites list
         const index = user.favoritePhones.indexOf(phoneId);
 
         if (index === -1) {
-            // הוספה
+            // Add to favorites
             user.favoritePhones.push(phoneId);
         } else {
-            // הסרה
+            // Remove from favorites
             user.favoritePhones.splice(index, 1);
         }
 
@@ -110,11 +178,22 @@ router.patch("/:id/favorite", async (req, res) => {
     }
 });
 
-// Delete
+/**
+ * DELETE /:id
+ * 
+ * Removes a phone contact from the directory.
+ * 
+ * @name deletePhone
+ * @route {DELETE} /:id
+ * @authentication Requires valid JWT.
+ * @routeparam {string} id - The ObjectId of the contact to delete.
+ * @returns {Object} 200 - Success message.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.delete("/:id", async (req, res) => {
     try {
         await Phone.findByIdAndDelete(req.params.id);
-        // אופציונלי: אפשר כאן לנקות את ה-ID הזה מכל המשתמשים, אבל זה לא קריטי (סתם תהיה הפניה מתה)
+        // Optional: Clean up dead references in user favorite lists if needed
         res.json({ message: "Phone deleted" });
     } catch (err) {
         res.status(500).json({ message: err.message });

@@ -1,19 +1,36 @@
+/**
+ * @module AuthRoutes
+ * 
+ * Handles user authentication via OpenID Connect (OIDC).
+ * Integrates with an external SSO provider to manage user logins,
+ * automatic user provisioning, and session identification.
+ */
+
 const express = require("express");
 const router = express.Router();
 
-// אנחנו מייבאים את כל הספרייה ומחלצים את Issuer ידנית לבדיקה
+// We import the entire library and extract the Issuer manually for testing
 const openIdClient = require("openid-client");
 const { Issuer } = openIdClient;
 
 console.log("🔍 Checking openid-client version compatibility:");
-console.log("Issuer exists?", !!Issuer); // אם זה false, הגרסה לא נכונה
+console.log("Issuer exists?", !!Issuer); // If false, the version is incorrect
 
 const User = require("../models/User");
 const ssoConfig = require("../config/sso");
 
+/** @type {Object | null} Cached OIDC client instance to avoid repeated discoveries. */
 let client;
 
-// פונקציית עזר לאתחול ה-Client (כי Discover היא פעולה אסינכרונית)
+/**
+ * Initializes or retrieves the cached OIDC client.
+ * 
+ * Performs dynamic discovery of the SSO issuer's configuration 
+ * and instantiates a client with the project's credentials.
+ * 
+ * @returns {Promise<Object>} The initialized OIDC client instance.
+ * @throws {Error} If issuer discovery or client initialization fails.
+ */
 async function getClient() {
     if (client) return client;
 
@@ -30,14 +47,24 @@ async function getClient() {
     return client;
 }
 
-// 1. נתיב לקבלת כתובת ההתחברות (הפרונטנד יפנה לכאן)
+/**
+ * GET /sso-url
+ * 
+ * Generates the authorization URL for the SSO provider.
+ * The frontend uses this URL to redirect the user to the SSO login page.
+ * 
+ * @name getSsoUrl
+ * @route {GET} /sso-url
+ * @returns {Object} 200 - An object containing the generated SSO URL.
+ * @returns {Error}  500 - Internal server error if URL generation fails.
+ */
 router.get("/sso-url", async (req, res) => {
     try {
         const ssoClient = await getClient();
 
         const url = ssoClient.authorizationUrl({
             scope: ssoConfig.scope,
-            // כאן אפשר להוסיף state או nonce לאבטחה מוגברת בעתיד
+            // state or nonce can be added here for increased security in the future
         });
 
         res.json({ url });
@@ -47,7 +74,20 @@ router.get("/sso-url", async (req, res) => {
     }
 });
 
-// 2. נתיב ה-Login הראשי
+/**
+ * POST /login
+ * 
+ * Completes the SSO authentication flow using an authorization code.
+ * Exchanges the code for tokens, retrieves user claims, and manages 
+ * user synchronization with the local database.
+ * 
+ * @name login
+ * @route {POST} /login
+ * @bodyparam {string} code - The authorization code returned by the SSO provider.
+ * @returns {Object} 200 - The authenticated User object.
+ * @returns {Error}  400 - If the authorization code is missing.
+ * @returns {Error}  401 - If SSO authentication or user synchronization fails.
+ */
 router.post("/login", async (req, res) => {
     try {
         const { code } = req.body;
@@ -64,32 +104,32 @@ router.post("/login", async (req, res) => {
             {},
         );
 
-        // שליפת פרטי המשתמש מתוך ה-Token
+        // Extract user details from the token
         const claims = tokenSet.claims();
         console.log("👤 SSO User Claims:", claims);
 
-        // קריאת הקונפיגורציה מה-ENV
+        // Read configuration from environment variables
         const identifierMode = process.env.SSO_IDENTIFIER_FIELD;
         console.log(`⚙️ Auth Mode: ${identifierMode}`);
 
-        let dbUsername; // מה נשמור בשדה username (המזהה הייחודי)
-        let dbDisplayName; // מה נשמור בשדה displayName (לתצוגה)
-        let searchCriteria; // לפי מה מחפשים ב-DB
+        let dbUsername; // Unique identifier to be saved in the username field
+        let dbDisplayName; // Name to be saved in the displayName field
+        let searchCriteria; // DB search criteria
 
         dbUsername = claims.preferred_username;
         dbDisplayName = claims.name;
 
         if (identifierMode === "username") {
-            // --- מצב ארגוני  ---
+            // --- Organizational mode ---
             searchCriteria = { username: dbUsername };
         } else {
-            // --- מצב פיתוח/ביתי (חיבור לפי מייל) ---
+            // --- Development/Home mode (connection by email) ---
             searchCriteria = { email: claims.email };
         }
 
         console.log(`🔍 Searching user by:`, searchCriteria);
 
-        // --- לוגיקה עסקית ---
+        // --- Business logic ---
         let user = await User.findOne(searchCriteria);
 
         if (user) {
@@ -118,7 +158,7 @@ router.post("/login", async (req, res) => {
         res.json(user);
     } catch (error) {
         console.error("❌ SSO Login Error:", error);
-        // הוספתי הדפסה של הודעת השגיאה המלאה לדיבוג
+        // Added full error message printing for debugging
         res.status(401).json({
             message: "SSO Authentication failed",
             error: error.message,

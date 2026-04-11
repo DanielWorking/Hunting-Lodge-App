@@ -33,7 +33,7 @@ const ShiftScheduleSchema = new mongoose.Schema(
                 userId: { type: String, required: true },
                 date: { type: Date, required: true },
                 shiftTypeId: { type: String, required: true },
-                // מסמן האם השיבוץ הספציפי הזה כבר גרר הורדת יום חופש
+                // Marks whether this specific assignment has already triggered a vacation day deduction
                 vacationDeducted: { type: Boolean, default: false },
             },
         ],

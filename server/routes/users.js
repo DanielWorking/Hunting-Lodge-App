@@ -1,16 +1,36 @@
+/**
+ * @module UserRoutes
+ * 
+ * Provides API endpoints for user management, including authentication,
+ * profile updates, group synchronization, and administrative controls.
+ */
+
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const Group = require("../models/Group");
 const { protect } = require("../middleware/authMiddleware");
 
-// --- נתיבים ציבוריים ---
+// --- Public Routes ---
 
-// Login (מקומי - לא בשימוש ב-SSO מלא, אבל נשאר לתמיכה לאחור)
+/**
+ * POST /login
+ * 
+ * Handles local user login.
+ * Note: This is primarily for backward compatibility or local development;
+ * the main authentication flow uses the OIDC /auth/login route.
+ * 
+ * @name login
+ * @route {POST} /login
+ * @bodyparam {string} username - The identifier used for login (username or email).
+ * @returns {Object} 200 - The authenticated User document.
+ * @returns {Error}  404 - If the user is not found.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.post("/login", async (req, res) => {
     try {
         const { username } = req.body;
-        // כאן ה-username יכול להיות מייל או שם משתמש, תלוי איך נרשמו
+        // Username could be an email or a handle depending on registration
         const user = await User.findOne({ username });
 
         if (!user) return res.status(404).json({ message: "User not found" });
@@ -27,10 +47,20 @@ router.post("/login", async (req, res) => {
     }
 });
 
-// --- נתיבים מוגנים ---
+// --- Protected Routes ---
 router.use(protect);
 
-// Get All Users
+/**
+ * GET /
+ * 
+ * Retrieves all registered users.
+ * 
+ * @name getUsers
+ * @route {GET} /
+ * @authentication Requires valid JWT.
+ * @returns {Array<Object>} 200 - List of all User documents.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.get("/", async (req, res) => {
     try {
         const users = await User.find();
@@ -40,15 +70,28 @@ router.get("/", async (req, res) => {
     }
 });
 
-// === Create New User (Pre-provisioning) ===
+/**
+ * POST /
+ * 
+ * Creates a new user (Pre-provisioning).
+ * Synchronizes the new user's membership across the specified groups.
+ * 
+ * @name createUser
+ * @route {POST} /
+ * @authentication Requires valid JWT.
+ * @bodyparam {string} username - Unique organizational identifier.
+ * @bodyparam {string} email - Verified email address.
+ * @bodyparam {string} [displayName] - Full name for display.
+ * @bodyparam {Object[]} [groups] - List of initial group assignments.
+ * @bodyparam {boolean} [isActive=true] - Initial account status.
+ * @returns {Object} 201 - The newly created User document.
+ * @returns {Error}  400 - If user already exists or validation fails.
+ */
 router.post("/", async (req, res) => {
     try {
-        // האדמין שולח את פרטי המשתמש
-        // username = ID ארגוני (או מייל במצב מקומי)
-        // displayName = שם מלא
         const { username, email, displayName, groups, isActive } = req.body;
 
-        // בדיקה אם קיים
+        // Check for existing user by username or email
         const existingUser = await User.findOne({
             $or: [{ username }, { email }],
         });
@@ -62,23 +105,23 @@ router.post("/", async (req, res) => {
         const newUser = new User({
             username,
             email,
-            displayName: displayName || username, // ברירת מחדל
+            displayName: displayName || username, // Default to username if not provided
             groups: groups || [],
             isActive: isActive !== undefined ? isActive : true,
-            vacationBalance: 18, // ברירת מחדל
+            vacationBalance: 18, // System default balance
         });
 
         const savedUser = await newUser.save();
 
-        // סנכרון קבוצות: הוספת המשתמש החדש לקבוצות שבחר
+        // Group synchronization: Add user to the specified groups' member lists
         if (groups && groups.length > 0) {
             const groupIds = groups.map((g) => g.groupId);
-            // עדכון הקבוצות להוסיף את ה-ID של המשתמש החדש
+            // Update groups to include the new user's ObjectId
             await Group.updateMany(
                 {
                     $or: [
                         { id: { $in: groupIds } },
-                        { _id: { $in: groupIds } }, // תמיכה גם ב-ObjectId
+                        { _id: { $in: groupIds } }, // Support both ID types
                     ],
                 },
                 { $addToSet: { members: savedUser._id } },
@@ -92,28 +135,41 @@ router.post("/", async (req, res) => {
     }
 });
 
-// Update User (כולל סנכרון קבוצות)
+/**
+ * PUT /:id
+ * 
+ * Updates user profile and synchronizes group memberships.
+ * Manages adding/removing the user from Group member lists based on changes.
+ * 
+ * @name updateUser
+ * @route {PUT} /:id
+ * @authentication Requires valid JWT.
+ * @routeparam {string} id - The ObjectId of the user.
+ * @bodyparam {Object} - Updated user fields.
+ * @returns {Object} 200 - The updated User document.
+ * @returns {Error}  404 - If user is not found.
+ * @returns {Error}  400 - If update logic fails.
+ */
 router.put("/:id", async (req, res) => {
     try {
-        // שליפת המשתמש הישן כדי לדעת אילו קבוצות השתנו
+        // Fetch old user state to detect group membership changes
         const oldUser = await User.findById(req.params.id);
         if (!oldUser)
             return res.status(404).json({ message: "User not found" });
 
-        // עדכון המשתמש
-        // שימוש ב-req.body מעדכן את כל השדות שנשלחו (username, displayName, groups וכו')
+        // Update user fields
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
             { $set: req.body },
             { new: true },
         );
 
-        // לוגיקת סנכרון קבוצות (מסובכת כי צריך להסיר מישנות ולהוסיף לחדשות)
+        // Group membership synchronization logic
         if (req.body.groups) {
             const oldGroupIds = oldUser.groups.map((g) => g.groupId);
             const newGroupIds = updatedUser.groups.map((g) => g.groupId);
 
-            // 1. קבוצות שהמשתמש הוסר מהן
+            // 1. Remove user from groups they no longer belong to
             const groupsToRemove = oldGroupIds.filter(
                 (id) => !newGroupIds.includes(id),
             );
@@ -129,7 +185,7 @@ router.put("/:id", async (req, res) => {
                 );
             }
 
-            // 2. קבוצות שהמשתמש נוסף אליהן
+            // 2. Add user to new groups they joined
             const groupsToAdd = newGroupIds.filter(
                 (id) => !oldGroupIds.includes(id),
             );
@@ -152,14 +208,27 @@ router.put("/:id", async (req, res) => {
     }
 });
 
-// Delete User
+/**
+ * DELETE /:id
+ * 
+ * Deletes a user and removes them from all group memberships.
+ * Includes protection against deleting the Super Admin.
+ * 
+ * @name deleteUser
+ * @route {DELETE} /:id
+ * @authentication Requires valid JWT.
+ * @routeparam {string} id - The ObjectId of the user to delete.
+ * @returns {Object} 200 - Success message.
+ * @returns {Error}  403 - If attempting to delete the Super Admin.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.delete("/:id", async (req, res) => {
     try {
         const userToDelete = await User.findById(req.params.id);
 
         const superAdminName = process.env.SUPER_ADMIN_USERNAME;
 
-        // הגנה על מחיקת סופר-אדמין (לפי שם משתמש או ID)
+        // Protection: System prevents deletion of the Super Admin account
         if (userToDelete && userToDelete.username === superAdminName) {
             return res
                 .status(403)
@@ -168,7 +237,7 @@ router.delete("/:id", async (req, res) => {
 
         await User.findByIdAndDelete(req.params.id);
 
-        // הסרת המשתמש מכל הקבוצות שהוא היה בהן
+        // Clean up: Remove user from all groups they were members of
         await Group.updateMany(
             { members: req.params.id },
             { $pull: { members: req.params.id } },
@@ -180,7 +249,19 @@ router.delete("/:id", async (req, res) => {
     }
 });
 
-// Reorder users in group
+/**
+ * PUT /reorder/group
+ * 
+ * Updates the display order of users within a specific group.
+ * 
+ * @name reorderUsers
+ * @route {PUT} /reorder/group
+ * @authentication Requires valid JWT.
+ * @bodyparam {string} groupId - The ID of the target group.
+ * @bodyparam {Object[]} updates - List of {userId, order} objects.
+ * @returns {Object} 200 - Success message.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.put("/reorder/group", async (req, res) => {
     try {
         const { groupId, updates } = req.body;
@@ -198,19 +279,34 @@ router.put("/reorder/group", async (req, res) => {
     }
 });
 
-// Manager specific update (Active status & Vacation balance)
-// הגנה: רק אדמין על או מנהל משמרת בקבוצה משותפת יכולים לערוך
+/**
+ * PATCH /:id/manager-update
+ * 
+ * Performs administrative updates on a user (Status & Vacation Balance).
+ * Authorization: Restricted to Super Admins or Shift Managers of the user's groups.
+ * 
+ * @name managerUpdate
+ * @route {PATCH} /:id/manager-update
+ * @authentication Requires valid JWT.
+ * @routeparam {string} id - The ObjectId of the target user.
+ * @bodyparam {boolean} [isActive] - New active status.
+ * @bodyparam {number} [vacationBalance] - New vacation day count.
+ * @returns {Object} 200 - The updated User document.
+ * @returns {Error}  403 - If the requester is not authorized for this user.
+ * @returns {Error}  404 - If the target user is not found.
+ * @returns {Error}  500 - Internal server error.
+ */
 router.patch("/:id/manager-update", async (req, res) => {
     try {
         const { isActive, vacationBalance } = req.body;
 
-        // 1. שליפת המשתמש עליו מבוצע השינוי
+        // 1. Fetch the target user being modified
         const targetUser = await User.findById(req.params.id);
         if (!targetUser) {
             return res.status(404).json({ message: "User not found" });
         }
 
-        // 2. בדיקת הרשאות למבצע הפעולה (req.user מגיע מה-middleware)
+        // 2. Perform Authorization check
         const requestingUser = req.user;
         const isSuperAdmin =
             requestingUser.username === process.env.SUPER_ADMIN_USERNAME;
@@ -218,16 +314,16 @@ router.patch("/:id/manager-update", async (req, res) => {
         let isAuthorized = isSuperAdmin;
 
         if (!isAuthorized) {
-            // בדיקה האם למבקש יש תפקיד 'shift_manager' באחת הקבוצות שהמשתמש היעד חבר בהן
+            // Check if requester is a 'shift_manager' in any group the target user belongs to
             const managerGroupIds = requestingUser.groups
                 .filter((g) => g.role === "shift_manager")
-                .map((g) => g.groupId.toString()); // המרה ל-String להשוואה
+                .map((g) => g.groupId.toString());
 
             const targetGroupIds = targetUser.groups.map((g) =>
                 g.groupId.toString(),
             );
 
-            // האם יש חיתוך בין הקבוצות שאני מנהל לקבוצות שהמשתמש חבר בהן?
+            // Determine if there's an overlap between managed groups and target groups
             const hasCommonGroup = managerGroupIds.some((id) =>
                 targetGroupIds.includes(id),
             );
@@ -246,7 +342,7 @@ router.patch("/:id/manager-update", async (req, res) => {
                 });
         }
 
-        // 3. ביצוע העדכון
+        // 3. Apply updates
         if (isActive !== undefined) targetUser.isActive = isActive;
         if (vacationBalance !== undefined)
             targetUser.vacationBalance = vacationBalance;

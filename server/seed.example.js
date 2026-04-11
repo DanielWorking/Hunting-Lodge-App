@@ -1,7 +1,15 @@
+/**
+ * @module SeedExample
+ * 
+ * A utility script to seed the database with initial sample data.
+ * This script clears all existing data and populates groups, users, sites, 
+ * and phone records to provide a functional starting point for the application.
+ */
+
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 
-// טעינת המודלים
+// Load database models
 const Group = require("./models/Group");
 const User = require("./models/User");
 const Site = require("./models/Site");
@@ -15,44 +23,49 @@ if (result.error) {
     process.exit(1);
 }
 
-// זיהוי מצב העבודה (מקומי מול ארגוני)
+// Detect operational mode (Local vs. Organizational) based on SSO configuration
 const AUTH_MODE = process.env.SSO_IDENTIFIER_FIELD;
 console.log(`⚙️  Seeding in Auth Mode: ${AUTH_MODE}`);
 
+/** @type {Object} Predefined administrative user data pulled from environment variables. */
 const adminUserData = {
     username: process.env.SUPER_ADMIN_ID,
     displayName: process.env.SUPER_ADMIN_USERNAME,
     email: process.env.SUPER_ADMIN_EMAIL,
 };
 
+/** @type {Object} Sample regular user for testing non-privileged access. */
 const regularUserData = {
     username: "10002",
     displayName: "Regular User",
     email: "regular@corp.local",
 };
 
+/** @type {Array<Object>} Sample shift types for a NOC environment. */
 const NOC_SHIFT_TYPES = [
-    { name: "בוקר", color: "#476db5", isVacation: false },
-    { name: "ערב", color: "#a32e9d", isVacation: false },
-    { name: "לילה", color: "#2f3436", isVacation: false },
-    { name: "אפטר", color: "#bac4c8", isVacation: false },
-    { name: "אמצע", color: "#2c728e", isVacation: false },
-    { name: "שבת", color: "#eee836", isVacation: false },
-    { name: "חופש", color: "#E57373", isVacation: true },
-    { name: "חול", color: "#9d6262", isVacation: true },
+    { name: "Morning", color: "#476db5", isVacation: false },
+    { name: "Evening", color: "#a32e9d", isVacation: false },
+    { name: "Night", color: "#2f3436", isVacation: false },
+    { name: "After", color: "#bac4c8", isVacation: false },
+    { name: "Middle", color: "#2c728e", isVacation: false },
+    { name: "Saturday", color: "#eee836", isVacation: false },
+    { name: "Vacation", color: "#E57373", isVacation: true },
+    { name: "Leave", color: "#9d6262", isVacation: true },
 ];
 
+/** @type {Array<Object>} Default time slots corresponding to NOC shift types. */
 const NOC_TIME_SLOTS = [
-    { name: "משמרת בוקר", startTime: "08:00", endTime: "14:00" },
-    { name: "משמרת ערב", startTime: "14:00", endTime: "19:30" },
-    { name: "משמרת לילה", startTime: "19:30", endTime: "08:00" },
-    { name: "אפטר", startTime: "08:00", endTime: "08:00" },
-    { name: "משמרת שבת", startTime: "08:00", endTime: "08:00" },
-    { name: "חופש", startTime: "08:00", endTime: "08:00" },
-    { name: "חול", startTime: "08:00", endTime: "08:00" },
-    { name: "משמרת אמצע", startTime: "10:00", endTime: "16:00" },
+    { name: "Morning Shift", startTime: "08:00", endTime: "14:00" },
+    { name: "Evening Shift", startTime: "14:00", endTime: "19:30" },
+    { name: "Night Shift", startTime: "19:30", endTime: "08:00" },
+    { name: "After", startTime: "08:00", endTime: "08:00" },
+    { name: "Saturday Shift", startTime: "08:00", endTime: "08:00" },
+    { name: "Vacation", startTime: "08:00", endTime: "08:00" },
+    { name: "Leave", startTime: "08:00", endTime: "08:00" },
+    { name: "Middle Shift", startTime: "10:00", endTime: "16:00" },
 ];
 
+/** @type {Array<Object>} Sample contact records for the phone directory. */
 const phones = [
     {
         name: "David",
@@ -68,12 +81,22 @@ const phones = [
     },
 ];
 
+/**
+ * Orchestrates the data import process.
+ * 
+ * Connects to MongoDB, wipes all existing collections, and inserts
+ * fresh seed data in the correct dependency order.
+ * 
+ * @async
+ * @function importData
+ * @throws {Error} If connection or insertion fails.
+ */
 const importData = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
         console.log("✅ MongoDB Connected...");
 
-        // ניקוי נתונים ישנים
+        // Clear existing data to ensure a fresh start
         await Group.deleteMany();
         await User.deleteMany();
         await Site.deleteMany();
@@ -82,7 +105,7 @@ const importData = async () => {
         await ShiftReport.deleteMany();
         console.log("🗑️  Old Data Destroyed...");
 
-        // 1. יצירת קבוצות
+        // 1. Create initial groups
         const createdGroups = await Group.insertMany([
             {
                 id: process.env.SUPER_ADMIN_GROUP_NAME,
@@ -97,11 +120,11 @@ const importData = async () => {
                     shiftTypes: NOC_SHIFT_TYPES,
                     timeSlots: NOC_TIME_SLOTS,
                 },
-                siteTags: ["General", "Tacti"],
+                siteTags: ["General", "Tactical"],
             },
         ]);
 
-        // מיפוי חכם: יצירת מחרוזת מזהה (למשתמשים) ואובייקט מזהה (לאתרים) מתוך ה-_id האמיתי של מונגו
+        // Smart mapping: Create lookup for group IDs to simplify user and site associations
         const gMap = {};
         createdGroups.forEach((g) => {
             gMap[g.name] = {
@@ -111,11 +134,11 @@ const importData = async () => {
         });
         console.log("🏢 Groups Created...");
 
-        // 2. יצירת טלפונים ראשית
+        // 2. Seed primary contact numbers
         const createdPhones = await Phone.insertMany(phones);
         console.log("📞 Phones Created...");
 
-        // 3. יצירת משתמשים
+        // 3. Create initial users with predefined roles
         const users = [
             {
                 ...adminUserData,
@@ -152,7 +175,7 @@ const importData = async () => {
         await User.insertMany(users);
         console.log(`👤 Users Created (Admin: ${adminUserData.username})...`);
 
-        // 4. יצירת אתרים
+        // 4. Seed group-specific resources and links
         const sites = [
             {
                 title: "NOC Dashboard",
@@ -196,4 +219,5 @@ const importData = async () => {
     }
 };
 
+// Execute the seed process
 importData();

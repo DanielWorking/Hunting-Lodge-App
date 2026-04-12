@@ -1,3 +1,12 @@
+/**
+ * @module main
+ *
+ * The main entry point for the React client application.
+ * This file initializes the React root, configures global axios interceptors,
+ * and wraps the application in necessary providers including Routing, Theme,
+ * and Data contexts.
+ */
+
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
@@ -10,6 +19,10 @@ import axios from "axios";
 import { CssBaseline } from "@mui/material";
 import { ColorModeProvider } from "./context/ThemeContext.tsx";
 
+/**
+ * Configures a global axios request interceptor to inject the user ID from localStorage
+ * into the 'x-user-id' header for all outgoing requests.
+ */
 axios.interceptors.request.use(
     (config) => {
         const userId = localStorage.getItem("hunting_userId");
@@ -21,6 +34,15 @@ axios.interceptors.request.use(
     (error) => Promise.reject(error),
 );
 
+/**
+ * Initializes and renders the React application root.
+ * The app is wrapped in StrictMode and several context providers:
+ * - BrowserRouter: Handles client-side routing.
+ * - DataProvider: Manages global application data.
+ * - UserProvider: Manages user authentication and profile state.
+ * - NotificationProvider: Handles global toast notifications.
+ * - ColorModeProvider: Manages the theme (light/dark mode).
+ */
 ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
         <BrowserRouter>
@@ -28,7 +50,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                 <UserProvider>
                     <NotificationProvider>
                         <ColorModeProvider>
-                            {/* CssBaseline דואג לאפס את ה-CSS ולהחיל את צבע הרקע (כהה/בהיר) */}
+                            {/* CssBaseline resets CSS to a consistent baseline and applies theme-specific background colors (light/dark) */}
                             <CssBaseline />
                             <App />
                         </ColorModeProvider>

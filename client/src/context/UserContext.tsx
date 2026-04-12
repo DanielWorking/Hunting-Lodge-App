@@ -1,3 +1,11 @@
+/**
+ * @module UserContext
+ *
+ * Manages user authentication, session restoration, and current group scope.
+ * Handles login/logout operations and provides reactive state for the 
+ * authenticated user's permissions and active organizational group.
+ */
+
 import {
     createContext,
     useContext,
@@ -9,19 +17,50 @@ import axios from "axios";
 import type { User, Group } from "../types";
 import { useData } from "./DataContext";
 
+/**
+ * Defines the structure of the authentication and authorization context.
+ */
 interface UserContextType {
+    /** The currently authenticated user object, or null if unauthenticated. */
     user: User | null;
+    /** The specific group/department the user is currently interacting with. */
     currentGroup: Group | null;
+    /** True if the user is in the system-wide super administrator group. */
     isAdmin: boolean;
+    /** True if the user has a 'shift_manager' role in the current group. */
     isShiftManager: boolean;
+    /**
+     * Performs authentication against the backend.
+     * 
+     * @param {string} username - The identifier for the user.
+     * @param {string} password - The user's password (currently ignored by stub).
+     * @returns {Promise<boolean>} True if login was successful.
+     */
     login: (username: string, password: string) => Promise<boolean>;
+    /** Clears the session and redirects to the login state. */
     logout: () => void;
+    /**
+     * Changes the active group scope for the user.
+     * 
+     * @param {string} groupId - The ID of the group to switch to.
+     */
     switchGroup: (groupId: string) => void;
+    /** Indicates if the system is still trying to recover a previous session from storage. */
     isRestoringSession: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+/**
+ * Provider component that handles the authentication lifecycle.
+ * 
+ * It manages session persistence via localStorage and calculates 
+ * permissions (isAdmin, isShiftManager) based on the user's data and current group.
+ *
+ * @param {Object} props - Component properties.
+ * @param {ReactNode} props.children - The child components that will consume the context.
+ * @returns {JSX.Element} The authentication provider component.
+ */
 export const UserProvider = ({ children }: { children: ReactNode }) => {
     const { users, groups, refreshData, loading: dataLoading } = useData();
 
@@ -29,10 +68,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const [currentGroup, setCurrentGroup] = useState<Group | null>(null);
     const [isRestoringSession, setIsRestoringSession] = useState(true);
 
+    /** Calculates if the current group name matches the system's super admin group definition. */
     const isAdmin =
         currentGroup?.name === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
 
-    // שימוש בסימני שאלה כדי למנוע קריסה פנימית בקומפוננטה
+    /** 
+     * Checks if the user has managerial privileges within the active group context.
+     * Uses optional chaining to prevent runtime errors during session transitions.
+     */
     const isShiftManagerBool =
         user?.groups?.some(
             (g) =>
@@ -40,7 +83,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 g.role === "shift_manager",
         ) || false;
 
-    // === שחזור סשן ===
+    /**
+     * Session Restoration logic.
+     * 
+     * Runs when data entities (users/groups) are loaded. Attempts to re-hydrate 
+     * the user session from localStorage tokens.
+     */
     useEffect(() => {
         if (dataLoading) return;
 
@@ -54,8 +102,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 );
 
                 if (foundUser) {
-                    // תיקון קריטי: מוודאים ש-groups תמיד קיים כמערך
-                    // זה מונע קריסות בקבצים חיצוניים כמו App.tsx שמצפים למערך
+                    // Normalize user object to ensure groups is always an array,
+                    // preventing downstream crashes in components expecting a list.
                     const safeUser: User = {
                         ...foundUser,
                         groups: foundUser.groups || [],
@@ -85,6 +133,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         restoreSession();
     }, [users, groups, dataLoading]);
 
+    /**
+     * Automatically selects the first available group for a user if no group is specified.
+     * 
+     * @param {User} u - The user object to select a group for.
+     */
     const selectDefaultGroup = (u: User) => {
         if (u.groups && u.groups.length > 0) {
             const firstGroupId = u.groups[0].groupId;
@@ -95,13 +148,16 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    /**
+     * Authenticates the user and initializes the session.
+     */
     const login = async (username: string, _pass: string): Promise<boolean> => {
         try {
             const response = await axios.post("/api/users/login", { username });
             const foundUser = response.data;
 
             if (foundUser) {
-                // תיקון קריטי: גם כאן מוודאים ש-groups הוא מערך תקין
+                // Ensure groups property is a valid array upon login.
                 const safeUser: User = {
                     ...foundUser,
                     groups: foundUser.groups || [],
@@ -139,6 +195,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    /**
+     * Terminates the session and cleans up sensitive items from localStorage.
+     */
     const logout = () => {
         setUser(null);
         setCurrentGroup(null);
@@ -146,8 +205,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem("hunting_groupId");
     };
 
+    /**
+     * Switches the current active group scope if the user has permission.
+     */
     const switchGroup = (groupId: string) => {
-        // שימוש ב-optional chaining להגנה
+        // Protect group switching by verifying membership or super admin status.
         const membership = user?.groups?.find((g) => g.groupId === groupId);
         if (membership || isAdmin) {
             const groupObj = groups.find((g) => (g._id || g.id) === groupId);
@@ -176,6 +238,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     );
 };
 
+/**
+ * Custom hook to access authentication state and user profile.
+ * 
+ * @returns {UserContextType} The authentication context value.
+ * @throws {Error} If called outside of a UserProvider.
+ */
 export const useUser = () => {
     const context = useContext(UserContext);
     if (!context) {

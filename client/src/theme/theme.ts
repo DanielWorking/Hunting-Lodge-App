@@ -1,12 +1,28 @@
+/**
+ * @module ThemeConfiguration
+ *
+ * Defines the application's visual style and Material UI theme tokens.
+ * This file manages the color palettes, typography, and component overrides
+ * for both light and dark modes.
+ */
+
 import { type PaletteMode } from '@mui/material';
 
-// פונקציה שמחזירה את הגדרות העיצוב לפי המצב הנבחר
+/**
+ * Generates the Material UI design tokens based on the current palette mode.
+ *
+ * Provides a cohesive visual language by switching between predefined
+ * light and dark color schemes and component styling.
+ *
+ * @param {PaletteMode} mode - The active theme mode ('light' or 'dark').
+ * @returns {Object} An object containing palette, typography, and component overrides.
+ */
 export const getDesignTokens = (mode: PaletteMode) => ({
     palette: {
-        mode, // כאן נקבע אם זה 'light' או 'dark'
+        mode,
         ...(mode === 'light'
             ? {
-                // === מצב בהיר  ===
+                // Light mode color palette
                 primary: {
                     main: '#2E7D32',
                     light: '#60AD5E',
@@ -29,7 +45,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                 },
             }
             : {
-                // === מצב כהה  ===
+                // Dark mode color palette
                 primary: {
                     main: '#66BB6A',
                     light: '#81C784',
@@ -44,7 +60,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                 },
                 background: {
                     default: '#121212',
-                    paper: '#1E1E1E',   // צבע לכרטיסים (קצת יותר בהיר מהרקע)
+                    paper: '#1E1E1E', // Slightly lighter than background for depth
                 },
                 text: {
                     primary: '#ffffff',
@@ -70,7 +86,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
             styleOverrides: {
                 root: {
                     borderRadius: 12,
-                    // צל עדין יותר במצב כהה
+                    // Softer shadows in dark mode for better visual blending
                     boxShadow: mode === 'dark' ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.05)',
                 },
             },
@@ -78,7 +94,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
         MuiAppBar: {
             styleOverrides: {
                 root: {
-                    // ב-Dark Mode ה-Navbar יהיה כהה, ב-Light הוא יהיה לבן
+                    // Contextual background and text colors for the main navigation bar
                     backgroundColor: mode === 'dark' ? '#1E1E1E' : '#ffffff',
                     color: mode === 'dark' ? '#ffffff' : '#2E7D32',
                 },

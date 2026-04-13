@@ -1,3 +1,11 @@
+/**
+ * @module LoginPage
+ *
+ * Provides the entry point for user authentication.
+ * Handles redirection to the organization's SSO provider and
+ * displays authentication-related errors or status messages.
+ */
+
 import { useState } from "react";
 import {
     Box,
@@ -12,11 +20,20 @@ import LoginIcon from "@mui/icons-material/Login";
 import axios from "axios";
 import { useSearchParams } from "react-router-dom";
 
+/**
+ * The primary login page component.
+ *
+ * Manages the SSO authentication flow, including fetching the SSO URL
+ * from the backend and redirecting the user. It also handles the display
+ * of feedback via Snackbars and URL-based error parameters.
+ *
+ * @returns {JSX.Element} The rendered LoginPage component.
+ */
 export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [searchParams] = useSearchParams();
 
-    // ניהול ה-Snackbar (הודעות קופצות)
+    // Snackbar (toast) state management for user feedback
     const [toast, setToast] = useState<{
         open: boolean;
         message: string;
@@ -29,18 +46,27 @@ export default function LoginPage() {
 
     const urlError = searchParams.get("error");
 
+    /**
+     * Closes the feedback Snackbar.
+     */
     const handleCloseToast = () => {
         setToast({ ...toast, open: false });
     };
 
+    /**
+     * Initiates the SSO authentication process.
+     * Fetches the redirection URL from the backend and performs a full page redirect.
+     *
+     * @throws {Error} If the server fails to return a valid SSO URL.
+     */
     const handleSSOClick = async () => {
         try {
             setLoading(true);
-            // שלב 1: בקשת כתובת ה-SSO מהשרת
+            // Step 1: Request the SSO provider's URL from the server
             const response = await axios.get("/api/auth/sso-url");
 
             if (response.data.url) {
-                // שלב 3: הפניה מלאה ל-SSO
+                // Step 2: Redirect the browser to the SSO provider
                 window.location.href = response.data.url;
             } else {
                 throw new Error("No URL returned from server");
@@ -49,7 +75,7 @@ export default function LoginPage() {
             console.error("Failed to start SSO flow", err);
             setLoading(false);
 
-            // הצגת הודעה יפה במקום alert
+            // Display a user-friendly error message via Snackbar
             setToast({
                 open: true,
                 message:

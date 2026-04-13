@@ -1,3 +1,12 @@
+/**
+ * @module ShiftReportPage
+ *
+ * Provides a comprehensive interface for creating, viewing, and editing
+ * shift reports. Includes a rich-text editor (Tiptap) for detailed task
+ * logs, automatic shift detection based on group settings, and an
+ * archive sidebar organized by date.
+ */
+
 import { useState, useEffect } from "react";
 import {
     Container,
@@ -53,7 +62,20 @@ import FormatColorTextIcon from "@mui/icons-material/FormatColorText";
 import HighlightIcon from "@mui/icons-material/Highlight";
 import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
 
-// --- רכיב ה-Tiptap המותאם אישית שלנו ---
+/**
+ * A customized Tiptap rich-text editor component.
+ *
+ * Provides a specialized editor interface for shift reports, supporting
+ * RTL text alignment, various formatting options (bold, italic, underline, strike),
+ * lists, text colors, and highlights.
+ *
+ * @param {Object}   props              Component properties.
+ * @param {string}   props.value        The current HTML content of the editor.
+ * @param {function} props.onChange     Callback function to handle content updates.
+ * @param {string}   props.placeholder  The text to display when the editor is empty.
+ * @param {boolean}  props.readOnly     If true, the editor is in read-only mode.
+ * @returns {JSX.Element | null} The rendered editor or null if not initialized.
+ */
 const TiptapEditor = ({
     value,
     onChange,
@@ -71,11 +93,11 @@ const TiptapEditor = ({
             Underline,
             TextAlign.configure({
                 types: ["heading", "paragraph"],
-                defaultAlignment: "right", // תמיכה נוחה ב-RTL
+                defaultAlignment: "right", // Native support for RTL alignment
             }),
             TextStyleKit,
             Color,
-            Highlight.configure({ multicolor: true }), // תמיכה במרקר בצבעים
+            Highlight.configure({ multicolor: true }), // Support for multi-colored highlighting
             TiptapLink.configure({
                 openOnClick: false,
                 HTMLAttributes: {
@@ -100,7 +122,7 @@ const TiptapEditor = ({
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-            {/* סרגל כלים עם אייקונים */}
+            {/* Toolbar with formatting icons */}
             {!readOnly && (
                 <Box
                     sx={{
@@ -113,7 +135,7 @@ const TiptapEditor = ({
                         alignItems: "center",
                     }}
                 >
-                    {/* עיצוב טקסט בסיסי */}
+                    {/* Basic text formatting */}
                     <Tooltip title="Bold">
                         <IconButton
                             size="small"
@@ -175,8 +197,7 @@ const TiptapEditor = ({
 
                     <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-                    {/* יישור טקסט */}
-                    {/* יישור טקסט */}
+                    {/* Text alignment controls */}
                     <Tooltip title="Align Right (RTL)">
                         <IconButton
                             size="small"
@@ -196,7 +217,7 @@ const TiptapEditor = ({
                             <FormatAlignRightIcon fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                    {/* הוספנו את כפתור היישור למרכז ממש כאן */}
+                    {/* Added center alignment button */}
                     <Tooltip title="Align Center">
                         <IconButton
                             size="small"
@@ -238,7 +259,7 @@ const TiptapEditor = ({
 
                     <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-                    {/* רשימות */}
+                    {/* List controls */}
                     <Tooltip title="Bullet List">
                         <IconButton
                             size="small"
@@ -272,7 +293,7 @@ const TiptapEditor = ({
 
                     <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-                    {/* צבעים והדגשות */}
+                    {/* Colors and highlights */}
                     <Tooltip title="Text Color">
                         <Box
                             sx={{
@@ -322,7 +343,7 @@ const TiptapEditor = ({
                         </Box>
                     </Tooltip>
 
-                    {/* שינינו את המרקר שיהיה עם בוחר צבעים, כמו ב-Word */}
+                    {/* Using a color picker for highlighters to match standard word processors */}
                     <Tooltip title="Highlight Color">
                         <Box
                             sx={{
@@ -375,7 +396,7 @@ const TiptapEditor = ({
                 </Box>
             )}
 
-            {/* אזור העריכה עצמו */}
+            {/* Main editing area */}
             <Box
                 sx={{
                     flexGrow: 1,
@@ -402,6 +423,15 @@ const TiptapEditor = ({
     );
 };
 
+/**
+ * The shift report management page.
+ *
+ * Handles the display of the report archive and the editing of selected
+ * reports. Implements background polling for new reports and smart
+ * detection of current shifts based on time.
+ *
+ * @returns {JSX.Element} The rendered ShiftReportPage component.
+ */
 export default function ShiftReportPage() {
     const { currentGroup } = useUser();
     const { showNotification } = useNotification();
@@ -411,6 +441,7 @@ export default function ShiftReportPage() {
     const [selectedReport, setSelectedReport] = useState<any>(null);
     const [loading, setLoading] = useState(false);
 
+    // Tree navigation state for the archive sidebar
     const [openYears, setOpenYears] = useState<{ [key: string]: boolean }>({});
     const [openMonths, setOpenMonths] = useState<{ [key: string]: boolean }>(
         {},
@@ -427,32 +458,34 @@ export default function ShiftReportPage() {
 
     useEffect(() => {
         if (currentGroup) {
-            // 1. טעינה ראשונית רגילה (עם לודר)
+            // 1. Initial foreground fetch (with loader)
             fetchReports(false);
 
-            // 2. הגדרת טיימר שרץ כל 30 שניות (30000 מילישניות)
+            // 2. Set up background polling every 30 seconds
             const intervalId = setInterval(() => {
-                fetchReports(true); // true = טעינה שקטה ברקע
+                fetchReports(true); // true = silent background load
             }, 30000);
 
-            // 3. ניקוי הטיימר כשהמשתמש יוצא מהדף או מחליף קבוצה
+            // 3. Cleanup timer on unmount or group change
             return () => clearInterval(intervalId);
         }
     }, [currentGroup]);
 
-    // שינינו את הפונקציה לקבל פרמטר isBackground
+    /**
+     * Fetches reports from the server.
+     *
+     * @param {boolean} [isBackground=false] If true, suppresses the UI loading indicator.
+     */
     const fetchReports = async (isBackground = false) => {
         try {
-            // נציג את הלודר רק אם זו לא טעינה ברקע
             if (!isBackground) setLoading(true);
 
             const res = await axios.get("/api/reports", {
                 params: { groupId: currentGroup?._id || currentGroup?.id },
             });
 
-            // בדיקה האם נוסף דוח חדש (לצורך נוטיפיקציה או עדכון)
+            // Check if a new report was added (for notification purposes)
             setReports((prevReports) => {
-                // אם מספר הדוחות גדל, סימן שנוצר דוח חדש
                 if (
                     res.data.length > prevReports.length &&
                     prevReports.length > 0
@@ -462,7 +495,7 @@ export default function ShiftReportPage() {
                 return res.data;
             });
 
-            // בחירה אוטומטית בדוח הראשון רק אם לא נבחר כלום עדיין
+            // Auto-select the most recent report if none is currently active
             if (res.data.length > 0 && !selectedReport) {
                 setSelectedReport(res.data[0]);
             }
@@ -473,7 +506,11 @@ export default function ShiftReportPage() {
         }
     };
 
-    // === לוגיקה חכמה לזיהוי משמרת נוכחית ===
+    /**
+     * Identifies the current shift slot based on the system time.
+     *
+     * @returns {Object | undefined} The matching time slot from group settings.
+     */
     const findCurrentTimeSlot = () => {
         const now = new Date();
         const currentHour = now.getHours();
@@ -493,15 +530,18 @@ export default function ShiftReportPage() {
             const startVal = startH * 60 + startM;
             const endVal = endH * 60 + endM;
 
-            // טיפול במשמרת לילה שחוצה יום (למשל 23:00 עד 07:00)
+            // Handle night shifts crossing midnight (e.g., 23:00 to 07:00)
             if (endVal < startVal) {
                 return currentTimeVal >= startVal || currentTimeVal <= endVal;
             }
-            // משמרת רגילה באותו יום
+            // Standard same-day shift
             return currentTimeVal >= startVal && currentTimeVal <= endVal;
         });
     };
 
+    /**
+     * Creates a new shift report with automatic title and time range calculation.
+     */
     const handleCreateReport = async () => {
         if (!currentGroup) return;
 
@@ -510,28 +550,24 @@ export default function ShiftReportPage() {
 
         let title = `Shift Report - ${format(now, "dd/MM/yyyy HH:mm")}`;
         let startTime = now;
-        let endTime = new Date(now.getTime() + 8 * 60 * 60 * 1000); // ברירת מחדל: +8 שעות
+        let endTime = new Date(now.getTime() + 8 * 60 * 60 * 1000); // Default fallback: +8 hours
 
-        // === חישוב זמנים חכם אם נמצאה משמרת מוגדרת ===
+        // Smart time calculation if a defined shift slot matches current time
         if (currentSlot) {
             title = `${currentSlot.name} - ${format(now, "dd/MM/yyyy")}`;
 
-            // ניתוח שעות מההגדרות
             const [startH, startM] = currentSlot.startTime
                 .split(":")
                 .map(Number);
             const [endH, endM] = currentSlot.endTime.split(":").map(Number);
 
-            // קביעת זמן התחלה מדויק להיום
             const calculatedStart = new Date(now);
             calculatedStart.setHours(startH, startM, 0, 0);
 
-            // קביעת זמן סיום
             const calculatedEnd = new Date(now);
             calculatedEnd.setHours(endH, endM, 0, 0);
 
-            // אם שעת הסיום קטנה משעת ההתחלה -> סימן שזה מחר!
-            // (למשל התחיל ב-20:00 ונגמר ב-08:00)
+            // Shift end-time is tomorrow if it crosses midnight
             if (endH < startH || (endH === startH && endM < startM)) {
                 calculatedEnd.setDate(calculatedEnd.getDate() + 1);
             }
@@ -562,6 +598,9 @@ export default function ShiftReportPage() {
         }
     };
 
+    /**
+     * Persists report changes to the server.
+     */
     const handleSaveReport = async () => {
         if (!selectedReport) return;
         try {
@@ -581,6 +620,9 @@ export default function ShiftReportPage() {
         }
     };
 
+    /**
+     * Reverts unsaved modifications to the currently selected report.
+     */
     const handleDiscardChanges = () => {
         const original = reports.find((r) => r._id === selectedReport._id);
         if (original) {
@@ -589,6 +631,9 @@ export default function ShiftReportPage() {
         }
     };
 
+    /**
+     * Deletes the selected shift report after confirmation.
+     */
     const handleDeleteReport = async () => {
         if (!deleteReportId) return;
         try {
@@ -603,6 +648,12 @@ export default function ShiftReportPage() {
         }
     };
 
+    /**
+     * Updates the attendance list for the active report.
+     *
+     * @param {any}   _event   The event source.
+     * @param {any[]} newValue The selected users from Autocomplete.
+     */
     const handleAttendanceChange = (_event: any, newValue: any[]) => {
         if (!selectedReport) return;
         const newAttendees = newValue.map((u) => ({
@@ -613,7 +664,7 @@ export default function ShiftReportPage() {
         setSelectedReport({ ...selectedReport, attendees: newAttendees });
     };
 
-    // ארגון העץ
+    // Organize reports into a hierarchical structure for the archive tree
     const organizedReports = reports.reduce((acc: any, report) => {
         const date = new Date(report.startTime);
         const year = date.getFullYear();
@@ -628,10 +679,24 @@ export default function ShiftReportPage() {
         return acc;
     }, {});
 
+    /**
+     * Toggles the expansion state of a year in the archive sidebar.
+     * @param {string} year The year to toggle.
+     */
     const toggleYear = (year: string) =>
         setOpenYears((prev) => ({ ...prev, [year]: !prev[year] }));
+
+    /**
+     * Toggles the expansion state of a month in the archive sidebar.
+     * @param {string} key The unique year-month key.
+     */
     const toggleMonth = (key: string) =>
         setOpenMonths((prev) => ({ ...prev, [key]: !prev[key] }));
+
+    /**
+     * Toggles the expansion state of a day in the archive sidebar.
+     * @param {string} key The unique year-month-day key.
+     */
     const toggleDay = (key: string) =>
         setOpenDays((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -950,7 +1015,7 @@ export default function ShiftReportPage() {
                                     gutterBottom
                                     fontWeight="bold"
                                 >
-                                    משימות ממשמרת קודמת
+                                    Tasks from previous shift
                                 </Typography>
 
                                 <TiptapEditor
@@ -962,7 +1027,7 @@ export default function ShiftReportPage() {
                                         })
                                     }
                                     readOnly={selectedReport.isLocked}
-                                    placeholder="אין משימות ממשמרת קודמת"
+                                    placeholder="No tasks from previous shift"
                                 />
                             </Box>
 
@@ -972,7 +1037,7 @@ export default function ShiftReportPage() {
                                     gutterBottom
                                     fontWeight="bold"
                                 >
-                                    נוכחות במשמרת (Attendance)
+                                    Shift Attendance
                                 </Typography>
                                 <Autocomplete
                                     multiple
@@ -993,14 +1058,14 @@ export default function ShiftReportPage() {
                                     disabled={selectedReport.isLocked}
                                     renderTags={(value, getTagProps) =>
                                         value.map((option, index) => {
-                                            // שולפים את ה-key החוצה מהאובייקט
+                                            // Extract the key from tagProps to avoid duplicate keys warning
                                             const { key, ...tagProps } =
                                                 getTagProps({ index });
                                             return (
                                                 <Chip
-                                                    key={key} // מעבירים אותו במפורש
+                                                    key={key}
                                                     label={option?.displayName}
-                                                    {...tagProps} // ואת השאר שופכים כרגיל
+                                                    {...tagProps}
                                                 />
                                             );
                                         })
@@ -1009,13 +1074,13 @@ export default function ShiftReportPage() {
                                         <TextField
                                             {...params}
                                             variant="outlined"
-                                            placeholder="בחר עובדים..."
+                                            placeholder="Select workers..."
                                         />
                                     )}
                                 />
                             </Box>
 
-                            {/* הקונטיינר הראשי של האזור התחתון */}
+                            {/* Main container for the bottom area */}
                             <Box
                                 sx={{
                                     height: "100%",
@@ -1029,7 +1094,7 @@ export default function ShiftReportPage() {
                                     gutterBottom
                                     fontWeight="bold"
                                 >
-                                    יומן מבצעים / משימות שוטפות
+                                    Operations Log / Ongoing Tasks
                                 </Typography>
 
                                 <Box
@@ -1056,7 +1121,7 @@ export default function ShiftReportPage() {
                                             })
                                         }
                                         readOnly={selectedReport.isLocked}
-                                        placeholder="הכנס פירוט אירועים ומשימות כאן..."
+                                        placeholder="Enter event details and tasks here..."
                                     />
                                 </Box>
                             </Box>

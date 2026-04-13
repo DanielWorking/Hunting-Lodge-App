@@ -1,3 +1,11 @@
+/**
+ * @module GroupSettingsPage
+ *
+ * Provides the configuration interface for group-specific settings.
+ * Includes tabs for managing shift types, time slots, member rotations,
+ * and viewing group statistics. Access is restricted to shift managers.
+ */
+
 import { useState } from "react";
 import { Container, Typography, Box, Tabs, Tab, Paper } from "@mui/material";
 import { useUser } from "../context/UserContext";
@@ -6,17 +14,26 @@ import ViewListIcon from "@mui/icons-material/ViewList";
 import PeopleIcon from "@mui/icons-material/People";
 import BarChartIcon from "@mui/icons-material/BarChart";
 
-// ייבוא הרכיבים
+// Setting tab components
 import ShiftTypesTab from "../components/settings/ShiftTypesTab";
 import TimeSlotsTab from "../components/settings/TimeSlotsTab";
 import MembersTab from "../components/settings/MembersTab";
 import StatisticsTab from "../components/settings/StatisticsTab";
 
+/**
+ * The group settings management page.
+ *
+ * Renders a tabbed interface for administrators to configure group-level
+ * parameters. Implements an access control check to ensure only shift
+ * managers of the current group can access the settings.
+ *
+ * @returns {JSX.Element} The rendered GroupSettingsPage component or an access denied message.
+ */
 export default function GroupSettingsPage() {
     const { currentGroup, isShiftManager } = useUser();
     const [tabValue, setTabValue] = useState(0);
 
-    // בדיקה: אם אין קבוצה נוכחית או שהמשתמש הוא לא אחראי משמרת, נחסום את הגישה
+    // Access Control: Block access if the user is not a shift manager of the selected group.
     if (!currentGroup || !isShiftManager) {
         return (
             <Container sx={{ mt: 4, textAlign: "center" }}>
@@ -28,6 +45,12 @@ export default function GroupSettingsPage() {
         );
     }
 
+    /**
+     * Updates the active tab state.
+     *
+     * @param {React.SyntheticEvent} _event The event source of the callback.
+     * @param {number} newValue The index of the newly selected tab.
+     */
     const handleTabChange = (
         _event: React.SyntheticEvent,
         newValue: number,

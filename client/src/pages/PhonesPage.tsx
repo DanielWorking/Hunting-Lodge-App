@@ -1,3 +1,11 @@
+/**
+ * @module PhonesPage
+ *
+ * Provides a management interface for the phone directory.
+ * Includes functionality for searching, filtering, adding, editing,
+ * and deleting phone numbers, as well as toggling favorite status.
+ */
+
 import { useState } from "react";
 import { Container, useTheme } from "@mui/material";
 import axios from "axios";
@@ -6,15 +14,23 @@ import { useData } from "../context/DataContext";
 import { useNotification } from "../context/NotificationContext";
 import type { PhoneRow } from "../types";
 
-// רכיבים פנימיים
+// Internal components
 import PhonesHeader from "../components/phones/PhonesHeader";
 import PhonesTable from "../components/phones/PhonesTable";
 import PhoneDialog from "../components/PhoneDialog";
 import PhoneDetailsDialog from "../components/PhoneDetailsDialog";
 import ConfirmDialog from "../components/ConfirmDialog";
 
+/**
+ * The directory management page for phone numbers.
+ *
+ * Manages the state and operations for the phone list, including
+ * complex filtering and sorting logic based on names and numbers.
+ *
+ * @returns {JSX.Element} The rendered PhonesPage component.
+ */
 export default function PhonesPage() {
-    const theme = useTheme(); // נשאר למקרה שנצטרך בעתיד, כרגע העברנו את השימוש בו לטבלה
+    const theme = useTheme(); // Keep for potential future use; logic moved to table
     const { phones, refreshData } = useData();
     const { showNotification } = useNotification();
 
@@ -24,37 +40,61 @@ export default function PhonesPage() {
     const [viewingPhone, setViewingPhone] = useState<PhoneRow | null>(null);
     const [deleteItem, setDeleteItem] = useState<PhoneRow | null>(null);
 
-    // State לסינון ומיון
+    // Filtering and sorting state
     const [filterFav, setFilterFav] = useState("all");
     const [searchTerm, setSearchTerm] = useState("");
     const [sortOrder, setSortOrder] = useState("name-asc");
 
-    // === Handlers (לוגיקה) ===
+    // --- Event Handlers ---
 
+    /**
+     * Prepares the dialog for adding a new phone entry.
+     */
     const handleAddClick = () => {
         setEditingPhone(null);
         setIsDialogOpen(true);
     };
 
+    /**
+     * Prepares the dialog for editing an existing phone entry.
+     *
+     * @param {PhoneRow} phone The phone record to edit.
+     */
     const handleEditClick = (phone: PhoneRow) => {
         setEditingPhone(phone);
         setIsDialogOpen(true);
     };
 
+    /**
+     * Triggers the details view for a specific phone entry.
+     *
+     * @param {PhoneRow} phone The phone record to view.
+     */
     const handleRowClick = (phone: PhoneRow) => {
         setViewingPhone(phone);
     };
 
+    /**
+     * Triggers the deletion confirmation for a specific phone entry.
+     *
+     * @param {PhoneRow} phone The phone record to delete.
+     */
     const handleDeleteClick = (phone: PhoneRow) => {
         setDeleteItem(phone);
     };
 
+    /**
+     * Toggles the sort order between ascending and descending by name.
+     */
     const handleToggleSortOrder = () => {
         setSortOrder((prev) =>
             prev === "name-asc" ? "name-desc" : "name-asc",
         );
     };
 
+    /**
+     * Executes the deletion of the selected phone record.
+     */
     const handleConfirmDelete = async () => {
         if (deleteItem) {
             const idToDelete = deleteItem._id || deleteItem.id;
@@ -70,6 +110,12 @@ export default function PhonesPage() {
         }
     };
 
+    /**
+     * Persists changes (create or update) for a phone entry.
+     *
+     * @param {Partial<PhoneRow>} phoneData The updated phone data.
+     * @throws {Error} Propagates errors for the dialog to handle.
+     */
     const handleSavePhone = async (phoneData: Partial<PhoneRow>) => {
         try {
             if (editingPhone) {
@@ -83,24 +129,26 @@ export default function PhonesPage() {
                 showNotification("Phone added successfully", "success");
             }
             refreshData();
-            setIsDialogOpen(false); // זה יקרה רק אם לא הייתה שגיאה
+            setIsDialogOpen(false); // Close only on success
         } catch (err: any) {
-            // אנחנו לא סוגרים את הדיאלוג במקרה שגיאה!
-            // אנו מעבירים את השגיאה הלאה כדי שהדיאלוג יציג אותה
+            // Do not close the dialog on error; propagate for display
             throw err;
         }
     };
 
+    /**
+     * Toggles the favorite status of a phone record on the server.
+     *
+     * @param {PhoneRow} phone The phone record to toggle.
+     */
     const handleToggleFavorite = async (phone: PhoneRow) => {
         try {
-            // קריאה ל-Endpoint החדש בשרת
+            // Call the server endpoint to toggle favorite status
             await axios.patch(`/api/phones/${phone._id || phone.id}/favorite`);
 
-            // עדכון אופטימי (Optimistic UI Update) בזיכרון עד שה-Refresh יקרה
-            // או פשוט לקרוא ל-RefreshData
+            // Trigger data refresh to sync the UI
             refreshData();
 
-            // הודעה למשתמש
             const newStatus = !phone.isFavorite;
             showNotification(
                 newStatus ? "Added to favorites" : "Removed from favorites",

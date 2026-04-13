@@ -113,7 +113,7 @@ export default function LoginPage() {
                     Secure Shift Management
                 </Typography>
 
-                {/* שגיאות שמגיעות מה-URL (למשל אחרי כישלון ב-Callback) */}
+                {/* Display errors received via URL parameters (e.g., after a failed callback) */}
                 {urlError && (
                     <Alert severity="error" sx={{ width: "100%" }}>
                         Authentication failed. Please try again.

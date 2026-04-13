@@ -1,3 +1,10 @@
+/**
+ * @module ShiftSchedulePage
+ *
+ * Provides the user interface for viewing and managing shift schedules.
+ * Includes features for weekly navigation, draft saving, and full-screen visualization.
+ */
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
     Container,
@@ -133,6 +140,13 @@ export default function ShiftSchedulePage() {
         }
     }, [isFullScreen, activeUsers, shifts]);
 
+    /**
+     * Fetches the schedule for the current week and group from the server.
+     * 
+     * Updates the local state with the fetched schedule data and shifts.
+     * 
+     * @returns {Promise<void>}
+     */
     const fetchSchedule = async () => {
         try {
             setLoading(true);
@@ -166,7 +180,15 @@ export default function ShiftSchedulePage() {
         }
     };
 
-    // שימוש ב-useCallback כדי שהפונקציה לא תיווצר מחדש בכל רינדור (חשוב ל-memo של הטבלה)
+    /**
+     * Handles clicking on a table cell to select a shift.
+     * 
+     * Only allows interaction if the user is a shift manager or admin.
+     * 
+     * @param {React.MouseEvent<HTMLTableDataCellElement>} event  The mouse event.
+     * @param {string}                                     userId The ID of the user for the selected cell.
+     * @param {Date}                                       date   The date for the selected cell.
+     */
     const handleCellClick = useCallback(
         (
             event: React.MouseEvent<HTMLTableDataCellElement>,
@@ -180,6 +202,11 @@ export default function ShiftSchedulePage() {
         [isShiftManager, isAdmin],
     );
 
+    /**
+     * Updates the local shifts state with the selected shift type for a specific cell.
+     * 
+     * @param {ShiftType | null} type The shift type to assign, or null to clear.
+     */
     const handleSelectShift = (type: ShiftType | null) => {
         if (!selectedCell) return;
 
@@ -209,11 +236,19 @@ export default function ShiftSchedulePage() {
         handleCloseMenu();
     };
 
+    /**
+     * Closes the shift selection menu.
+     */
     const handleCloseMenu = () => {
         setAnchorEl(null);
         setSelectedCell(null);
     };
 
+    /**
+     * Saves the current schedule as a draft to the server.
+     * 
+     * @returns {Promise<string>} The ID of the saved schedule.
+     */
     const performSave = async () => {
         const groupId = currentGroup?._id || currentGroup?.id;
         const res = await axios.put("/api/schedules", {
@@ -226,6 +261,11 @@ export default function ShiftSchedulePage() {
         return res.data._id;
     };
 
+    /**
+     * Handles the save button click event.
+     * 
+     * @returns {Promise<void>}
+     */
     const handleSaveClick = async () => {
         try {
             await performSave();
@@ -237,6 +277,13 @@ export default function ShiftSchedulePage() {
         }
     };
 
+    /**
+     * Handles the publish button click event.
+     * 
+     * Saves the schedule first, then opens the publish confirmation dialog.
+     * 
+     * @returns {Promise<void>}
+     */
     const handlePublishClick = async () => {
         try {
             await performSave();
@@ -246,6 +293,11 @@ export default function ShiftSchedulePage() {
         }
     };
 
+    /**
+     * Confirms and publishes the schedule on the server.
+     * 
+     * @returns {Promise<void>}
+     */
     const handleConfirmPublish = async () => {
         if (!scheduleData?._id) return;
 
@@ -271,7 +323,7 @@ export default function ShiftSchedulePage() {
             </Container>
         );
 
-    // הגדרת ה-Props המשותפים לטבלה כדי למנוע שכפול קוד ב-JSX
+    // Shared table props to avoid duplication in JSX
     const tableProps = {
         weekDays,
         activeUsers,
@@ -428,7 +480,7 @@ export default function ShiftSchedulePage() {
                         pt: 2,
                     }}
                 >
-                    {/* השימוש ברכיב הנפרד למצב מסך מלא + העברת ה-Ref */}
+                    {/* Render the separate table component for full-screen mode and pass the Ref for scaling. */}
                     <ScheduleTable
                         isFull={true}
                         ref={tableRef}

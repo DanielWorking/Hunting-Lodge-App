@@ -1,7 +1,22 @@
+/**
+ * @module GuestPage
+ *
+ * Displays a landing page for users who have successfully authenticated via SSO
+ * but have not yet been assigned to any group or granted specific permissions.
+ */
+
 import { Box, Typography, Button, Paper, Container } from "@mui/material";
 import LockClockIcon from "@mui/icons-material/LockClock";
 import { useUser } from "../context/UserContext";
 
+/**
+ * A landing page for unassigned users.
+ *
+ * Renders a "Pending Approval" status message and provides an option to logout.
+ * This page is shown when a user is authenticated but lacks group assignments.
+ *
+ * @returns {JSX.Element} The rendered GuestPage component.
+ */
 export default function GuestPage() {
     const { logout, user } = useUser();
 

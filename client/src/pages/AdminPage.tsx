@@ -1,3 +1,11 @@
+/**
+ * @module AdminPage
+ *
+ * Provides the administrative dashboard for managing users and groups.
+ * Includes functionality for searching, creating, editing, and deleting
+ * both user and group entities.
+ */
+
 import { useState } from "react";
 import { Container, Typography, Box } from "@mui/material";
 import axios from "axios";
@@ -6,17 +14,24 @@ import { useData } from "../context/DataContext";
 import { useNotification } from "../context/NotificationContext";
 import type { User, Group } from "../types";
 
-// קומפוננטות פנימיות
 import AdminFilterBar from "../components/admin/AdminFilterBar";
 import AdminTable from "../components/admin/AdminTable";
 import { UserDialog, GroupDialog } from "../components/AdminDialogs";
 import ConfirmDialog from "../components/ConfirmDialog";
 
+/**
+ * The main administrative dashboard component.
+ *
+ * Manages the state for viewing, filtering, and performing CRUD operations
+ * on users and groups using a unified interface.
+ *
+ * @returns {JSX.Element} The rendered AdminPage component.
+ */
 export default function AdminPage() {
     const { users, groups, refreshData } = useData();
     const { showNotification } = useNotification();
 
-    // === State ===
+    // --- State ---
     const [viewMode, setViewMode] = useState<"users" | "groups">("users");
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -29,7 +44,7 @@ export default function AdminPage() {
 
     const [deleteItem, setDeleteItem] = useState<User | Group | null>(null);
 
-    // === Filtering ===
+    // --- Filtering ---
     const filteredUsers = users.filter(
         (u) =>
             u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -41,16 +56,25 @@ export default function AdminPage() {
         g.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
-    // === Handlers ===
+    // --- Handlers ---
 
+    /**
+     * Handles the click event for adding a new entity.
+     * Currently only supports adding groups from this context.
+     */
     const handleAddClick = () => {
-        // אנו מוודאים שאנחנו במצב קבוצות (למרות שהכפתור מוסתר במשתמשים, ליתר ביטחון)
+        // Ensure we are in groups mode before opening the dialog
         if (viewMode === "groups") {
-            setEditingGroup(null); // איפוס כדי לסמן "מצב יצירה"
+            setEditingGroup(null); // Reset to indicate creation mode
             setIsGroupDialogOpen(true);
         }
     };
 
+    /**
+     * Opens the appropriate dialog for editing a user or group.
+     *
+     * @param {User | Group} item The entity to be edited.
+     */
     const handleEditClick = (item: User | Group) => {
         if (viewMode === "users") {
             setEditingUser(item as User);
@@ -61,10 +85,20 @@ export default function AdminPage() {
         }
     };
 
+    /**
+     * Sets the item to be deleted and triggers the confirmation dialog.
+     *
+     * @param {User | Group} item The entity to be deleted.
+     */
     const handleDeleteClick = (item: User | Group) => {
         setDeleteItem(item);
     };
 
+    /**
+     * Retrieves the display name or username of the item currently marked for deletion.
+     *
+     * @returns {string} The name or username of the item.
+     */
     const getDeleteItemName = () => {
         if (!deleteItem) return "";
         if ("username" in deleteItem) return (deleteItem as User).username;
@@ -73,6 +107,11 @@ export default function AdminPage() {
 
     // --- Save Logic ---
 
+    /**
+     * Persists user changes (create or update) to the server.
+     *
+     * @param {Partial<User>} userData The updated user data.
+     */
     const handleSaveUser = async (userData: Partial<User>) => {
         try {
             if (editingUser) {
@@ -93,12 +132,16 @@ export default function AdminPage() {
         }
     };
 
+    /**
+     * Persists group changes (create or update) to the server.
+     *
+     * @param {Partial<Group>} groupData The updated group data.
+     */
     const handleSaveGroup = async (groupData: Partial<Group>) => {
         try {
             if (editingGroup) {
-                // === מצב עריכה (Update) ===
-                // אנו שולחים PUT לשרת. השרת מצפה לעדכון שם בלבד.
-                // נשתמש ב-_id (מזהה מונגו) אם קיים, ליתר ביטחון.
+                // Update mode: The server expects only the name field for group updates.
+                // We use _id if available for compatibility with MongoDB identifiers.
                 const identifier = editingGroup._id || editingGroup.id;
 
                 await axios.put(`/api/groups/${identifier}`, {
@@ -106,17 +149,12 @@ export default function AdminPage() {
                 });
                 showNotification("Group updated successfully", "success");
             } else {
-                // === מצב יצירה (Create) ===
-                // הדיאלוג (AdminDialogs) כבר דאג לייצר שדה id ושדה name
-                // אז אנחנו שולחים את האובייקט כמו שהוא ב-POST
+                // Creation mode: The AdminDialogs component ensures id and name are present.
                 await axios.post("/api/groups", groupData);
                 showNotification("Group created successfully", "success");
             }
 
-            // רענון הנתונים בטבלה ובאפליקציה
             await refreshData();
-
-            // איפוס וסגירה
             setIsGroupDialogOpen(false);
             setEditingGroup(null);
         } catch (err: any) {
@@ -128,6 +166,9 @@ export default function AdminPage() {
 
     // --- Delete Logic ---
 
+    /**
+     * Finalizes the deletion of the selected user or group.
+     */
     const handleConfirmDelete = async () => {
         if (!deleteItem) return;
 

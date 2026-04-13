@@ -1,4 +1,13 @@
+/**
+ * @module SitesPage
+ *
+ * Provides a management interface for group-specific sites and bookmarks.
+ * Includes features for categorization via tags, searching, filtering favorites,
+ * and performing CRUD operations on both sites and tags.
+ */
+
 import { useState } from "react";
+// ... (imports remain unchanged)
 import {
     Container,
     Typography,
@@ -33,12 +42,22 @@ import SortIcon from "@mui/icons-material/Sort";
 import axios from "axios";
 import ThinkingLoader from "../components/ThinkingLoader";
 
+/**
+ * The primary sites management page component.
+ *
+ * Manages the state for site listings, tag-based filtering, and administrative
+ * actions. Implements complex sorting and filtering logic to provide a
+ * responsive user experience.
+ *
+ * @returns {JSX.Element} The rendered SitesPage component.
+ */
 export default function SitesPage() {
     const { user, currentGroup } = useUser();
     const { showNotification } = useNotification();
     const { sites, setSites, groups, refreshData, loading } = useData();
 
-    // מציאת הקבוצה הפעילה מתוך הדאטה כדי לקבל את כל השדות שלה (כולל _id ו-siteTags)
+    // Locate the active group within the data context to access extended fields
+    // such as the database _id and site-specific tags.
     const activeGroup = groups.find(
         (g) => (g.id || g._id) === (currentGroup?.id || currentGroup?._id),
     );
@@ -47,22 +66,22 @@ export default function SitesPage() {
             ? activeGroup.siteTags
             : ["General"];
 
-    // State
+    // --- State ---
     const [selectedTag, setSelectedTag] = useState("All");
     const [searchTerm, setSearchTerm] = useState("");
 
-    // Filters restored
+    // Filtering and Sorting state
     const [filterFav, setFilterFav] = useState("all");
     const [sortOrder, setSortOrder] = useState("newest"); // 'newest', 'oldest', 'a-z', 'z-a'
 
-    // Dialogs State
+    // Dialog Management state
     const [isSiteDialogOpen, setIsSiteDialogOpen] = useState(false);
     const [editingSite, setEditingSite] = useState<SiteCardType | null>(null);
     const [deleteSiteItem, setDeleteSiteItem] = useState<SiteCardType | null>(
         null,
     );
 
-    // Tag Management State
+    // Tag Management state
     const [isTagDialogOpen, setIsTagDialogOpen] = useState(false);
     const [tagDialogMode, setTagDialogMode] = useState<"create" | "edit">(
         "create",
@@ -70,22 +89,35 @@ export default function SitesPage() {
     const [tagValue, setTagValue] = useState("");
     const [tagToDelete, setTagToDelete] = useState<string | null>(null);
 
-    // === Site Management ===
+    // === Site Management Handlers ===
 
+    /**
+     * Prepares and opens the dialog for adding a new site.
+     */
     const handleAddSiteClick = () => {
         setEditingSite(null);
         setIsSiteDialogOpen(true);
     };
 
+    /**
+     * Prepares and opens the dialog for editing an existing site.
+     *
+     * @param {SiteCardType} site The site object to be edited.
+     */
     const handleEditSiteClick = (site: SiteCardType) => {
         setEditingSite(site);
         setIsSiteDialogOpen(true);
     };
 
+    /**
+     * Persists site changes (create or update) to the server.
+     *
+     * @param {Partial<SiteCardType>} formData The site data to be saved.
+     */
     const handleSaveSite = async (formData: Partial<SiteCardType>) => {
         if (!activeGroup) return;
 
-        // Using _id (ObjectId) for the relationship
+        // Ensure we use the MongoDB _id for relationship consistency
         const groupIdToSend = activeGroup._id;
 
         try {
@@ -110,10 +142,18 @@ export default function SitesPage() {
         }
     };
 
+    /**
+     * Sets the site to be deleted and triggers the confirmation dialog.
+     *
+     * @param {SiteCardType} site The site marked for deletion.
+     */
     const handleDeleteSiteClick = (site: SiteCardType) => {
         setDeleteSiteItem(site);
     };
 
+    /**
+     * Executes the deletion of the selected site on the server.
+     */
     const handleConfirmDeleteSite = async () => {
         if (deleteSiteItem) {
             const idToDelete = deleteSiteItem._id || deleteSiteItem.id;
@@ -130,6 +170,11 @@ export default function SitesPage() {
         }
     };
 
+    /**
+     * Toggles the favorite status of a site for the current user.
+     *
+     * @param {SiteCardType} site The site to toggle.
+     */
     const handleToggleFavorite = async (site: SiteCardType) => {
         try {
             const siteId = site._id || site.id;
@@ -140,14 +185,20 @@ export default function SitesPage() {
         }
     };
 
-    // === Tag Management ===
+    // === Tag Management Handlers ===
 
+    /**
+     * Initializes the dialog for creating a new tag.
+     */
     const openCreateTagDialog = () => {
         setTagDialogMode("create");
         setTagValue("");
         setIsTagDialogOpen(true);
     };
 
+    /**
+     * Initializes the dialog for renaming an existing tag.
+     */
     const openEditTagDialog = () => {
         if (selectedTag === "All" || selectedTag === "General") return;
         setTagDialogMode("edit");
@@ -155,9 +206,12 @@ export default function SitesPage() {
         setIsTagDialogOpen(true);
     };
 
+    /**
+     * Persists tag changes (create or rename) to the server.
+     */
     const handleSaveTag = async () => {
         if (!tagValue.trim() || !activeGroup) return;
-        // For tags URL: we use the custom ID string because that's how the route is defined (/:id/tags)
+        // The group route expects the string-based ID for tag operations
         const groupId = activeGroup.id;
 
         try {
@@ -168,7 +222,7 @@ export default function SitesPage() {
                 showNotification("Tag created", "success");
                 setSelectedTag(tagValue);
             } else {
-                // Edit mode
+                // Perform tag rename operation
                 await axios.put(`/api/groups/${groupId}/tags/${selectedTag}`, {
                     newTagName: tagValue,
                 });
@@ -185,11 +239,17 @@ export default function SitesPage() {
         }
     };
 
+    /**
+     * Triggers the deletion confirmation for the currently selected tag.
+     */
     const handleDeleteTagClick = () => {
         if (selectedTag === "All" || selectedTag === "General") return;
         setTagToDelete(selectedTag);
     };
 
+    /**
+     * Executes the tag deletion on the server and moves associated sites to "General".
+     */
     const handleConfirmDeleteTag = async () => {
         if (!tagToDelete || !activeGroup) return;
         const groupId = activeGroup.id;
@@ -253,6 +313,7 @@ export default function SitesPage() {
 
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+            {/* Header Section: Displays the current group name */}
             <Box sx={{ mb: 3 }}>
                 <Typography
                     variant="h4"
@@ -269,7 +330,8 @@ export default function SitesPage() {
                 </Typography>
             </Box>
 
-            {/* Tag Filter Bar */}
+            {/* Tag Filter Bar: Provides horizontal navigation for categorized sites.
+                Includes an entry point for creating new tags. */}
             <Box sx={{ mb: 3 }}>
                 <Stack
                     direction="row"
@@ -307,6 +369,8 @@ export default function SitesPage() {
                     </Tooltip>
                 </Stack>
 
+                {/* Contextual Tag Actions: Displayed only when a user-defined tag is selected.
+                    Excludes "All" and "General" to prevent modification of system-level filters. */}
                 {selectedTag !== "All" && selectedTag !== "General" && (
                     <Box
                         sx={{
@@ -341,7 +405,8 @@ export default function SitesPage() {
                 )}
             </Box>
 
-            {/* Controls Bar: Filter, Search, Sort, Add */}
+            {/* Controls Bar: A unified toolbar for filtering, searching, and adding new sites.
+                Uses a flexbox layout to remain responsive on smaller screens. */}
             <Box
                 sx={{
                     display: "flex",
@@ -355,7 +420,7 @@ export default function SitesPage() {
                     boxShadow: 1,
                 }}
             >
-                {/* 1. Filter Favorites */}
+                {/* 1. Favorite Filter: Toggles between all sites and user-specific favorites. */}
                 <FormControl size="small" sx={{ minWidth: 120 }}>
                     <InputLabel>Show</InputLabel>
                     <Select
@@ -368,7 +433,7 @@ export default function SitesPage() {
                     </Select>
                 </FormControl>
 
-                {/* 2. Search */}
+                {/* 2. Text Search: Filters site titles in real-time. */}
                 <TextField
                     size="small"
                     label="Search Sites..."
@@ -378,7 +443,7 @@ export default function SitesPage() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
 
-                {/* 3. Sort */}
+                {/* 3. Sort Control: Allows ordering by date (newest/oldest) or title. */}
                 <FormControl size="small" sx={{ minWidth: 140 }}>
                     <InputLabel>Sort By</InputLabel>
                     <Select
@@ -399,7 +464,7 @@ export default function SitesPage() {
                     </Select>
                 </FormControl>
 
-                {/* 4. Add Button */}
+                {/* 4. Primary Action: Opens the site creation dialog. */}
                 <Button
                     variant="contained"
                     color="primary"
@@ -410,7 +475,8 @@ export default function SitesPage() {
                 </Button>
             </Box>
 
-            {/* Sites Grid */}
+            {/* Sites Grid: Renders the filtered and sorted list of sites.
+                Displays an empty state message if no sites match the current criteria. */}
             {sortedSites.length > 0 ? (
                 <Grid container spacing={3}>
                     {sortedSites.map((site) => (
@@ -444,6 +510,7 @@ export default function SitesPage() {
                 </Box>
             )}
 
+            {/* Modal Dialogs for data entry and confirmation */}
             <SiteDialog
                 open={isSiteDialogOpen}
                 onClose={() => setIsSiteDialogOpen(false)}
@@ -464,6 +531,7 @@ export default function SitesPage() {
                 onConfirm={handleConfirmDeleteSite}
             />
 
+            {/* Tag Management Dialog: Used for both creating and renaming tags. */}
             <Dialog
                 open={isTagDialogOpen}
                 onClose={() => setIsTagDialogOpen(false)}

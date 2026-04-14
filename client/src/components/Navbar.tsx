@@ -1,3 +1,10 @@
+/**
+ * @module Navbar
+ *
+ * Provides the primary navigation interface for the application.
+ * Includes group switching, theme toggling, administrative links, and user session management.
+ */
+
 import { useState } from "react";
 import {
     AppBar,
@@ -28,6 +35,14 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import AboutDialog from "./AboutDialog";
 
+/**
+ * Main navigation bar component.
+ *
+ * Dynamically renders navigation links based on user roles (Admin, Shift Manager)
+ * and handles group-specific context switching.
+ *
+ * @returns {JSX.Element | null} The rendered Navbar or null if no user is authenticated.
+ */
 export default function Navbar() {
     const { user, currentGroup, isAdmin, isShiftManager, logout, switchGroup } =
         useUser();
@@ -41,34 +56,54 @@ export default function Navbar() {
 
     const [aboutOpen, setAboutOpen] = useState(false);
 
+    /**
+     * Opens the user/account settings menu.
+     * @param {React.MouseEvent<HTMLElement>} event The click event target for menu positioning.
+     */
     const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
     };
 
+    /** Closes the user/account settings menu. */
     const handleClose = () => {
         setAnchorEl(null);
     };
 
+    /**
+     * Logs the user out and redirects to the login page.
+     */
     const handleLogout = () => {
         handleClose();
         logout();
         navigate("/login");
     };
 
+    /**
+     * Switches the active group context and redirects to the dashboard.
+     * @param {string} groupId The ID of the group to switch to.
+     */
     const handleGroupSwitch = (groupId: string) => {
         switchGroup(groupId);
         handleClose();
         navigate("/");
     };
 
+    /**
+     * Resolves a group name from a given ID using the cached groups list.
+     * @param {string} groupId The ID to resolve.
+     * @returns {string} The group name or a placeholder status.
+     */
     const getGroupName = (groupId: string) => {
         if (!groups || groups.length === 0) return "Loading...";
         const group = groups.find((g) => (g._id || g.id) === groupId);
         return group ? group.name : "Unknown Group";
     };
 
-    // === Ghost Groups Fix ===
-    // Filter user groups against actual existing groups
+    /**
+     * Synchronizes user group memberships with existing application groups.
+     * Prevents UI errors or "ghost" entries when a group assigned to a user 
+     * no longer exists in the system.
+     */
     const validUserGroups = (user?.groups || []).filter((userGroup) =>
         groups.some((g) => (g._id || g.id) === userGroup.groupId),
     );

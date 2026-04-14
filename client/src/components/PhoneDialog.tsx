@@ -1,3 +1,11 @@
+/**
+ * @module PhoneDialog
+ *
+ * Provides a modal interface for creating or editing phone records.
+ * Handles input validation, dynamic number formatting based on phone type,
+ * and multi-number management.
+ */
+
 import { useState, useEffect } from "react";
 import {
     Dialog,
@@ -20,16 +28,38 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import type { PhoneRow, PhoneType } from "../types";
 
+/**
+ * Props for the {@link PhoneDialog} component.
+ */
 interface PhoneDialogProps {
+    /** Whether the dialog is currently visible. */
     open: boolean;
+    /** Callback function to close the dialog. */
     onClose: () => void;
-    // שינינו את onSave שיחזיר Promise כדי שנדע אם הצליח או נכשל
+    /** 
+     * Asynchronous callback triggered when the user saves the form.
+     * Returns a promise to allow the dialog to handle server-side errors.
+     */
     onSave: (phoneData: Partial<PhoneRow>) => Promise<void>;
+    /** Optional initial data for populating the form in edit mode. */
     initialData?: PhoneRow | null;
 }
 
+/**
+ * Generates a short unique identifier for local list management.
+ * @returns {string} A random base-36 string.
+ */
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+/**
+ * Renders a dialog with a form for managing phone entries.
+ *
+ * Supports adding multiple numbers for a single contact, with specific 
+ * formatting rules for Mobile, Landline, Black (Secure), and Red (Emergency) phones.
+ *
+ * @param {PhoneDialogProps} props  The properties for the component.
+ * @returns {JSX.Element}           The rendered dialog component.
+ */
 export default function PhoneDialog({
     open,
     onClose,
@@ -50,12 +80,16 @@ export default function PhoneDialog({
         description: false,
     });
 
-    // State לשגיאה כללית מהשרת (כמו "מספר כפול")
+    /** Stores error messages returned from the server (e.g., duplicate numbers). */
     const [serverError, setServerError] = useState<string | null>(null);
 
+    /**
+     * Resets or populates the form state whenever the dialog opens or
+     * the initial data changes.
+     */
     useEffect(() => {
         if (open) {
-            setServerError(null); // איפוס שגיאות בפתיחה
+            setServerError(null);
             if (initialData) {
                 setFormData({
                     name: initialData.name,
@@ -86,6 +120,13 @@ export default function PhoneDialog({
         }
     }, [initialData, open]);
 
+    /**
+     * Applies type-specific formatting masks to raw digit strings.
+     * 
+     * @param {string} rawValue  The unformatted string from the input.
+     * @param {PhoneType} type   The current phone type classification.
+     * @returns {string}         The formatted string (e.g., "050-123-4567").
+     */
     const formatAsYouType = (rawValue: string, type: PhoneType) => {
         const digits = rawValue.replace(/\D/g, "");
         let formatted = "";
@@ -118,6 +159,11 @@ export default function PhoneDialog({
         return formatted;
     };
 
+    /**
+     * Updates a specific number field in the local state.
+     * @param {string} id     The unique ID of the field to update.
+     * @param {string} value  The new value for the field.
+     */
     const handleNumberChange = (id: string, value: string) => {
         const newNumbers = formData.numbers.map((item) => {
             if (item.id === id) {
@@ -131,6 +177,7 @@ export default function PhoneDialog({
         setFormData({ ...formData, numbers: newNumbers });
     };
 
+    /** Adds a new empty phone number field to the list. */
     const handleAddNumberField = () => {
         setFormData({
             ...formData,
@@ -138,26 +185,35 @@ export default function PhoneDialog({
         });
     };
 
+    /**
+     * Removes a specific phone number field from the list.
+     * @param {string} id  The unique ID of the field to remove.
+     */
     const handleRemoveNumberField = (id: string) => {
         const newNumbers = formData.numbers.filter((item) => item.id !== id);
         setFormData({ ...formData, numbers: newNumbers });
     };
 
+    /**
+     * Updates the phone type and reapplies formatting to all existing numbers.
+     * @param {PhoneType} newType  The new classification for the phone entry.
+     */
     const handleTypeChange = (newType: PhoneType) => {
-        // --- שינוי: הסרנו את הקוד שמחק מספרים אם הסוג הוא Mobile/Landline ---
-        // כעת אנחנו פשוט מעדכנים את הפורמט של המספרים הקיימים לסוג החדש
         const reFormatted = formData.numbers.map((item) => ({
             ...item,
-            value: formatAsYouType(item.value, newType), // שימוש בפונקציה הקיימת שלך לפורמט מחדש
+            value: formatAsYouType(item.value, newType),
         }));
         setFormData({ ...formData, type: newType, numbers: reFormatted });
     };
 
+    /**
+     * Validates the form data and attempts to persist it via the onSave callback.
+     * If saving fails, captures and displays server-side error messages.
+     */
     const handleSubmit = async () => {
-        setServerError(null); // איפוס שגיאות קודמות
+        setServerError(null);
 
         const rawNumbers = formData.numbers.map((n) => n.value);
-        // סינון מספרים ריקים במקרה שהמשתמש השאיר שדה ריק
         const filteredNumbers = rawNumbers.filter((n) => n.trim() !== "");
 
         const newErrors = {
@@ -174,12 +230,9 @@ export default function PhoneDialog({
         }
 
         try {
-            // ממתינים לתשובת השרת
             await onSave({ ...formData, numbers: filteredNumbers });
-            // אם הכל עבר בשלום - סוגרים
             onClose();
         } catch (err: any) {
-            // אם השרת החזיר שגיאה (למשל: מספר כפול), נציג אותה ולא נסגור את הדיאלוג
             setServerError(
                 err.response?.data?.message || "Failed to save phone",
             );
@@ -192,7 +245,6 @@ export default function PhoneDialog({
                 {initialData ? "Edit Phone Number" : "Add New Phone"}
             </DialogTitle>
             <DialogContent>
-                {/* הצגת שגיאת שרת אם יש */}
                 {serverError && (
                     <Alert severity="error" sx={{ mb: 2 }}>
                         {serverError}
@@ -244,10 +296,9 @@ export default function PhoneDialog({
                             placeholder="Type number..."
                             error={errors.numbers && !item.value}
                         />
-                        {/* תמיד מאפשרים מחיקה אם יש יותר מאחד, או אפילו אם יש אחד והמשתמש רוצה לנקות */}
                         <IconButton
                             onClick={() => handleRemoveNumberField(item.id)}
-                            disabled={formData.numbers.length <= 1} // משביתים אם נשאר רק אחד
+                            disabled={formData.numbers.length <= 1}
                             color="error"
                         >
                             <DeleteOutlineIcon />
@@ -255,7 +306,6 @@ export default function PhoneDialog({
                     </Box>
                 ))}
 
-                {/* --- הכפתור מוצג תמיד, לכל הסוגים --- */}
                 <Button
                     startIcon={<AddCircleOutlineIcon />}
                     onClick={handleAddNumberField}

@@ -1,3 +1,10 @@
+/**
+ * @module AdminTable
+ *
+ * Renders a data table for administrative oversight, supporting two distinct view modes:
+ * Users and Groups. Provides real-time metrics, status indicators, and management actions.
+ */
+
 import {
     Table,
     TableBody,
@@ -15,32 +22,55 @@ import {
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
-import SecurityIcon from "@mui/icons-material/Security";
 
 import type { User, Group } from "../../types";
 
-// === פתרון מקומי לבעיית הטיפוסים ===
+/**
+ * Extension of the User type to include administrative metadata
+ * and creation timestamps for UI display.
+ */
 type ExtendedUser = User & {
     isAdmin?: boolean;
     isShiftManager?: boolean;
     createdAt?: string | Date;
 };
 
+/**
+ * Extension of the Group type to include creation timestamps for UI display.
+ */
 type ExtendedGroup = Group & {
     createdAt?: string | Date;
 };
 
+/**
+ * Configuration properties for the {@link AdminTable} component.
+ */
 interface AdminTableProps {
+    /** The active data view mode. */
     viewMode: "users" | "groups";
+    /** The filtered list of users to display. */
     users: User[];
+    /** The filtered list of groups to display. */
     groups: Group[];
+    /** The master list of all groups, used for membership resolution. */
     allGroups: Group[];
+    /** The master list of all users, used for population metrics. */
     allUsers: User[];
+    /** Callback triggered when an item's edit action is invoked. */
     onEdit: (item: User | Group) => void;
+    /** Callback triggered when an item's delete action is invoked. */
     onDelete: (item: User | Group) => void;
 }
 
+/**
+ * Renders a standardized table for managing application resources (Users/Groups).
+ *
+ * Features dynamic header rendering, sticky headers for large datasets, 
+ * and specialized row decorators for system-critical entities.
+ *
+ * @param {AdminTableProps} props  The properties for the component.
+ * @returns {JSX.Element}           The rendered table component.
+ */
 export default function AdminTable({
     viewMode,
     users,
@@ -52,11 +82,18 @@ export default function AdminTable({
 }: AdminTableProps) {
     const theme = useTheme();
 
+    /** The background color for the sticky table header, adapted for light/dark modes. */
     const headerBgColor =
         theme.palette.mode === "dark"
             ? theme.palette.background.default
             : "#f5f5f5";
 
+    /**
+     * Formats a date string into a localized short date format (DD/MM/YYYY).
+     * 
+     * @param {string | Date} [dateString]  The date to format.
+     * @returns {string}                    The formatted date or "-" if null.
+     */
     const formatDate = (dateString?: string | Date) => {
         if (!dateString) return "-";
         return new Date(dateString).toLocaleDateString("he-IL", {
@@ -66,8 +103,15 @@ export default function AdminTable({
         });
     };
 
+    /**
+     * Renders a human-readable "Last Login" indicator.
+     * Flags accounts as "Never" logged in if data is missing or stale (over 90 days).
+     * 
+     * @param {string} [dateString]  The timestamp of the last login.
+     * @returns {JSX.Element | string} The rendered status element.
+     */
     const getLastLoginDisplay = (dateString?: string) => {
-        // 1. אם אין מחרוזת בכלל
+        // Handle missing login data
         if (!dateString) {
             return (
                 <Typography variant="body2" color="error" fontWeight="bold">
@@ -78,7 +122,7 @@ export default function AdminTable({
 
         const date = new Date(dateString);
 
-        // 2. אם התאריך לא תקין (Invalid Date)
+        // Handle malformed date strings
         if (isNaN(date.getTime())) {
             return (
                 <Typography variant="body2" color="error" fontWeight="bold">
@@ -91,14 +135,13 @@ export default function AdminTable({
         const diffTime = Math.abs(now.getTime() - date.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        // פורמט תאריך
         const formatted = date.toLocaleDateString("he-IL", {
             day: "2-digit",
             month: "2-digit",
             year: "numeric",
         });
 
-        // אם עברו יותר מ-90 יום
+        // Flag accounts with no activity in the last 90 days
         if (diffDays > 90) {
             return (
                 <Typography variant="body2" color="error" fontWeight="bold">
@@ -110,19 +153,26 @@ export default function AdminTable({
         return formatted;
     };
 
-    // --- User Row Render ---
+    /**
+     * Renders a single row for the User management view.
+     * 
+     * @param {User} rawUser  The user data to render.
+     * @returns {JSX.Element}  The rendered table row.
+     */
     const renderUserRow = (rawUser: User) => {
         const user = rawUser as unknown as ExtendedUser;
         const superAdminId = import.meta.env.VITE_SUPER_ADMIN_ID;
         const isSuperAdmin = user.username === superAdminId;
 
-        // תיקון: סינון קבוצות שאינן קיימות ברשימת הקבוצות הכללית (ghost groups)
-        // זה מונע את המצב שבו מופיע +1 על קבוצה מחוקה/לא קיימת או שארית מ-Seed
+        /**
+         * Filter out memberships to groups that no longer exist (ghost groups).
+         * This ensures the UI doesn't count or display defunct references.
+         */
         const validUserGroups = (user.groups || []).filter((g) =>
             allGroups.some((grp) => (grp._id || grp.id) === g.groupId),
         );
 
-        // לוגיקת תצוגה מבוססת על הקבוצות התקינות בלבד
+        // Limit initial display to 2 groups to preserve row height
         const visibleGroups = validUserGroups.slice(0, 2);
         const hiddenGroupsCount = validUserGroups.length - 2;
 
@@ -173,7 +223,7 @@ export default function AdminTable({
                             </Typography>
                         )}
 
-                        {/* תצוגת היתרה אם יש יותר מ-2 קבוצות */}
+                        {/* Display an overflow counter if the user belongs to many groups */}
                         {hiddenGroupsCount > 0 && (
                             <Chip
                                 label={`+${hiddenGroupsCount}`}
@@ -185,13 +235,13 @@ export default function AdminTable({
                     </Box>
                 </TableCell>
 
-                {/* 4. Created */}
+                {/* 4. Created Timestamp */}
                 <TableCell>{formatDate(user.createdAt)}</TableCell>
 
-                {/* 5. Last Login */}
+                {/* 5. Last Activity */}
                 <TableCell>{getLastLoginDisplay(user.lastLogin)}</TableCell>
 
-                {/* 6. Status */}
+                {/* 6. Account Status */}
                 <TableCell>
                     <Chip
                         label={user.isActive ? "Active" : "Inactive"}
@@ -200,7 +250,7 @@ export default function AdminTable({
                     />
                 </TableCell>
 
-                {/* 7. Actions */}
+                {/* 7. Management Actions */}
                 <TableCell align="center">
                     <Tooltip title="Edit">
                         <IconButton
@@ -227,19 +277,29 @@ export default function AdminTable({
         );
     };
 
-    // --- Group Row Render ---
+    /**
+     * Renders a single row for the Group management view.
+     * 
+     * @param {Group} rawGroup  The group data to render.
+     * @returns {JSX.Element}   The rendered table row.
+     */
     const renderGroupRow = (rawGroup: Group) => {
         const group = rawGroup as unknown as ExtendedGroup;
         const isSystemGroup =
             group.name === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
         const groupId = group._id || group.id;
 
-        // חישוב מספר המשתמשים בקבוצה בזמן אמת (מתוך רשימת המשתמשים הכללית)
+        /**
+         * Calculate user population for this group in real-time.
+         */
         const userCount = allUsers.filter((u) =>
             u.groups?.some((g) => g.groupId === groupId),
         ).length;
 
-        // האם ניתן למחוק? (לא קבוצת מערכת וגם אין משתמשים)
+        /**
+         * Groups can only be deleted if they are not system-protected 
+         * and have no assigned members.
+         */
         const canDelete = !isSystemGroup && userCount === 0;
 
         return (
@@ -259,7 +319,6 @@ export default function AdminTable({
                 <TableCell>{formatDate(group.createdAt)}</TableCell>
 
                 <TableCell align="center">
-                    {/* כפתור עריכה - זמין כעת לכולם כולל administrators */}
                     <Tooltip title="Edit">
                         <IconButton
                             size="small"
@@ -269,7 +328,7 @@ export default function AdminTable({
                         </IconButton>
                     </Tooltip>
 
-                    {/* כפתור מחיקה - מוסתר עבור קבוצת מערכת */}
+                    {/* Deletion is disabled for system groups or populated groups */}
                     {!isSystemGroup && (
                         <Tooltip
                             title={
@@ -411,7 +470,7 @@ export default function AdminTable({
                         (viewMode === "groups" && groups.length === 0)) && (
                         <TableRow>
                             <TableCell
-                                colSpan={5}
+                                colSpan={7}
                                 align="center"
                                 sx={{ py: 3 }}
                             >

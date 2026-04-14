@@ -1,3 +1,11 @@
+/**
+ * @module PhonesTable
+ *
+ * Renders a data table for browsing and managing phone directory entries.
+ * Features include type-based color coding, favorite toggling, and quick actions
+ * for editing and deletion.
+ */
+
 import {
     Table,
     TableBody,
@@ -18,14 +26,31 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import type { PhoneRow, PhoneType } from "../../types";
 
+/**
+ * Props for the {@link PhonesTable} component.
+ */
 interface PhonesTableProps {
+    /** The list of phone directory entries to display. */
     phones: PhoneRow[];
+    /** Callback triggered when a row is clicked for detailed view. */
     onRowClick: (phone: PhoneRow) => void;
+    /** Callback triggered when the edit action is invoked. */
     onEditClick: (phone: PhoneRow) => void;
+    /** Callback triggered when the delete action is invoked. */
     onDeleteClick: (phone: PhoneRow) => void;
+    /** Callback triggered when the favorite status is toggled. */
     onToggleFavorite: (phone: PhoneRow) => void;
 }
 
+/**
+ * Renders an interactive table displaying phone contact information.
+ *
+ * Supports sticky headers, responsive layouts, and visual indicators for 
+ * primary numbers and total associated numbers for each entry.
+ *
+ * @param {PhonesTableProps} props  The properties for the component.
+ * @returns {JSX.Element}            The rendered table component.
+ */
 export default function PhonesTable({
     phones,
     onRowClick,
@@ -35,12 +60,22 @@ export default function PhonesTable({
 }: PhonesTableProps) {
     const theme = useTheme();
 
-    // צבע רקע לכותרת הטבלה (לתיקון Sticky ב-Dark Mode)
+    /** 
+     * Determines the header background color.
+     * Essential for ensuring sticky header text remains readable over scrolling content,
+     * particularly in Dark Mode where default transparency can cause visual overlap.
+     */
     const headerBgColor =
         theme.palette.mode === "dark"
             ? theme.palette.background.default
             : "#f5f5f5";
 
+    /**
+     * Maps a phone type classification to a Material-UI color theme.
+     * 
+     * @param {PhoneType} type  The type of the phone entry.
+     * @returns {string}        The corresponding Material-UI color key.
+     */
     const getTypeColor = (type: PhoneType) => {
         switch (type) {
             case "Red":
@@ -56,6 +91,13 @@ export default function PhonesTable({
         }
     };
 
+    /**
+     * Placeholder for future complex number formatting.
+     * Currently returns the number as-is.
+     * 
+     * @param {string} number  The raw phone number string.
+     * @returns {string}       The formatted phone number.
+     */
     const formatPhoneNumber = (number: string) => {
         return number;
     };

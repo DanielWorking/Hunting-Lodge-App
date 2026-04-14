@@ -1,3 +1,10 @@
+/**
+ * @module PhoneDetailsDialog
+ *
+ * Provides a detailed read-only view of a specific phone record.
+ * Displays the phone's name, type, all associated numbers, and its description.
+ */
+
 import {
     Dialog,
     DialogTitle,
@@ -11,15 +18,36 @@ import {
 } from "@mui/material";
 import type { PhoneRow, PhoneType } from "../types";
 
+/**
+ * Props for the {@link PhoneDetailsDialog} component.
+ */
 interface Props {
+    /** Whether the dialog is currently visible. */
     open: boolean;
+    /** Callback function to close the dialog. */
     onClose: () => void;
+    /** The phone data to display, or null if no phone is selected. */
     data: PhoneRow | null;
 }
 
+/**
+ * Renders a modal dialog displaying exhaustive details for a phone entry.
+ *
+ * This component is used for inspecting individual records without entering edit mode.
+ * It features formatted phone numbers and a scrollable description area.
+ *
+ * @param {Props} props  The properties for the component.
+ * @returns {JSX.Element | null} The rendered dialog or null if no data is provided.
+ */
 export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
     if (!data) return null;
 
+    /**
+     * Maps a phone type to a Material-UI color theme for consistent UI signaling.
+     *
+     * @param {PhoneType} type  The type classification of the phone.
+     * @returns {string}        The corresponding Material-UI color key.
+     */
     const getTypeColor = (type: PhoneType) => {
         switch (type) {
             case "Red":

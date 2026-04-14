@@ -1,3 +1,10 @@
+/**
+ * @module SiteCard
+ *
+ * Renders a card representing a website or tool, featuring a 3D flip animation 
+ * to reveal detailed descriptions. Supports favorite toggling, editing, and deletion.
+ */
+
 import { useState } from "react";
 import {
     Card,
@@ -19,13 +26,29 @@ import InfoIcon from "@mui/icons-material/Info";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import type { SiteCard as SiteCardType } from "../types";
 
+/**
+ * Props for the {@link SiteCard} component.
+ */
 interface SiteCardProps {
+    /** The site data object containing title, url, image, etc. */
     data: SiteCardType;
+    /** Optional callback for handling site edits. */
     onEdit?: () => void;
+    /** Optional callback for handling site deletion. */
     onDelete?: () => void;
+    /** Callback to toggle the site's favorite status. */
     onToggleFavorite?: () => void;
 }
 
+/**
+ * Displays a site as an interactive card with a 3D flip effect.
+ *
+ * The front side shows the site image, title, and quick actions (favorite, edit, delete).
+ * The back side reveals the site's description.
+ *
+ * @param {SiteCardProps} props  The properties for the component.
+ * @returns {JSX.Element}        The rendered SiteCard component.
+ */
 export default function SiteCard({
     data,
     onEdit,
@@ -35,7 +58,12 @@ export default function SiteCard({
     const { title, url, imageUrl, description, isFavorite, tag } = data;
     const [isFlipped, setIsFlipped] = useState(false);
 
-    // פונקציה לבדיקת תקינות התמונה
+    /**
+     * Validates if the provided string is a likely valid image URL or data URI.
+     * 
+     * @param {string} [img]  The image source string to validate.
+     * @returns {boolean}     True if the string appears to be a valid image source.
+     */
     const isValidImage = (img?: string) => {
         return (
             img &&
@@ -48,6 +76,12 @@ export default function SiteCard({
         ? imageUrl
         : "/hunting-lodge-image.jpg";
 
+    /**
+     * Toggles the card's flip state.
+     * Prevents event propagation to avoid triggering the link in the CardActionArea.
+     * 
+     * @param {React.MouseEvent} e  The click event.
+     */
     const handleFlip = (e: React.MouseEvent) => {
         e.stopPropagation();
         e.preventDefault();
@@ -58,7 +92,7 @@ export default function SiteCard({
         <Box
             sx={{
                 perspective: "1000px",
-                height: "300px", // גובה קבוע לכרטיס כדי שההיפוך יעבוד יפה
+                height: "300px", // Fixed height for smooth flip animation
                 width: "100%",
             }}
         >
@@ -105,7 +139,7 @@ export default function SiteCard({
                                 sx={{
                                     fontWeight: "bold",
                                     lineHeight: 1.2,
-                                    // הגבלה ל-2 שורות כותרת
+                                    // Limit title to 2 lines
                                     display: "-webkit-box",
                                     WebkitLineClamp: 2,
                                     WebkitBoxOrient: "vertical",
@@ -122,7 +156,7 @@ export default function SiteCard({
                             justifyContent: "space-between",
                             px: 2,
                             pb: 1,
-                            mt: "auto", // דוחף את האייקונים למטה
+                            mt: "auto", // Push icons to the bottom
                         }}
                     >
                         <Tooltip title="Tag">
@@ -201,7 +235,7 @@ export default function SiteCard({
                         transform: "rotateY(180deg)",
                         display: "flex",
                         flexDirection: "column",
-                        bgcolor: "action.hover", // רקע מעט שונה לצד האחורי
+                        bgcolor: "action.hover", // Distinct background for the back side
                     }}
                 >
                     <Box p={1} display="flex" justifyContent="flex-end">
@@ -223,7 +257,7 @@ export default function SiteCard({
                             color="text.secondary"
                             sx={{
                                 whiteSpace: "pre-wrap",
-                                // כאן התיאור יופיע במלואו, ואם הוא ארוך מדי יהיה גלילה בתוך הכרטיס
+                                // Displays full description with internal scroll for overflow
                             }}
                         >
                             {description || "No description provided."}

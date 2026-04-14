@@ -1,3 +1,10 @@
+/**
+ * @module PhonesHeader
+ *
+ * Provides the header section for the Phone Directory, including search,
+ * filtering, and action controls.
+ */
+
 import {
     Box,
     Typography,
@@ -11,16 +18,35 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import SortIcon from "@mui/icons-material/Sort";
 
+/**
+ * Properties for the {@link PhonesHeader} component.
+ */
 interface PhonesHeaderProps {
+    /** The current favorite filter state ('all' or 'fav'). */
     filterFav: string;
+    /** Callback to update the favorite filter state. */
     setFilterFav: (value: string) => void;
+    /** The current search query string. */
     searchTerm: string;
+    /** Callback to update the search term as the user types. */
     setSearchTerm: (value: string) => void;
+    /** The current sort identifier (e.g., 'name-asc'). */
     sortOrder: string;
+    /** Callback to toggle between ascending and descending sort orders. */
     onToggleSortOrder: () => void;
+    /** Callback triggered when the 'Add Phone' action is initiated. */
     onAddClick: () => void;
 }
 
+/**
+ * Renders the top navigation and action bar for the Phone Directory.
+ *
+ * Includes the page title, description, and a toolbar with filtering by
+ * favorites, search by name/number, sorting, and adding new records.
+ *
+ * @param {PhonesHeaderProps} props  The properties for the component.
+ * @returns {JSX.Element}             The rendered header component.
+ */
 export default function PhonesHeader({
     filterFav,
     setFilterFav,

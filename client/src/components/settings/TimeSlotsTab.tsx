@@ -1,3 +1,11 @@
+/**
+ * @module TimeSlotsTab
+ *
+ * Provides a management interface for custom time slots within a group's report settings.
+ * Allows administrators to define predefined time ranges (e.g., "Morning", "Full Day")
+ * and link them to specific shift types for automated report population.
+ */
+
 import { useState } from "react";
 import {
     Box,
@@ -36,6 +44,15 @@ import ConfirmDialog from "../ConfirmDialog";
 import type { TimeSlot } from "../../types";
 import axios from "axios";
 
+/**
+ * Renders the time slots management tab for group settings.
+ *
+ * Handles CRUD operations for time slots by updating the group's global settings.
+ * Features include intelligent duration calculation, overnight shift detection,
+ * and linking to existing shift types.
+ *
+ * @returns {JSX.Element} The rendered TimeSlotsTab component.
+ */
 export default function TimeSlotsTab() {
     const { currentGroup } = useUser();
     const { groups, refreshData } = useData();
@@ -50,6 +67,7 @@ export default function TimeSlotsTab() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingSlot, setEditingSlot] = useState<TimeSlot | null>(null);
 
+    /** @type {string | null} The ID of the slot slated for deletion. Trigger for ConfirmDialog. */
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
@@ -59,6 +77,11 @@ export default function TimeSlotsTab() {
         linkedShiftTypes: [] as string[],
     });
 
+    /**
+     * Initializes the dialog for creating or editing a time slot.
+     *
+     * @param {TimeSlot} [slot]  The time slot to edit. If omitted, sets up for a new entry.
+     */
     const handleOpenDialog = (slot?: TimeSlot) => {
         if (slot) {
             setEditingSlot(slot);
@@ -72,14 +95,21 @@ export default function TimeSlotsTab() {
             setEditingSlot(null);
             setFormData({
                 name: "",
-                startTime: "08:00", // ברירת מחדל
-                endTime: "08:00", // ברירת מחדל ל-24 שעות כדי להקל
+                startTime: "08:00", // Default start
+                endTime: "08:00", // Default end (representing 24h or easy adjustment)
                 linkedShiftTypes: [],
             });
         }
         setIsDialogOpen(true);
     };
 
+    /**
+     * Persists the current form data as a new or updated time slot.
+     *
+     * Updates the group's settings on the server and refreshes local data.
+     *
+     * @returns {Promise<void>}
+     */
     const handleSave = async () => {
         if (!currentGroup) return;
         if (!formData.name.trim()) return alert("Name is required");
@@ -111,10 +141,20 @@ export default function TimeSlotsTab() {
         }
     };
 
+    /**
+     * Initiates the deletion flow for a time slot.
+     *
+     * @param {string} id  The unique identifier of the slot to delete.
+     */
     const handleDeleteClick = (id: string) => {
         setDeleteId(id);
     };
 
+    /**
+     * Executes the deletion of a time slot after user confirmation.
+     *
+     * @returns {Promise<void>}
+     */
     const handleConfirmDelete = async () => {
         if (!deleteId || !currentGroup) return;
 
@@ -136,11 +176,24 @@ export default function TimeSlotsTab() {
         }
     };
 
+    /**
+     * Resolves a shift type ID to its human-readable name.
+     *
+     * @param {string} id  The unique identifier of the shift type.
+     * @returns {string}   The name of the shift type, or the ID if not found.
+     */
     const getShiftTypeName = (id: string) => {
         return shiftTypes.find((t) => t._id === id)?.name || id;
     };
 
-    // --- חישוב משך הזמן לתצוגה ---
+    /**
+     * Calculates the duration between startTime and endTime for the current form.
+     *
+     * Detects 24-hour cycles and overnight shifts (ending the next day) based
+     * on the provided time values.
+     *
+     * @returns {JSX.Element | null} A styled Box containing the duration label, or null if times are missing.
+     */
     const calculateDuration = () => {
         if (!formData.startTime || !formData.endTime) return null;
 
@@ -152,13 +205,13 @@ export default function TimeSlotsTab() {
         let label = "";
         let color = "text.secondary";
 
-        // לוגיקה חכמה לזיהוי יממה
+        // Logic for cross-day shifts
         if (endTotal < startTotal) {
-            endTotal += 1440; // הוספת 24 שעות (יום למחרת)
+            endTotal += 1440; // Add 24 hours
             label = "(Ends next day)";
             color = "warning.main";
         } else if (endTotal === startTotal) {
-            endTotal += 1440; // הוספת 24 שעות (יום מלא)
+            endTotal += 1440; // Full 24-hour cycle
             label = "(Full 24 Hours)";
             color = "success.main";
         }
@@ -209,7 +262,7 @@ export default function TimeSlotsTab() {
                                 </TableCell>
                                 <TableCell>
                                     {slot.startTime} - {slot.endTime}
-                                    {/* תצוגה מקוצרת גם בטבלה */}
+                                    {/* Quick visual feedback for 24h and overnight slots */}
                                     {slot.startTime === slot.endTime && (
                                         <Typography
                                             variant="caption"
@@ -327,7 +380,7 @@ export default function TimeSlotsTab() {
                                 />
                             </Box>
 
-                            {/* כאן מופיע החישוב האוטומטי */}
+                            {/* Automated duration calculation display */}
                             {calculateDuration()}
                         </Box>
 

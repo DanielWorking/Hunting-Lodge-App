@@ -1,3 +1,11 @@
+/**
+ * @module MembersTab
+ *
+ * Provides a management interface for group members and report recipients.
+ * Allows administrators to reorder members, toggle active status, adjust
+ * vacation balances, and manage the list of email recipients for reports.
+ */
+
 import { useState, useEffect } from "react";
 import {
     Box,
@@ -28,12 +36,21 @@ import { useData } from "../../context/DataContext";
 import { useNotification } from "../../context/NotificationContext";
 import axios from "axios";
 
+/**
+ * Renders the group members management tab.
+ *
+ * Integrates with DataContext for user and group data, and UserContext for
+ * the current group context. Handles member reordering, status updates,
+ * and report email distribution lists.
+ *
+ * @returns {JSX.Element} The rendered MembersTab component.
+ */
 export default function MembersTab() {
     const { currentGroup } = useUser();
     const { users, refreshData, groups } = useData();
     const { showNotification } = useNotification();
 
-    // מציאת הקבוצה הנוכחית כדי לקבל את המייל שלה
+    // Match the current group context with the detailed group data from the global store
     const activeGroupData = groups.find(
         (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
     );
@@ -41,7 +58,7 @@ export default function MembersTab() {
     const [emails, setEmails] = useState<string[]>([]);
     const [newEmail, setNewEmail] = useState("");
 
-    // State מקומי לנתוני העריכה
+    /** @type {Object} Tracking local edits to member properties before they are persisted. */
     const [editedValues, setEditedValues] = useState<{
         [key: string]: { vacation: number; active: boolean };
     }>({});
@@ -50,8 +67,7 @@ export default function MembersTab() {
     useEffect(() => {
         if (!currentGroup || users.length === 0) return;
 
-        // חישוב חברי הקבוצה מתוך רשימת המשתמשים הכללית
-        // הוספנו סימני שאלה (?.) כדי למנוע קריסה אם למשתמש אין קבוצות
+        // Filter and map members belonging to the current group
         const members = users
             .filter((u) =>
                 u.groups?.some(
@@ -71,15 +87,19 @@ export default function MembersTab() {
         setSortedMembers(members);
     }, [users, currentGroup]);
 
-    // טעינת המייל ההתחלתי
+    // Load initial report emails from group data
     useEffect(() => {
         if (activeGroupData) {
-            // תמיכה לאחור (אם היה string, נהפוך למערך)
+            // Ensure backwards compatibility by forcing array type if legacy string format exists
             const existing = activeGroupData.reportEmails || [];
             setEmails(Array.isArray(existing) ? existing : []);
         }
     }, [activeGroupData]);
 
+    /**
+     * Adds the current value of newEmail to the recipients list.
+     * Prevents duplicates and empty strings.
+     */
     const handleAddEmail = () => {
         if (newEmail && !emails.includes(newEmail)) {
             setEmails([...emails, newEmail]);
@@ -87,10 +107,20 @@ export default function MembersTab() {
         }
     };
 
+    /**
+     * Removes a specific email from the recipients list.
+     *
+     * @param {string} emailToDelete  The email address to remove from the list.
+     */
     const handleDeleteEmail = (emailToDelete: string) => {
         setEmails(emails.filter((e) => e !== emailToDelete));
     };
 
+    /**
+     * Persists the updated report email list to the server.
+     *
+     * @returns {Promise<void>}
+     */
     const handleSaveEmails = async () => {
         if (!currentGroup) return;
         try {
@@ -107,6 +137,13 @@ export default function MembersTab() {
         }
     };
 
+    /**
+     * Updates local state when a member's property is edited.
+     *
+     * @param {string}                   userId  The unique identifier of the user being edited.
+     * @param {"vacation" | "active"}    field   The property being changed (vacation balance or active status).
+     * @param {any}                      value   The new value for the field.
+     */
     const handleChange = (
         userId: string,
         field: "vacation" | "active",
@@ -131,6 +168,12 @@ export default function MembersTab() {
         }));
     };
 
+    /**
+     * Saves changes for a specific user to the backend.
+     *
+     * @param {string} userId  The unique identifier of the user to update.
+     * @returns {Promise<void>}
+     */
     const handleSaveUser = async (userId: string) => {
         const changes = editedValues[userId];
         if (!changes) return;
@@ -151,6 +194,13 @@ export default function MembersTab() {
         }
     };
 
+    /**
+     * Swaps the position of two members in the group's display order.
+     *
+     * @param {number}          index      The current index of the member to move.
+     * @param {"up" | "down"}   direction  The direction to shift the member.
+     * @returns {Promise<void>}
+     */
     const handleMove = async (index: number, direction: "up" | "down") => {
         const newIndex = direction === "up" ? index - 1 : index + 1;
         if (newIndex < 0 || newIndex >= sortedMembers.length) return;
@@ -249,12 +299,12 @@ export default function MembersTab() {
                         <TableRow>
                             <TableCell align="center">Order</TableCell>
 
-                            {/* עמודה 1: המזהה המערכתי (ID בארגון / מייל במקומי) */}
+                            {/* System identifier (e.g., organizational ID or email) */}
                             <TableCell sx={{ fontWeight: "bold" }}>
                                 System ID
                             </TableCell>
 
-                            {/* עמודה 2: השם לתצוגה (Preferred Username / Full Name) */}
+                            {/* Display name (Full name or preferred username) */}
                             <TableCell sx={{ fontWeight: "bold" }}>
                                 Full Name
                             </TableCell>
@@ -274,7 +324,7 @@ export default function MembersTab() {
                             const userId = user._id || user.id;
                             const isEdited = !!editedValues[userId];
 
-                            // בדיקה אם המשתמש הוא משתמש אדמין חזק
+                            // Check if the user is the designated super admin
                             const isSuperAdmin =
                                 user.username ===
                                 import.meta.env.VITE_SUPER_ADMIN_ID;
@@ -334,7 +384,6 @@ export default function MembersTab() {
                                             variant="body2"
                                             fontWeight="medium"
                                         >
-                                            {/* user.username in home tests */}
                                             {user.displayName}
                                         </Typography>
                                     </TableCell>

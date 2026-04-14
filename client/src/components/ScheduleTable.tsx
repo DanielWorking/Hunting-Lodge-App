@@ -1,3 +1,11 @@
+/**
+ * @module ScheduleTable
+ * 
+ * Renders a grid-based interface for viewing and managing employee shifts.
+ * Supports sticky headers, color-coded shift types, and interactive cell 
+ * selection for administrative updates.
+ */
+
 import React, { forwardRef } from "react";
 import {
     Table,
@@ -14,23 +22,44 @@ import { format, isSameDay } from "date-fns";
 import { he } from "date-fns/locale";
 import type { ShiftType } from "../types";
 
-// הגדרת הטיפוסים שהטבלה צריכה לקבל
+/**
+ * Represents a simplified shift record used for grid rendering.
+ */
 interface LocalShift {
+    /** The unique identifier of the employee. */
     userId: string;
+    /** The date the shift is scheduled for. */
     date: Date;
+    /** The ID of the shift type (e.g., Morning, Evening). */
     shiftTypeId: string;
+    /** Whether this shift was deducted from the user's vacation balance. */
     vacationDeducted?: boolean;
 }
 
+/**
+ * Configuration properties for the {@link ScheduleTable} component.
+ */
 interface ScheduleTableProps {
+    /** If true, the table expands to occupy the full viewport width/height. */
     isFull: boolean;
+    /** An array of dates representing the columns of the schedule. */
     weekDays: Date[];
-    activeUsers: any[]; // או הגדרת טיפוס User מדויק אם קיים
+    /** The list of employees to display as table rows. */
+    activeUsers: any[];
+    /** The list of shifts to be rendered in the grid. */
     shifts: LocalShift[];
+    /** The available shift types for color mapping and labeling. */
     shiftTypes: ShiftType[];
+    /** Whether the current user has shift management privileges. */
     isShiftManager: boolean;
+    /** Whether the current user has administrative privileges. */
     isAdmin: boolean;
+    /** The currently highlighted cell, if any. */
     selectedCell: { userId: string; date: Date } | null;
+    /** 
+     * Callback triggered when a table cell is clicked. 
+     * Used for opening edit dialogs or selecting cells.
+     */
     onCellClick: (
         event: React.MouseEvent<HTMLTableDataCellElement>,
         userId: string,
@@ -38,7 +67,13 @@ interface ScheduleTableProps {
     ) => void;
 }
 
-// פונקציות עזר שהיו בתוך הקומפוננטה הראשית
+/**
+ * Determines whether black or white text should be used on a given background color
+ * for optimal readability (WCAG compliance).
+ * 
+ * @param {string} hexColor  The background color in hex format (e.g., "#FFFFFF").
+ * @returns {"black" | "white"} The recommended text color.
+ */
 const getContrastText = (hexColor: string) => {
     const r = parseInt(hexColor.substr(1, 2), 16);
     const g = parseInt(hexColor.substr(3, 2), 16);
@@ -47,7 +82,12 @@ const getContrastText = (hexColor: string) => {
     return yiq >= 128 ? "black" : "white";
 };
 
-// שימוש ב-forwardRef כדי לאפשר העברת ref מהאבא (נחוץ למסך מלא)
+/**
+ * A specialized table component for displaying employee shift schedules.
+ * 
+ * Uses `forwardRef` to allow parent components to control the container 
+ * (e.g., for full-screen transitions).
+ */
 const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
     (
         {
@@ -63,13 +103,25 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
         },
         ref,
     ) => {
-        // לוגיקה פנימית למציאת משמרת
+        /**
+         * Finds the shift assigned to a specific user on a specific date.
+         * 
+         * @param {string} userId  The ID of the employee.
+         * @param {Date} date      The date to check.
+         * @returns {LocalShift | undefined} The shift if found, otherwise undefined.
+         */
         const getShiftForCell = (userId: string, date: Date) => {
             return shifts.find(
                 (s) => s.userId === userId && isSameDay(s.date, date),
             );
         };
 
+        /**
+         * Resolves a shift type object from its ID.
+         * 
+         * @param {string} id  The ID of the shift type.
+         * @returns {ShiftType | undefined} The shift type object if found.
+         */
         const getShiftType = (id: string) => {
             return shiftTypes.find((t) => t._id === id);
         };
@@ -81,7 +133,7 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
                     maxHeight: isFull ? "none" : "70vh",
                     overflow: isFull ? "visible" : "auto",
                 }}
-                ref={ref} // ה-Ref מתחבר כאן
+                ref={ref}
             >
                 <Table stickyHeader={!isFull}>
                     <TableHead>
@@ -205,5 +257,8 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
     },
 );
 
-// עטיפה ב-memo כדי למנוע רינדורים מיותרים כשהאבא משתנה אבל הנתונים של הטבלה לא
+/**
+ * Memoized version of ScheduleTable to prevent unnecessary re-renders when 
+ * parent state changes do not affect the schedule data.
+ */
 export default React.memo(ScheduleTable);

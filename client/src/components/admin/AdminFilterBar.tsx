@@ -1,3 +1,11 @@
+/**
+ * @module AdminFilterBar
+ *
+ * Provides a specialized toolbar for the administrative dashboard.
+ * Includes view switching between users and groups, integrated search functionality,
+ * and context-aware action buttons for resource creation.
+ */
+
 import {
     Box,
     ToggleButton,
@@ -11,14 +19,33 @@ import GroupIcon from "@mui/icons-material/Group";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 
+/**
+ * Props for the {@link AdminFilterBar} component.
+ */
 interface AdminFilterBarProps {
+    /** The currently selected administrative view. */
     viewMode: "users" | "groups";
+    /** Callback triggered when the user switches the active view. */
     onViewModeChange: (mode: "users" | "groups") => void;
+    /** The current search query string. */
     searchTerm: string;
+    /** Callback triggered whenever the search input changes. */
     onSearchChange: (value: string) => void;
+    /** Callback triggered when the 'Add Group' action is initiated. */
     onAddClick: () => void;
 }
 
+/**
+ * Renders a responsive filter and action bar for administrative management.
+ *
+ * Features a balanced three-column layout on desktop:
+ * - Left: View toggle (Users/Groups)
+ * - Center: Real-time search input
+ * - Right: Contextual 'Add' action
+ *
+ * @param {AdminFilterBarProps} props  The properties for the component.
+ * @returns {JSX.Element}               The rendered filter bar component.
+ */
 export default function AdminFilterBar({
     viewMode,
     onViewModeChange,
@@ -30,7 +57,8 @@ export default function AdminFilterBar({
         <Box
             sx={{
                 display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "1fr auto 1fr" }, // חלוקה ל-3 עמודות לאיזון מושלם
+                // Balanced three-column distribution for desktop screens
+                gridTemplateColumns: { xs: "1fr", sm: "1fr auto 1fr" },
                 gap: 2,
                 alignItems: "center",
                 mb: 4,
@@ -40,7 +68,7 @@ export default function AdminFilterBar({
                 boxShadow: 1,
             }}
         >
-            {/* צד שמאל: כפתורי סינון */}
+            {/* Left Section: View Toggle buttons */}
             <Box sx={{ justifySelf: { xs: "center", sm: "start" } }}>
                 <ToggleButtonGroup
                     color="primary"
@@ -61,7 +89,7 @@ export default function AdminFilterBar({
                 </ToggleButtonGroup>
             </Box>
 
-            {/* אמצע: שדה חיפוש (תמיד במרכז) */}
+            {/* Center Section: Search field (Always centered for balance) */}
             <TextField
                 placeholder={
                     viewMode === "users"
@@ -85,7 +113,7 @@ export default function AdminFilterBar({
                 }}
             />
 
-            {/* צד ימין: כפתור הוספה (רק לקבוצות) */}
+            {/* Right Section: Action buttons (Contextual for Groups) */}
             <Box sx={{ justifySelf: { xs: "center", sm: "end" } }}>
                 {viewMode === "groups" && (
                     <Button

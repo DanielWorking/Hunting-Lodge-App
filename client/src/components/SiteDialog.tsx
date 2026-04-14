@@ -1,3 +1,10 @@
+/**
+ * @module SiteDialog
+ *
+ * Provides a modal form for creating or editing site entries.
+ * Includes validation for required fields and dynamic tag selection based on the current group's configuration.
+ */
+
 import { useState, useEffect } from "react";
 import {
     Dialog,
@@ -13,14 +20,31 @@ import {
 } from "@mui/material";
 import type { SiteCard, Group } from "../types";
 
+/**
+ * Props for the {@link SiteDialog} component.
+ */
 interface SiteDialogProps {
+    /** Whether the dialog is currently visible. */
     open: boolean;
+    /** Callback function to close the dialog. */
     onClose: () => void;
+    /** Callback function triggered when the form is submitted and validated. */
     onSave: (siteData: Partial<SiteCard>) => void;
+    /** Optional existing site data for pre-populating the form in edit mode. */
     initialData?: SiteCard | null;
+    /** The active group context, used to retrieve available site tags. */
     currentGroup?: Group | null;
 }
 
+/**
+ * Renders a dialog with a form for managing site information.
+ *
+ * Handles state for site attributes (title, URL, image, description, and tags)
+ * and performs basic validation before persisting changes.
+ *
+ * @param {SiteDialogProps} props  The properties for the component.
+ * @returns {JSX.Element}           The rendered SiteDialog component.
+ */
 export default function SiteDialog({
     open,
     onClose,
@@ -42,11 +66,19 @@ export default function SiteDialog({
         description: false,
     });
 
+    /**
+     * Derives the list of available tags from the current group context.
+     * Defaults to ["General"] if no group-specific tags are defined.
+     */
     const availableTags =
         currentGroup?.siteTags && currentGroup.siteTags.length > 0
             ? currentGroup.siteTags
             : ["General"];
 
+    /**
+     * Synchronizes the internal form state with provided initial data or resets it
+     * whenever the dialog visibility or source data changes.
+     */
     useEffect(() => {
         if (initialData) {
             setFormData({
@@ -72,8 +104,11 @@ export default function SiteDialog({
         });
     }, [initialData, open]);
 
+    /**
+     * Validates required fields and invokes the onSave callback if the form is valid.
+     */
     const handleSubmit = () => {
-        // ולידציה לכל השדות
+        // Validate all mandatory fields
         const newErrors = {
             title: !formData.title.trim(),
             url: !formData.url.trim(),
@@ -81,7 +116,7 @@ export default function SiteDialog({
         };
         setErrors(newErrors);
 
-        // אם יש שגיאה כלשהי, עוצרים
+        // Abort submission if any validation errors are present
         if (Object.values(newErrors).some(Boolean)) return;
 
         onSave(formData);

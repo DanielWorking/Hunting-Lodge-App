@@ -1,3 +1,10 @@
+/**
+ * @module AboutDialog
+ *
+ * Displays information about the application, including developer attribution
+ * and support contact details for the NOC Tacti team.
+ */
+
 import {
     Dialog,
     DialogTitle,
@@ -12,11 +19,25 @@ import InfoIcon from "@mui/icons-material/Info";
 import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import CodeIcon from "@mui/icons-material/Code";
 
+/**
+ * Props for the {@link AboutDialog} component.
+ */
 interface AboutDialogProps {
+    /** Whether the dialog is currently visible to the user. */
     open: boolean;
+    /** Callback function triggered when the dialog is requested to close. */
     onClose: () => void;
 }
 
+/**
+ * Renders a modal dialog with developer credits and support contact information.
+ *
+ * Provides a central location for users to see who built the system and
+ * how to get help or provide feedback.
+ *
+ * @param {AboutDialogProps} props  The properties for the component.
+ * @returns {JSX.Element}           The rendered dialog component.
+ */
 export default function AboutDialog({ open, onClose }: AboutDialogProps) {
     return (
         <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>

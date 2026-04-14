@@ -1,3 +1,11 @@
+/**
+ * @module ShiftTypesTab
+ * 
+ * Provides a management interface for custom shift types within a group.
+ * Allows administrators to create, edit, and delete shift types, including
+ * setting display colors and defining if a shift should impact vacation balances.
+ */
+
 import { useState } from "react";
 import {
     Box,
@@ -29,6 +37,15 @@ import ConfirmDialog from "../ConfirmDialog";
 import type { ShiftType } from "../../types";
 import axios from "axios";
 
+/**
+ * Renders the shift types management tab.
+ * 
+ * Handles the CRUD operations for shift types by updating the group's 
+ * settings on the server. Includes validation for duplicate names and
+ * confirmation for deletions.
+ * 
+ * @returns {JSX.Element} The rendered ShiftTypesTab component.
+ */
 export default function ShiftTypesTab() {
     const { currentGroup } = useUser();
     const { groups, refreshData } = useData();
@@ -42,7 +59,7 @@ export default function ShiftTypesTab() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingType, setEditingType] = useState<ShiftType | null>(null);
 
-    // State למחיקה
+    /** @type {string | null} Tracks the ID of a shift type slated for deletion to trigger confirmation. */
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
@@ -51,6 +68,11 @@ export default function ShiftTypesTab() {
         isVacation: false,
     });
 
+    /**
+     * Initializes the dialog for creating or editing a shift type.
+     * 
+     * @param {ShiftType} [type]  The shift type to edit. If omitted, sets up for a new entry.
+     */
     const handleOpenDialog = (type?: ShiftType) => {
         if (type) {
             setEditingType(type);
@@ -66,20 +88,27 @@ export default function ShiftTypesTab() {
         setIsDialogOpen(true);
     };
 
+    /**
+     * Persists the current form data as a new or updated shift type.
+     * 
+     * Validates that the name is present and unique within the group.
+     * 
+     * @returns {Promise<void>}
+     */
     const handleSave = async () => {
         if (!currentGroup) return;
         if (!formData.name.trim()) return alert("Name is required");
 
-        // בדיקת כפילות שם
+        // Validate uniqueness of shift type name
         const isDuplicate = shiftTypes.some(
             (t) =>
                 t.name.trim() === formData.name.trim() &&
-                t._id !== editingType?._id, // מוודא שאנחנו לא משווים את המשמרת לעצמה במקרה של עריכה
+                t._id !== editingType?._id, // Avoid self-comparison during edit
         );
 
         if (isDuplicate) {
             return showNotification(
-                "שגיאה: קיים כבר סוג משמרת עם שם זהה",
+                "Error: A shift type with this name already exists",
                 "error",
             );
         }
@@ -112,12 +141,22 @@ export default function ShiftTypesTab() {
         }
     };
 
-    // 1. פתיחת הדיאלוג
+    /**
+     * Initiates the deletion flow by setting the target ID.
+     * 
+     * @param {string} id  The unique identifier of the shift type to delete.
+     */
     const handleDeleteClick = (id: string) => {
         setDeleteId(id);
     };
 
-    // 2. ביצוע המחיקה
+    /**
+     * Confirms and executes the removal of a shift type.
+     * 
+     * Filters the shift types list and updates group settings on the server.
+     * 
+     * @returns {Promise<void>}
+     */
     const handleConfirmDelete = async () => {
         if (!deleteId || !currentGroup) return;
 
@@ -286,7 +325,6 @@ export default function ShiftTypesTab() {
                 </DialogActions>
             </Dialog>
 
-            {/* הדיאלוג החדש */}
             <ConfirmDialog
                 open={!!deleteId}
                 title="Delete Shift Type"

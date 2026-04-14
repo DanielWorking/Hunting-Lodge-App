@@ -1,3 +1,11 @@
+/**
+ * @module StatisticsTab
+ *
+ * Provides a reporting interface for shift statistics within a group.
+ * Aggregates published shift data to show per-member breakdown of shift types,
+ * displays current vacation balances, and enables sending detailed reports via email.
+ */
+
 import { useState, useEffect } from "react";
 import {
     Box,
@@ -19,11 +27,21 @@ import { useNotification } from "../../context/NotificationContext";
 import ShiftDatesDialog from "../ShiftDatesDialog";
 import axios from "axios";
 
+/**
+ * Renders the statistics and reporting tab for group administrators.
+ *
+ * Calculates yearly shift counts from published schedules and allows users
+ * to view specific dates for each shift type. Supports manual triggering
+ * of email reports to defined recipients.
+ *
+ * @returns {JSX.Element} The rendered StatisticsTab component.
+ */
 export default function StatisticsTab() {
     const { currentGroup } = useUser();
     const { users, groups } = useData();
     const { showNotification } = useNotification();
 
+    /** @type {Object} Aggregated shift data mapped by user ID and shift type. */
     const [stats, setStats] = useState<any>({});
     const [loading, setLoading] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
@@ -41,6 +59,14 @@ export default function StatisticsTab() {
         if (currentGroup) calculateStats();
     }, [currentGroup]);
 
+    /**
+     * Determines the appropriate text color (black or white) for a given background color.
+     *
+     * Uses the YIQ color space formula to ensure optimal contrast and readability.
+     *
+     * @param {string} hexColor  The background color in hex format (e.g., "#FFFFFF").
+     * @returns {"black" | "white"}  The recommended text color.
+     */
     const getContrastText = (hexColor: string) => {
         if (!hexColor) return "black";
         const r = parseInt(hexColor.substr(1, 2), 16);
@@ -50,6 +76,14 @@ export default function StatisticsTab() {
         return yiq >= 128 ? "black" : "white";
     };
 
+    /**
+     * Fetches all group schedules and aggregates statistics for published shifts.
+     *
+     * Organizes shifts by user ID and then by shift type ID, collecting
+     * all associated dates for detailed viewing.
+     *
+     * @returns {Promise<void>}
+     */
     const calculateStats = async () => {
         setLoading(true);
         try {
@@ -71,7 +105,7 @@ export default function StatisticsTab() {
                         rawStats[shift.userId].byType[shift.shiftTypeId] = [];
                     }
 
-                    // === שימוש בתאריך של המשמרת עצמה ===
+                    // Use the date from the shift itself for accurate aggregation
                     if (shift.date) {
                         rawStats[shift.userId].byType[shift.shiftTypeId].push(
                             shift.date,
@@ -87,6 +121,11 @@ export default function StatisticsTab() {
         }
     };
 
+    /**
+     * Sends the current statistical data to the server to trigger an email report.
+     *
+     * @returns {Promise<void>}
+     */
     const handleSendReport = async () => {
         setSendingEmail(true);
         try {
@@ -106,12 +145,19 @@ export default function StatisticsTab() {
         }
     };
 
+    /**
+     * Opens a dialog showing the specific dates a user worked a particular shift type.
+     *
+     * @param {string}   name   The human-readable name of the shift type.
+     * @param {string[]} dates  The list of dates associated with this shift type for the user.
+     */
     const handleChipClick = (name: string, dates: string[]) => {
         setSelectedShiftName(name);
         setSelectedDates(dates);
         setDialogOpen(true);
     };
 
+    /** @type {User[]} Members of the current group, sorted by their display order. */
     const sortedMembers = users
         .filter((u) =>
             u.groups.some(

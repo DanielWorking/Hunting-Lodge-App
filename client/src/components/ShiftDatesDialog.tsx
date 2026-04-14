@@ -1,3 +1,10 @@
+/**
+ * @module ShiftDatesDialog
+ *
+ * Displays a detailed list of dates assigned to a specific shift type.
+ * Groups dates by month and provides a total count for easier auditing.
+ */
+
 import {
     Dialog,
     DialogTitle,
@@ -13,13 +20,29 @@ import {
 } from "@mui/material";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 
+/**
+ * Props for the {@link ShiftDatesDialog} component.
+ */
 interface ShiftDatesDialogProps {
+    /** Whether the dialog is currently visible. */
     open: boolean;
+    /** Callback function to close the dialog. */
     onClose: () => void;
+    /** The name of the shift type being inspected. */
     shiftName: string;
+    /** Array of ISO date strings to be displayed. */
     dates: string[];
 }
 
+/**
+ * Renders a modal dialog displaying a scrollable list of shift dates.
+ *
+ * Handles date sorting, validation, and grouping by month/year to provide
+ * a clear overview of the schedule for the selected shift type.
+ *
+ * @param {ShiftDatesDialogProps} props  The properties for the component.
+ * @returns {JSX.Element}                The rendered dialog component.
+ */
 export default function ShiftDatesDialog({
     open,
     onClose,
@@ -28,11 +51,17 @@ export default function ShiftDatesDialog({
 }: ShiftDatesDialogProps) {
     const safeDates = Array.isArray(dates) ? dates : [];
 
+    /**
+     * Sorts dates chronologically and filters out invalid entries.
+     */
     const sortedDates = [...safeDates]
         .map((d) => new Date(d))
         .filter((d) => !isNaN(d.getTime()))
         .sort((a, b) => a.getTime() - b.getTime());
 
+    /**
+     * Groups sorted dates by Month and Year for display in categorized list sections.
+     */
     const groupedDates: { [key: string]: Date[] } = {};
 
     sortedDates.forEach((date) => {
@@ -68,7 +97,7 @@ export default function ShiftDatesDialog({
             </DialogTitle>
 
             <DialogContent sx={{ p: 0 }}>
-                {/* סיכום כמות */}
+                {/* Summary Section */}
                 <Box
                     sx={{
                         p: 2,
@@ -83,7 +112,7 @@ export default function ShiftDatesDialog({
                     </Typography>
                 </Box>
 
-                {/* רשימת התאריכים */}
+                {/* Date List Section */}
                 <List
                     sx={{
                         width: "100%",

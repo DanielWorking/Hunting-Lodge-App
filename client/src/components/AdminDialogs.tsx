@@ -455,14 +455,29 @@ export function UserDialog({
     );
 }
 
-// --- Group Dialog ---
+/**
+ * Props for the {@link GroupDialog} component.
+ */
 interface GroupDialogProps {
+    /** Whether the dialog is currently visible. */
     open: boolean;
+    /** Callback function to close the dialog. */
     onClose: () => void;
+    /** Callback function triggered when the group form is saved. */
     onSave: (group: Partial<Group>) => void;
+    /** Existing group data for editing, or null if creating a new group. */
     initialData: Group | null;
 }
 
+/**
+ * Renders a dialog for creating or editing security/organizational groups.
+ *
+ * Automatically generates IDs for new groups and provides a read-only view of
+ * current members. Protects system-critical groups from being renamed.
+ *
+ * @param {GroupDialogProps} props  The properties for the component.
+ * @returns {JSX.Element}            The rendered GroupDialog component.
+ */
 export function GroupDialog({
     open,
     onClose,
@@ -472,7 +487,7 @@ export function GroupDialog({
     const { users } = useData();
     const [name, setName] = useState("");
 
-    // זיהוי האם מדובר בקבוצת המערכת המוגנת
+    /** Determine if this is a protected system group based on its identifier. */
     const isSystemGroup =
         initialData?.id === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
     const isCreateMode = !initialData;
@@ -483,7 +498,10 @@ export function GroupDialog({
         }
     }, [initialData, open]);
 
-    // חישוב חברי הקבוצה (רק במצב עריכה) - תיקון: בדיקה מול ID טקסטואלי ומול מונגו ID
+    /**
+     * Resolves the list of users who are members of this group.
+     * Supports matching against both the textual 'id' and the MongoDB '_id'.
+     */
     const groupMembers = useMemo(() => {
         if (!initialData) return [];
         return users.filter((user) =>
@@ -495,12 +513,16 @@ export function GroupDialog({
         );
     }, [users, initialData]);
 
+    /**
+     * Validates input and invokes the save callback.
+     * In creation mode, automatically generates a snake_case ID from the group name.
+     */
     const handleSave = () => {
         if (!name.trim()) return;
 
         if (isCreateMode) {
-            // --- מצב יצירה: יצירת ID אוטומטית ---
-            // הופך "Shift Managers" ל- "Shift_Managers"
+            // Creation Mode: Automatically generate a unique ID from the name
+            // e.g., "Shift Managers" becomes "Shift_Managers"
             const generatedId = name.trim().replace(/\s+/g, "_");
 
             onSave({
@@ -508,7 +530,7 @@ export function GroupDialog({
                 id: generatedId,
             });
         } else {
-            // --- מצב עריכה: עדכון שם בלבד ---
+            // Edit Mode: Update the display name only
             onSave({ ...initialData, name: name.trim() });
         }
     };
@@ -529,14 +551,14 @@ export function GroupDialog({
                         mt: 1,
                     }}
                 >
-                    {/* שם הקבוצה */}
+                    {/* Group Identity Section */}
                     <Box>
                         <TextField
                             label="Group Name"
                             fullWidth
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            disabled={isSystemGroup} // נעילה לאדמיניסטרטורים
+                            disabled={isSystemGroup} // Lock name for system-critical groups
                             helperText={
                                 isSystemGroup
                                     ? "System group name cannot be changed."
@@ -547,7 +569,7 @@ export function GroupDialog({
                         />
                     </Box>
 
-                    {/* רשימת חברים - מוצגת רק במצב עריכה - עיצוב מחודש */}
+                    {/* Member Visibility - Accessible only in Edit Mode */}
                     {!isCreateMode && (
                         <Box>
                             <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -570,7 +592,7 @@ export function GroupDialog({
                             >
                                 {groupMembers.length > 0 ? (
                                     groupMembers.map((member) => {
-                                        // מציאת פרטי החברות כדי להציג את התפקיד
+                                        // Locate the specific membership to resolve the user's role
                                         const membership = member.groups?.find(
                                             (g) =>
                                                 g.groupId === initialData.id ||

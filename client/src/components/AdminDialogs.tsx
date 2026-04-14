@@ -1,3 +1,11 @@
+/**
+ * @module AdminDialogs
+ *
+ * Provides administrative modal interfaces for managing users and groups.
+ * Includes logic for role assignment, account activation, and system-level
+ * security restrictions.
+ */
+
 import { useState, useEffect, useMemo } from "react";
 import {
     Dialog,
@@ -24,14 +32,29 @@ import { useData } from "../context/DataContext";
 import { useUser } from "../context/UserContext";
 import type { User, Group } from "../types";
 
-// --- User Dialog ---
+/**
+ * Props for the {@link UserDialog} component.
+ */
 interface UserDialogProps {
+    /** Whether the dialog is currently visible. */
     open: boolean;
+    /** Callback function to close the dialog. */
     onClose: () => void;
+    /** Callback function triggered when the user form is saved. */
     onSave: (user: Partial<User>) => void;
+    /** Existing user data for editing, or null if creating a new user. */
     initialData: User | null;
 }
 
+/**
+ * Renders a dialog for creating or editing user accounts and their group memberships.
+ *
+ * Implements security logic to prevent self-deactivation and restricted
+ * modifications to Super Admin profiles or administrative group roles.
+ *
+ * @param {UserDialogProps} props  The properties for the component.
+ * @returns {JSX.Element}           The rendered UserDialog component.
+ */
 export function UserDialog({
     open,
     onClose,
@@ -41,7 +64,7 @@ export function UserDialog({
     const { groups } = useData();
     const { user: currentUser } = useUser();
 
-    // 1. קריאה לשם המנהל הראשי מה-ENV
+    /** The unique identifier for the Super Admin account from environment variables. */
     const SUPER_ADMIN_ID = import.meta.env.VITE_SUPER_ADMIN_ID;
 
     const [formData, setFormData] = useState<Partial<User>>({
@@ -55,6 +78,9 @@ export function UserDialog({
 
     const [groupToAdd, setGroupToAdd] = useState<Group | null>(null);
 
+    /**
+     * Synchronizes form state with provided initial data or resets for a new user.
+     */
     useEffect(() => {
         if (initialData) {
             setFormData(initialData);
@@ -69,10 +95,13 @@ export function UserDialog({
         setGroupToAdd(null);
     }, [initialData, open]);
 
-    // 2. זיהוי האם הפרופיל הנערך הוא של המנהל הראשי
+    /** True if the account being edited is the primary system Super Admin. */
     const isSuperAdminProfile = formData.username === SUPER_ADMIN_ID;
 
-    // 3. בדיקה: האם אני עורך את עצמי?
+    /**
+     * Determines if the active administrator is editing their own profile.
+     * Prevents destructive self-actions like deactivation.
+     */
     const isEditingSelf = (() => {
         if (!currentUser) return false;
         const currentUserId = currentUser._id || currentUser.id;
@@ -83,7 +112,10 @@ export function UserDialog({
         return false;
     })();
 
-    // 4. בדיקה: האם המשתמש הנערך הוא חבר בקבוצת administrators
+    /**
+     * Determines if the target user is a member of the designated administrative group.
+     * Administrative roles have additional protection against being downgraded to standard members.
+     */
     const isTargetUserAdmin = formData.groups?.some((membership) => {
         const groupObj = groups.find(
             (g) => (g._id || g.id) === membership.groupId,
@@ -91,8 +123,9 @@ export function UserDialog({
         return groupObj?.name === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
     });
 
-    // --- לוגיקה לשינוי נתונים ---
-
+    /**
+     * Adds a new group membership to the user's profile with a default 'member' role.
+     */
     const handleAddGroup = () => {
         if (!groupToAdd) return;
         const groupId = groupToAdd._id || groupToAdd.id;
@@ -112,6 +145,10 @@ export function UserDialog({
         setGroupToAdd(null);
     };
 
+    /**
+     * Removes a group membership from the user's profile.
+     * @param {string} groupId  The ID of the group to remove.
+     */
     const handleRemoveGroup = (groupId: string) => {
         setFormData((prev) => {
             const currentGroups = prev.groups || [];
@@ -122,6 +159,13 @@ export function UserDialog({
         });
     };
 
+    /**
+     * Toggles the user's role within a specific group between 'shift_manager' and 'member'.
+     * Roles within the core administrative group are protected.
+     *
+     * @param {string} groupId    The ID of the group.
+     * @param {boolean} isManager Whether to assign the manager role.
+     */
     const handleRoleChange = (groupId: string, isManager: boolean) => {
         if (isTargetUserAdmin) {
             const groupObj = groups.find((g) => (g._id || g.id) === groupId);
@@ -142,10 +186,12 @@ export function UserDialog({
         });
     };
 
+    /**
+     * Normalizes identity fields and invokes the save callback.
+     * Ensures displayName defaults to the username if left empty.
+     */
     const handleSave = () => {
-        // שומרים רק את ה-username (System ID) ודואגים שגם ה-displayName יעודכן אם לא הוזן
         const usernameToSend = formData.username;
-        // במקרה שאין שדה עריכה ל-Display Name, נשתמש בקיים או ביוזרניים כברירת מחדל
         const displayNameToSend = formData.displayName || formData.username;
         const emailToSend = formData.email;
 
@@ -158,7 +204,10 @@ export function UserDialog({
         onClose();
     };
 
-    // סינון קבוצות שכבר נבחרו לטובת ה-Autocomplete
+    /**
+     * Groups filtered to exclude those already assigned to the user,
+     * populating the Autocomplete options.
+     */
     const availableGroups = groups.filter((g) => {
         const gid = g._id || g.id;
         return !formData.groups?.some((mg) => mg.groupId === gid);

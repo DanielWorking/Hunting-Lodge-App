@@ -74,7 +74,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
             {/* Global Snackbar instance rendered once at the application level */}
             <Snackbar
                 open={open}
-                autoHideDuration={3000} // Automatically hide after 3 seconds
+                autoHideDuration={severity === "error" ? 6000 : 3000} // Give users more time to read errors
                 onClose={handleClose}
                 anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
             >

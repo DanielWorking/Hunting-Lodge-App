@@ -62,6 +62,8 @@ export default function ThinkingLoader({
 
     return (
         <Box
+            role="status"
+            aria-label="Loading..."
             sx={{
                 display: "flex",
                 flexDirection: "column",

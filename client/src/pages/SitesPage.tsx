@@ -312,7 +312,7 @@ export default function SitesPage() {
     }
 
     return (
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Container maxWidth="xl" sx={{ mt: 2, mb: 2 }}>
             {/* Header Section: Displays the current group name */}
             <Box sx={{ mb: 3 }}>
                 <Typography
@@ -478,7 +478,7 @@ export default function SitesPage() {
             {/* Sites Grid: Renders the filtered and sorted list of sites.
                 Displays an empty state message if no sites match the current criteria. */}
             {sortedSites.length > 0 ? (
-                <Grid container spacing={3}>
+                <Grid container spacing={2}>
                     {sortedSites.map((site) => (
                         <Grid
                             key={site._id || site.id}

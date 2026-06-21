@@ -708,7 +708,7 @@ export default function ShiftReportPage() {
         );
 
     return (
-        <Container maxWidth="xl" sx={{ mt: 4, mb: 4, height: "80vh" }}>
+        <Container maxWidth="xl" sx={{ mt: 2, mb: 2, height: "85vh" }}>
             <Grid container spacing={2} sx={{ height: "100%" }}>
                 {/* Sidebar */}
                 <Grid size={{ xs: 3 }} sx={{ height: "100%" }}>

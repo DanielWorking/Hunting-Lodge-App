@@ -21,21 +21,48 @@ export default function GuestPage() {
     const { logout, user } = useUser();
 
     return (
-        <Container maxWidth="sm" sx={{ mt: 10 }}>
-            <Paper elevation={3} sx={{ p: 4, textAlign: "center" }}>
-                <Box display="flex" justifyContent="center" mb={2}>
-                    <LockClockIcon
-                        sx={{ fontSize: 60, color: "text.secondary" }}
-                    />
-                </Box>
+        <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            minHeight="100vh"
+            sx={{
+                background: "linear-gradient(135deg, #F97316 0%, #EAB308 100%)",
+            }}
+        >
+            <Container maxWidth="sm">
+                <Paper 
+                    elevation={24} 
+                    sx={{ 
+                        p: 6, 
+                        textAlign: "center",
+                        borderRadius: 4,
+                        backdropFilter: "blur(16px)",
+                        backgroundColor: "background.paper",
+                        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
+                        transition: "transform 0.3s ease",
+                        "&:hover": {
+                            transform: "translateY(-4px)"
+                        }
+                    }}
+                >
+                    <Box display="flex" justifyContent="center" mb={3}>
+                        <LockClockIcon
+                            sx={{ 
+                                fontSize: 72, 
+                                color: "warning.main",
+                                filter: "drop-shadow(0px 4px 8px rgba(0,0,0,0.1))"
+                            }}
+                        />
+                    </Box>
 
-                <Typography variant="h5" gutterBottom fontWeight="bold">
-                    Welcome, {user?.username}
-                </Typography>
+                    <Typography variant="h4" gutterBottom fontWeight="900" color="text.primary">
+                        Welcome, {user?.username}
+                    </Typography>
 
-                <Typography variant="body1" paragraph color="text.secondary">
-                    Your account has been created successfully via SSO.
-                </Typography>
+                    <Typography variant="subtitle1" paragraph color="text.secondary" sx={{ mb: 4 }}>
+                        Your account has been created successfully via SSO.
+                    </Typography>
 
                 <Box
                     sx={{
@@ -67,7 +94,8 @@ export default function GuestPage() {
                 >
                     Logout & Try Again
                 </Button>
-            </Paper>
-        </Container>
+                </Paper>
+            </Container>
+        </Box>
     );
 }

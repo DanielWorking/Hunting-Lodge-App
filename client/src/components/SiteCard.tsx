@@ -129,6 +129,7 @@ export default function SiteCard({
                             height="160"
                             image={imageSrc}
                             alt={title}
+                            loading="lazy"
                             sx={{ objectFit: "cover" }}
                         />
                         <CardContent>

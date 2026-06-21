@@ -61,7 +61,7 @@ export default function AdminFilterBar({
                 gridTemplateColumns: { xs: "1fr", sm: "1fr auto 1fr" },
                 gap: 2,
                 alignItems: "center",
-                mb: 4,
+                mb: 2,
                 bgcolor: "background.paper",
                 p: 2,
                 borderRadius: 2,

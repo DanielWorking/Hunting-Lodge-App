@@ -166,7 +166,7 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
                 </Box>
             </DialogContent>
 
-            <DialogActions>
+            <DialogActions sx={{ pb: 2, px: 3 }}>
                 <Button onClick={onClose} variant="contained">
                     Close
                 </Button>

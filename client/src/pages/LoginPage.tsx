@@ -91,25 +91,48 @@ export default function LoginPage() {
             justifyContent="center"
             alignItems="center"
             minHeight="100vh"
-            bgcolor="#f5f5f5"
+            sx={{
+                background: "linear-gradient(135deg, #7C3AED 0%, #3B82F6 100%)",
+                position: "relative",
+                overflow: "hidden",
+            }}
         >
             <Paper
-                elevation={3}
+                elevation={24}
                 sx={{
-                    p: 5,
+                    p: 6,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     gap: 3,
-                    maxWidth: 400,
+                    maxWidth: 420,
                     width: "100%",
+                    borderRadius: 4,
+                    backdropFilter: "blur(20px)",
+                    backgroundColor: "background.paper",
+                    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
+                    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                    "&:hover": {
+                        transform: "translateY(-6px)",
+                        boxShadow: "0 12px 48px rgba(0, 0, 0, 0.3)",
+                    },
                 }}
             >
-                <Typography variant="h4" fontWeight="bold" color="primary">
+                <Typography 
+                    variant="h3" 
+                    fontWeight="900" 
+                    color="primary"
+                    sx={{ 
+                        letterSpacing: "-0.5px",
+                        background: "linear-gradient(45deg, #7C3AED, #F97316)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent"
+                    }}
+                >
                     Hunting Lodge
                 </Typography>
 
-                <Typography variant="body1" color="text.secondary">
+                <Typography variant="subtitle1" color="text.secondary" sx={{ fontWeight: 500, mb: 2 }}>
                     Secure Shift Management
                 </Typography>
 
@@ -133,7 +156,19 @@ export default function LoginPage() {
                     }
                     onClick={handleSSOClick}
                     disabled={loading}
-                    sx={{ py: 1.5, fontWeight: "bold" }}
+                    sx={{ 
+                        py: 1.8, 
+                        fontWeight: "bold",
+                        fontSize: "1.1rem",
+                        borderRadius: 2,
+                        textTransform: "none",
+                        boxShadow: "0 4px 14px 0 rgba(124, 58, 237, 0.39)",
+                        transition: "all 0.2s ease-in-out",
+                        "&:hover": {
+                            transform: "scale(1.02)",
+                            boxShadow: "0 6px 20px rgba(124, 58, 237, 0.5)",
+                        }
+                    }}
                 >
                     {loading ? "Redirecting..." : "Login with Organization SSO"}
                 </Button>

@@ -22,81 +22,114 @@ export const getDesignTokens = (mode: PaletteMode) => ({
         mode,
         ...(mode === 'light'
             ? {
-                // Light mode color palette
+                // Light mode color palette - Data Dense Dashboard
                 primary: {
-                    main: '#2E7D32',
-                    light: '#60AD5E',
-                    dark: '#005005',
+                    main: '#7C3AED',
+                    light: '#A78BFA',
+                    dark: '#5B21B6',
                     contrastText: '#ffffff',
                 },
                 secondary: {
-                    main: '#795548',
-                    light: '#A98274',
-                    dark: '#4B2C20',
+                    main: '#F97316', // Action Orange for CTA
+                    light: '#FB923C',
+                    dark: '#C2410C',
                     contrastText: '#ffffff',
                 },
                 background: {
-                    default: '#F4F6F8',
+                    default: '#FAF5FF',
                     paper: '#FFFFFF',
                 },
                 text: {
-                    primary: 'rgba(0, 0, 0, 0.87)',
-                    secondary: 'rgba(0, 0, 0, 0.6)',
+                    primary: '#4C1D95',
+                    secondary: '#6D28D9',
                 },
             }
             : {
                 // Dark mode color palette
                 primary: {
-                    main: '#66BB6A',
-                    light: '#81C784',
-                    dark: '#388E3C',
+                    main: '#A78BFA',
+                    light: '#C4B5FD',
+                    dark: '#7C3AED',
                     contrastText: '#000000',
                 },
                 secondary: {
-                    main: '#A1887F',
-                    light: '#D7CCC8',
-                    dark: '#5D4037',
+                    main: '#FB923C',
+                    light: '#FDBA74',
+                    dark: '#EA580C',
                     contrastText: '#000000',
                 },
                 background: {
-                    default: '#121212',
-                    paper: '#1E1E1E', // Slightly lighter than background for depth
+                    default: '#0F172A',
+                    paper: '#1E293B',
                 },
                 text: {
-                    primary: '#ffffff',
-                    secondary: 'rgba(255, 255, 255, 0.7)',
+                    primary: '#F8FAFC',
+                    secondary: '#CBD5E1',
                 },
             }),
     },
     typography: {
-        fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-        h4: { fontWeight: 600 },
-        h6: { fontWeight: 500 },
+        fontFamily: '"Fira Sans", "Fira Code", sans-serif',
+        h1: { fontFamily: '"Fira Code", monospace', fontWeight: 700 },
+        h2: { fontFamily: '"Fira Code", monospace', fontWeight: 700 },
+        h3: { fontFamily: '"Fira Code", monospace', fontWeight: 600 },
+        h4: { fontFamily: '"Fira Code", monospace', fontWeight: 600 },
+        h5: { fontFamily: '"Fira Code", monospace', fontWeight: 500 },
+        h6: { fontFamily: '"Fira Code", monospace', fontWeight: 500 },
+        button: { fontFamily: '"Fira Code", monospace', fontWeight: 500 },
     },
     components: {
         MuiButton: {
             styleOverrides: {
                 root: {
-                    borderRadius: 8,
+                    borderRadius: 6,
                     textTransform: 'none' as const,
+                    fontWeight: 600,
+                    transition: 'all 0.2s ease-in-out',
                 },
             },
         },
         MuiCard: {
             styleOverrides: {
                 root: {
-                    borderRadius: 12,
-                    // Softer shadows in dark mode for better visual blending
-                    boxShadow: mode === 'dark' ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.05)',
+                    borderRadius: 8,
+                    boxShadow: mode === 'dark' ? '0 4px 6px -1px rgba(0, 0, 0, 0.5)' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                    backgroundImage: 'none',
                 },
             },
         },
         MuiAppBar: {
             styleOverrides: {
                 root: {
-                    // Contextual background and text colors for the main navigation bar
-                    backgroundColor: mode === 'dark' ? '#1E1E1E' : '#ffffff',
-                    color: mode === 'dark' ? '#ffffff' : '#2E7D32',
+                    backgroundColor: mode === 'dark' ? '#1E293B' : '#ffffff',
+                    color: mode === 'dark' ? '#F8FAFC' : '#4C1D95',
+                    boxShadow: 'none',
+                    borderBottom: `1px solid ${mode === 'dark' ? '#334155' : '#E2E8F0'}`,
+                },
+            },
+        },
+        MuiTableCell: {
+            styleOverrides: {
+                root: {
+                    padding: '8px 12px', // Tighter padding for data density
+                    fontFamily: '"Fira Code", monospace',
+                    fontSize: '0.875rem',
+                    borderColor: mode === 'dark' ? '#334155' : '#E2E8F0',
+                },
+                head: {
+                    fontWeight: 600,
+                    backgroundColor: mode === 'dark' ? '#0F172A' : '#F8FAFC',
+                    color: mode === 'dark' ? '#CBD5E1' : '#64748B',
+                },
+            },
+        },
+        MuiTableRow: {
+            styleOverrides: {
+                root: {
+                    transition: 'background-color 0.15s ease',
+                    '&:hover': {
+                        backgroundColor: mode === 'dark' ? '#334155' : '#F1F5F9',
+                    },
                 },
             },
         },

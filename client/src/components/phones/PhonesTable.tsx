@@ -105,9 +105,9 @@ export default function PhonesTable({
     return (
         <TableContainer
             component={Paper}
-            sx={{ maxHeight: "65vh", overflowY: "auto" }}
+            sx={{ maxHeight: "65vh", overflowY: "auto", overflowX: "auto" }}
         >
-            <Table sx={{ minWidth: 650 }} stickyHeader>
+            <Table sx={{ minWidth: 650 }} stickyHeader size="small">
                 <TableHead>
                     <TableRow>
                         {[
@@ -241,9 +241,14 @@ export default function PhonesTable({
                             <TableCell
                                 colSpan={6}
                                 align="center"
-                                sx={{ py: 3 }}
+                                sx={{ py: 6 }}
                             >
-                                No phones found.
+                                <Typography variant="h6" color="text.secondary" gutterBottom>
+                                    No phone numbers found.
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Try adjusting your search or use the Add Phone button to create a new contact.
+                                </Typography>
                             </TableCell>
                         </TableRow>
                     )}

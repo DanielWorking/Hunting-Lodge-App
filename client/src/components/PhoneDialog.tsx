@@ -289,6 +289,7 @@ export default function PhoneDialog({
                         <TextField
                             fullWidth
                             size="small"
+                            type="tel"
                             value={item.value}
                             onChange={(e) =>
                                 handleNumberChange(item.id, e.target.value)
@@ -342,7 +343,7 @@ export default function PhoneDialog({
                 />
             </DialogContent>
 
-            <DialogActions>
+            <DialogActions sx={{ pb: 2, px: 3 }}>
                 <Button onClick={onClose} color="inherit">
                     Cancel
                 </Button>

@@ -60,7 +60,7 @@ export default function PhonesHeader({
         <>
             <Box
                 sx={{
-                    mb: 4,
+                    mb: 2,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
@@ -83,7 +83,7 @@ export default function PhonesHeader({
                 sx={{
                     display: "flex",
                     gap: 2,
-                    mb: 4,
+                    mb: 2,
                     flexWrap: "wrap",
                     alignItems: "center",
                     bgcolor: "background.paper",
@@ -106,7 +106,7 @@ export default function PhonesHeader({
 
                 <TextField
                     size="small"
-                    label="Search Phones..."
+                    label="Search by name, number, or description..."
                     variant="outlined"
                     sx={{ flexGrow: 1 }}
                     value={searchTerm}

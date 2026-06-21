@@ -556,6 +556,7 @@ export function GroupDialog({
                         <TextField
                             label="Group Name"
                             fullWidth
+                            size="small"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             disabled={isSystemGroup} // Lock name for system-critical groups

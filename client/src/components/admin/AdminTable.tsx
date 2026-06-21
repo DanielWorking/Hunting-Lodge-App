@@ -357,9 +357,9 @@ export default function AdminTable({
     return (
         <TableContainer
             component={Paper}
-            sx={{ maxHeight: "70vh", overflowY: "auto" }}
+            sx={{ maxHeight: "70vh", overflowY: "auto", overflowX: "auto" }}
         >
-            <Table stickyHeader>
+            <Table stickyHeader size="small">
                 <TableHead>
                     <TableRow>
                         {viewMode === "users" ? (
@@ -472,9 +472,14 @@ export default function AdminTable({
                             <TableCell
                                 colSpan={7}
                                 align="center"
-                                sx={{ py: 3 }}
+                                sx={{ py: 6 }}
                             >
-                                No {viewMode} found.
+                                <Typography variant="h6" color="text.secondary" gutterBottom>
+                                    No {viewMode} found matching your search.
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Try adjusting your search filters or use the Add button to create a new entry.
+                                </Typography>
                             </TableCell>
                         </TableRow>
                     )}

@@ -19,6 +19,7 @@ import ShiftTypesTab from "../components/settings/ShiftTypesTab";
 import TimeSlotsTab from "../components/settings/TimeSlotsTab";
 import MembersTab from "../components/settings/MembersTab";
 import StatisticsTab from "../components/settings/StatisticsTab";
+import ThinkingLoader from "../components/ThinkingLoader";
 
 /**
  * The group settings management page.
@@ -30,8 +31,12 @@ import StatisticsTab from "../components/settings/StatisticsTab";
  * @returns {JSX.Element} The rendered GroupSettingsPage component or an access denied message.
  */
 export default function GroupSettingsPage() {
-    const { currentGroup, isShiftManager } = useUser();
+    const { currentGroup, isShiftManager, isRestoringSession } = useUser();
     const [tabValue, setTabValue] = useState(0);
+
+    if (isRestoringSession) {
+        return <ThinkingLoader />;
+    }
 
     // Access Control: Block access if the user is not a shift manager of the selected group.
     if (!currentGroup || !isShiftManager) {
@@ -59,7 +64,7 @@ export default function GroupSettingsPage() {
     };
 
     return (
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Container maxWidth="xl" sx={{ mt: 2, mb: 2 }}>
             <Box
                 sx={{
                     mb: 4,

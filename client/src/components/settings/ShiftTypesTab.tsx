@@ -193,8 +193,8 @@ export default function ShiftTypesTab() {
                 </Button>
             </Box>
 
-            <TableContainer component={Paper}>
-                <Table>
+            <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
+                <Table size="small">
                     <TableHead>
                         <TableRow>
                             <TableCell>Color</TableCell>

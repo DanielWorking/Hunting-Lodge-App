@@ -336,7 +336,7 @@ export default function ShiftSchedulePage() {
     };
 
     return (
-        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        <Container maxWidth="xl" sx={{ mt: 2, mb: 2 }}>
             <Box
                 display="flex"
                 justifyContent="space-between"

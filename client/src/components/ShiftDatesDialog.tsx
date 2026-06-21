@@ -169,7 +169,7 @@ export default function ShiftDatesDialog({
                 </List>
             </DialogContent>
 
-            <DialogActions>
+            <DialogActions sx={{ pb: 2, px: 3 }}>
                 <Button onClick={onClose} color="primary" variant="contained">
                     Close
                 </Button>

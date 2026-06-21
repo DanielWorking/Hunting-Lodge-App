@@ -64,7 +64,7 @@ export default function ConfirmDialog({
             <DialogContent>
                 <DialogContentText>{content}</DialogContentText>
             </DialogContent>
-            <DialogActions>
+            <DialogActions sx={{ pb: 2, px: 3 }}>
                 <Button onClick={onCancel} color="inherit">
                     Cancel
                 </Button>

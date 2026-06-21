@@ -244,8 +244,8 @@ export default function TimeSlotsTab() {
                 </Button>
             </Box>
 
-            <TableContainer component={Paper}>
-                <Table>
+            <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
+                <Table size="small">
                     <TableHead>
                         <TableRow>
                             <TableCell>Name</TableCell>

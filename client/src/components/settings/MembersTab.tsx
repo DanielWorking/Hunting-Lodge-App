@@ -293,8 +293,8 @@ export default function MembersTab() {
                 Group Members ({sortedMembers.length})
             </Typography>
 
-            <TableContainer component={Paper}>
-                <Table>
+            <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
+                <Table size="small">
                     <TableHead>
                         <TableRow>
                             <TableCell align="center">Order</TableCell>

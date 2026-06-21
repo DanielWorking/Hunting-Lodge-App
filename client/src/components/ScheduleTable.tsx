@@ -131,11 +131,12 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
                 component={Paper}
                 sx={{
                     maxHeight: isFull ? "none" : "70vh",
-                    overflow: isFull ? "visible" : "auto",
+                    overflowY: isFull ? "visible" : "auto",
+                    overflowX: "auto",
                 }}
                 ref={ref}
             >
-                <Table stickyHeader={!isFull}>
+                <Table stickyHeader={!isFull} size="small">
                     <TableHead>
                         <TableRow>
                             <TableCell

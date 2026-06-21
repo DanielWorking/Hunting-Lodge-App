@@ -130,7 +130,7 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
                 </Box>
             </DialogContent>
 
-            <DialogActions>
+            <DialogActions sx={{ pb: 2, px: 3 }}>
                 <Button onClick={onClose} variant="outlined">
                     Close
                 </Button>

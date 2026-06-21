@@ -18,6 +18,7 @@ import AdminFilterBar from "../components/admin/AdminFilterBar";
 import AdminTable from "../components/admin/AdminTable";
 import { UserDialog, GroupDialog } from "../components/AdminDialogs";
 import ConfirmDialog from "../components/ConfirmDialog";
+import ThinkingLoader from "../components/ThinkingLoader";
 
 /**
  * The main administrative dashboard component.
@@ -28,8 +29,12 @@ import ConfirmDialog from "../components/ConfirmDialog";
  * @returns {JSX.Element} The rendered AdminPage component.
  */
 export default function AdminPage() {
-    const { users, groups, refreshData } = useData();
+    const { users, groups, refreshData, loading } = useData();
     const { showNotification } = useNotification();
+
+    if (loading && users.length === 0 && groups.length === 0) {
+        return <ThinkingLoader />;
+    }
 
     // --- State ---
     const [viewMode, setViewMode] = useState<"users" | "groups">("users");
@@ -193,7 +198,7 @@ export default function AdminPage() {
     };
 
     return (
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Container maxWidth="xl" sx={{ mt: 2, mb: 2 }}>
             <Box
                 sx={{
                     mb: 4,

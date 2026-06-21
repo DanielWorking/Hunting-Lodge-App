@@ -20,6 +20,7 @@ import PhonesTable from "../components/phones/PhonesTable";
 import PhoneDialog from "../components/PhoneDialog";
 import PhoneDetailsDialog from "../components/PhoneDetailsDialog";
 import ConfirmDialog from "../components/ConfirmDialog";
+import ThinkingLoader from "../components/ThinkingLoader";
 
 /**
  * The directory management page for phone numbers.
@@ -31,8 +32,12 @@ import ConfirmDialog from "../components/ConfirmDialog";
  */
 export default function PhonesPage() {
     const theme = useTheme(); // Keep for potential future use; logic moved to table
-    const { phones, refreshData } = useData();
+    const { phones, refreshData, loading } = useData();
     const { showNotification } = useNotification();
+
+    if (loading && phones.length === 0) {
+        return <ThinkingLoader />;
+    }
 
     // === State Management ===
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -193,7 +198,7 @@ export default function PhonesPage() {
     // === Render ===
 
     return (
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Container maxWidth="xl" sx={{ mt: 2, mb: 2 }}>
             {/* 1. Header Section */}
             <PhonesHeader
                 filterFav={filterFav}

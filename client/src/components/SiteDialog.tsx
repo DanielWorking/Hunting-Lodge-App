@@ -147,6 +147,7 @@ export default function SiteDialog({
                     margin="dense"
                     label="URL (Link) *"
                     fullWidth
+                    type="url"
                     variant="outlined"
                     value={formData.url}
                     error={errors.url}
@@ -205,7 +206,7 @@ export default function SiteDialog({
                 />
             </DialogContent>
 
-            <DialogActions>
+            <DialogActions sx={{ pb: 2, px: 3 }}>
                 <Button onClick={onClose} color="inherit">
                     Cancel
                 </Button>

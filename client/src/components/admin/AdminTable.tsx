@@ -86,7 +86,7 @@ export default function AdminTable({
     const headerBgColor =
         theme.palette.mode === "dark"
             ? theme.palette.background.default
-            : "#f5f5f5";
+            : theme.palette.action.hover;
 
     /**
      * Formats a date string into a localized short date format (DD/MM/YYYY).

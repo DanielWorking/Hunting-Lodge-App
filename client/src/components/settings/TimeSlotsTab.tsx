@@ -346,7 +346,8 @@ export default function TimeSlotsTab() {
                         <Box
                             sx={{
                                 p: 2,
-                                border: "1px solid #eee",
+                                border: "1px solid",
+                                borderColor: "divider",
                                 borderRadius: 1,
                                 bgcolor: "background.default",
                             }}

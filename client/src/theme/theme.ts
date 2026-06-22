@@ -24,39 +24,34 @@ export const getDesignTokens = (mode: PaletteMode) => ({
             ? {
                 // Light mode color palette - Data Dense Dashboard
                 primary: {
-                    main: '#7C3AED',
-                    light: '#A78BFA',
-                    dark: '#5B21B6',
-                    contrastText: '#ffffff',
+                    main: '#1E40AF',
                 },
                 secondary: {
-                    main: '#F97316', // Action Orange for CTA
-                    light: '#FB923C',
-                    dark: '#C2410C',
-                    contrastText: '#ffffff',
+                    main: '#3B82F6',
+                },
+                warning: {
+                    main: '#F59E0B', // CTA/Accent
                 },
                 background: {
-                    default: '#FAF5FF',
+                    default: '#F8FAFC',
                     paper: '#FFFFFF',
                 },
                 text: {
-                    primary: '#4C1D95',
-                    secondary: '#6D28D9',
+                    primary: '#1E3A8A',
+                    secondary: '#475569',
                 },
+                divider: '#E2E8F0',
             }
             : {
                 // Dark mode color palette
                 primary: {
-                    main: '#A78BFA',
-                    light: '#C4B5FD',
-                    dark: '#7C3AED',
-                    contrastText: '#000000',
+                    main: '#60A5FA',
                 },
                 secondary: {
-                    main: '#FB923C',
-                    light: '#FDBA74',
-                    dark: '#EA580C',
-                    contrastText: '#000000',
+                    main: '#93C5FD',
+                },
+                warning: {
+                    main: '#FBBF24', // CTA/Accent
                 },
                 background: {
                     default: '#0F172A',
@@ -64,8 +59,9 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                 },
                 text: {
                     primary: '#F8FAFC',
-                    secondary: '#CBD5E1',
+                    secondary: '#94A3B8',
                 },
+                divider: '#334155',
             }),
     },
     typography: {
@@ -76,25 +72,105 @@ export const getDesignTokens = (mode: PaletteMode) => ({
         h4: { fontFamily: '"Fira Code", monospace', fontWeight: 600 },
         h5: { fontFamily: '"Fira Code", monospace', fontWeight: 500 },
         h6: { fontFamily: '"Fira Code", monospace', fontWeight: 500 },
-        button: { fontFamily: '"Fira Code", monospace', fontWeight: 500 },
+        button: { fontFamily: '"Fira Code", monospace', fontWeight: 600 },
+        body1: { fontFamily: '"Fira Sans", sans-serif', fontWeight: 400 },
+        body2: { fontFamily: '"Fira Sans", sans-serif', fontWeight: 400 },
     },
     components: {
         MuiButton: {
             styleOverrides: {
                 root: {
-                    borderRadius: 6,
+                    borderRadius: 8,
                     textTransform: 'none' as const,
                     fontWeight: 600,
-                    transition: 'all 0.2s ease-in-out',
+                    transition: 'all 200ms ease',
+                    padding: '12px 24px',
+                    cursor: 'pointer',
+                },
+                containedPrimary: {
+                    backgroundColor: mode === 'light' ? '#F59E0B' : '#FBBF24',
+                    color: mode === 'light' ? 'white' : '#0F172A',
+                    '&:hover': {
+                        backgroundColor: mode === 'light' ? '#F59E0B' : '#FBBF24',
+                        opacity: 0.9,
+                        transform: 'translateY(-1px)',
+                    },
+                },
+                outlinedPrimary: {
+                    backgroundColor: 'transparent',
+                    color: mode === 'light' ? '#1E40AF' : '#60A5FA',
+                    border: `2px solid ${mode === 'light' ? '#1E40AF' : '#60A5FA'}`,
+                    '&:hover': {
+                        border: `2px solid ${mode === 'light' ? '#1E40AF' : '#60A5FA'}`,
+                        backgroundColor: 'transparent',
+                        opacity: 0.9,
+                    },
                 },
             },
         },
         MuiCard: {
             styleOverrides: {
                 root: {
-                    borderRadius: 8,
-                    boxShadow: mode === 'dark' ? '0 4px 6px -1px rgba(0, 0, 0, 0.5)' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                    backgroundColor: mode === 'light' ? '#F8FAFC' : '#1E293B',
+                    borderRadius: 12,
+                    padding: 24,
+                    boxShadow: mode === 'light' ? '0 4px 6px rgba(0,0,0,0.1)' : '0 4px 6px rgba(0,0,0,0.3)',
+                    transition: 'all 200ms ease',
                     backgroundImage: 'none',
+                    cursor: 'pointer',
+                    '&:hover': {
+                        boxShadow: mode === 'light' ? '0 10px 15px rgba(0,0,0,0.1)' : '0 10px 15px rgba(0,0,0,0.4)',
+                        transform: 'translateY(-2px)',
+                    },
+                },
+            },
+        },
+        MuiOutlinedInput: {
+            styleOverrides: {
+                root: {
+                    borderRadius: 8,
+                    fontSize: 16,
+                    transition: 'border-color 200ms ease',
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: mode === 'light' ? '#1E40AF' : '#60A5FA',
+                        borderWidth: '1px',
+                    },
+                    '&.Mui-focused': {
+                        boxShadow: mode === 'light' ? '0 0 0 3px #1E40AF20' : '0 0 0 3px #60A5FA20',
+                    },
+                },
+                input: {
+                    padding: '12px 16px',
+                },
+                notchedOutline: {
+                    borderColor: mode === 'light' ? '#E2E8F0' : '#334155',
+                },
+            },
+        },
+        MuiDialog: {
+            styleOverrides: {
+                paper: {
+                    backgroundColor: mode === 'light' ? 'white' : '#1E293B',
+                    borderRadius: 16,
+                    padding: 32,
+                    boxShadow: mode === 'light' ? '0 20px 25px rgba(0,0,0,0.15)' : '0 20px 25px rgba(0,0,0,0.5)',
+                    maxWidth: 500,
+                    width: '90%',
+                },
+                paperFullScreen: {
+                    maxWidth: 'none',
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 0,
+                    padding: 0,
+                },
+            },
+        },
+        MuiBackdrop: {
+            styleOverrides: {
+                root: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    backdropFilter: 'blur(4px)',
                 },
             },
         },
@@ -102,7 +178,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
             styleOverrides: {
                 root: {
                     backgroundColor: mode === 'dark' ? '#1E293B' : '#ffffff',
-                    color: mode === 'dark' ? '#F8FAFC' : '#4C1D95',
+                    color: mode === 'dark' ? '#F8FAFC' : '#1E40AF',
                     boxShadow: 'none',
                     borderBottom: `1px solid ${mode === 'dark' ? '#334155' : '#E2E8F0'}`,
                 },
@@ -111,7 +187,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
         MuiTableCell: {
             styleOverrides: {
                 root: {
-                    padding: '8px 12px', // Tighter padding for data density
+                    padding: '8px 12px',
                     fontFamily: '"Fira Code", monospace',
                     fontSize: '0.875rem',
                     borderColor: mode === 'dark' ? '#334155' : '#E2E8F0',
@@ -119,7 +195,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                 head: {
                     fontWeight: 600,
                     backgroundColor: mode === 'dark' ? '#0F172A' : '#F8FAFC',
-                    color: mode === 'dark' ? '#CBD5E1' : '#64748B',
+                    color: mode === 'dark' ? '#94A3B8' : '#1E3A8A',
                 },
             },
         },

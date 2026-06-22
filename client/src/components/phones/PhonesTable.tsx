@@ -68,7 +68,7 @@ export default function PhonesTable({
     const headerBgColor =
         theme.palette.mode === "dark"
             ? theme.palette.background.default
-            : "#f5f5f5";
+            : theme.palette.action.hover;
 
     /**
      * Maps a phone type classification to a Material-UI color theme.

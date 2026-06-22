@@ -234,6 +234,9 @@ export default function SiteCard({
                         height: "100%",
                         backfaceVisibility: "hidden",
                         transform: "rotateY(180deg)",
+                        "&:hover": {
+                            transform: "rotateY(180deg) translateY(-2px)",
+                        },
                         display: "flex",
                         flexDirection: "column",
                         bgcolor: "action.hover", // Distinct background for the back side

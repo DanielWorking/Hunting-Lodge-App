@@ -251,7 +251,7 @@ export default function Navbar() {
                                         width: 32,
                                         height: 32,
                                         bgcolor: isAdmin
-                                            ? "#d32f2f"
+                                            ? "error.main"
                                             : theme.palette.primary.main,
                                     }}
                                 >
@@ -271,7 +271,7 @@ export default function Navbar() {
                             elevation: 0,
                             sx: {
                                 overflow: "visible",
-                                filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
+                                filter: (theme) => theme.palette.mode === "dark" ? "drop-shadow(0px 2px 8px rgba(0,0,0,0.5))" : "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
                                 mt: 1.5,
                                 minWidth: 200,
                                 bgcolor: "background.paper",

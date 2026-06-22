@@ -7,7 +7,7 @@
 ---
 
 **Project:** Hunting Lodge
-**Generated:** 2026-06-21 21:23:20
+**Generated:** 2026-06-22 12:08:39
 **Category:** Analytics Dashboard
 
 ---
@@ -16,15 +16,29 @@
 
 ### Color Palette
 
-| Role | Hex | CSS Variable |
-|------|-----|--------------|
-| Primary | `#7C3AED` | `--color-primary` |
-| Secondary | `#A78BFA` | `--color-secondary` |
-| CTA/Accent | `#F97316` | `--color-cta` |
-| Background | `#FAF5FF` | `--color-background` |
-| Text | `#4C1D95` | `--color-text` |
+| Role       | Hex       | CSS Variable         |
+| ---------- | --------- | -------------------- |
+| Primary    | `#1E40AF` | `--color-primary`    |
+| Secondary  | `#3B82F6` | `--color-secondary`  |
+| CTA/Accent | `#F59E0B` | `--color-cta`        |
+| Background | `#F8FAFC` | `--color-background` |
+| Text       | `#1E3A8A` | `--color-text`       |
 
-**Color Notes:** Excitement purple + action orange
+**Color Notes:** Blue data + amber highlights
+
+### Dark Mode Palette (MUI `mode: 'dark'`)
+
+| Role                    | Hex       | MUI Theme Mapping                                  |
+| ----------------------- | --------- | -------------------------------------------------- |
+| Primary                 | `#60A5FA` | `palette.primary.main` (Lighter blue for contrast) |
+| Secondary               | `#93C5FD` | `palette.secondary.main`                           |
+| CTA/Accent              | `#FBBF24` | `palette.warning.main` or Custom CTA               |
+| Background (Default)    | `#0F172A` | `palette.background.default` (Deep Slate 900)      |
+| Background (Paper/Card) | `#1E293B` | `palette.background.paper` (Elevated Slate 800)    |
+| Text (Primary)          | `#F8FAFC` | `palette.text.primary`                             |
+| Text (Secondary)        | `#94A3B8` | `palette.text.secondary`                           |
+
+**Theme Architecture Rule for AI:** When modifying `theme.ts`, you MUST configure both light and dark palettes using MUI's standard theme toggle structure. Map the original "Color Palette" to the `light` mode, and map this "Dark Mode Palette" to the `dark` mode. Ensure all MUI components automatically inherit these background and text colors.
 
 ### Typography
 
@@ -34,29 +48,30 @@
 - **Google Fonts:** [Fira Code + Fira Sans](https://fonts.google.com/share?selection.family=Fira+Code:wght@400;500;600;700|Fira+Sans:wght@300;400;500;600;700)
 
 **CSS Import:**
+
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap");
 ```
 
 ### Spacing Variables
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--space-xs` | `4px` / `0.25rem` | Tight gaps |
-| `--space-sm` | `8px` / `0.5rem` | Icon gaps, inline spacing |
-| `--space-md` | `16px` / `1rem` | Standard padding |
-| `--space-lg` | `24px` / `1.5rem` | Section padding |
-| `--space-xl` | `32px` / `2rem` | Large gaps |
-| `--space-2xl` | `48px` / `3rem` | Section margins |
-| `--space-3xl` | `64px` / `4rem` | Hero padding |
+| Token         | Value             | Usage                     |
+| ------------- | ----------------- | ------------------------- |
+| `--space-xs`  | `4px` / `0.25rem` | Tight gaps                |
+| `--space-sm`  | `8px` / `0.5rem`  | Icon gaps, inline spacing |
+| `--space-md`  | `16px` / `1rem`   | Standard padding          |
+| `--space-lg`  | `24px` / `1.5rem` | Section padding           |
+| `--space-xl`  | `32px` / `2rem`   | Large gaps                |
+| `--space-2xl` | `48px` / `3rem`   | Section margins           |
+| `--space-3xl` | `64px` / `4rem`   | Hero padding              |
 
 ### Shadow Depths
 
-| Level | Value | Usage |
-|-------|-------|-------|
-| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle lift |
-| `--shadow-md` | `0 4px 6px rgba(0,0,0,0.1)` | Cards, buttons |
-| `--shadow-lg` | `0 10px 15px rgba(0,0,0,0.1)` | Modals, dropdowns |
+| Level         | Value                          | Usage                       |
+| ------------- | ------------------------------ | --------------------------- |
+| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)`   | Subtle lift                 |
+| `--shadow-md` | `0 4px 6px rgba(0,0,0,0.1)`    | Cards, buttons              |
+| `--shadow-lg` | `0 10px 15px rgba(0,0,0,0.1)`  | Modals, dropdowns           |
 | `--shadow-xl` | `0 20px 25px rgba(0,0,0,0.15)` | Hero images, featured cards |
 
 ---
@@ -68,7 +83,7 @@
 ```css
 /* Primary Button */
 .btn-primary {
-  background: #F97316;
+  background: #f59e0b;
   color: white;
   padding: 12px 24px;
   border-radius: 8px;
@@ -85,8 +100,8 @@
 /* Secondary Button */
 .btn-secondary {
   background: transparent;
-  color: #7C3AED;
-  border: 2px solid #7C3AED;
+  color: #1e40af;
+  border: 2px solid #1e40af;
   padding: 12px 24px;
   border-radius: 8px;
   font-weight: 600;
@@ -99,7 +114,7 @@
 
 ```css
 .card {
-  background: #FAF5FF;
+  background: #f8fafc;
   border-radius: 12px;
   padding: 24px;
   box-shadow: var(--shadow-md);
@@ -118,16 +133,16 @@
 ```css
 .input {
   padding: 12px 16px;
-  border: 1px solid #E2E8F0;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-size: 16px;
   transition: border-color 200ms ease;
 }
 
 .input:focus {
-  border-color: #7C3AED;
+  border-color: #1e40af;
   outline: none;
-  box-shadow: 0 0 0 3px #7C3AED20;
+  box-shadow: 0 0 0 3px #1e40af20;
 }
 ```
 
@@ -163,11 +178,11 @@
 
 ### Page Pattern
 
-**Pattern Name:** Marketplace / Directory
+**Pattern Name:** Comparison Table + CTA
 
-- **Conversion Strategy:**  map hover pins,  card carousel, Search bar is the CTA. Reduce friction to search. Popular searches suggestions.
-- **CTA Placement:** Hero Search Bar + Navbar 'List your item'
-- **Section Order:** 1. Hero (Search focused), 2. Categories, 3. Featured Listings, 4. Trust/Safety, 5. CTA (Become a host/seller)
+- **Conversion Strategy:** Use comparison to show unique value. Highlight your product row. Include 'free trial' in pricing row.
+- **CTA Placement:** Table: Right column. CTA: Below table
+- **Section Order:** 1. Hero, 2. Problem intro, 3. Comparison table (product vs competitors), 4. Pricing (optional), 5. CTA
 
 ---
 

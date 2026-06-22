@@ -252,7 +252,7 @@ export default function StatisticsTab() {
                                                         "Unknown";
                                                     const typeColor =
                                                         typeObj?.color ||
-                                                        "#ccc";
+                                                        "#94A3B8";
 
                                                     const isClickable = true;
 
@@ -278,7 +278,8 @@ export default function StatisticsTab() {
                                                                 ),
                                                                 fontWeight:
                                                                     "bold",
-                                                                border: "1px solid rgba(0,0,0,0.1)",
+                                                                border: "1px solid",
+                                                                borderColor: "divider",
                                                                 cursor: isClickable
                                                                     ? "pointer"
                                                                     : "default",

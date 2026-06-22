@@ -325,7 +325,8 @@ export function UserDialog({
                                         alignItems: "center",
                                         justifyContent: "space-between",
                                         p: 1.5,
-                                        border: "1px solid #eee",
+                                        border: "1px solid",
+                                        borderColor: "divider",
                                         borderRadius: 1,
                                         bgcolor: "background.paper",
                                     }}
@@ -614,7 +615,8 @@ export function GroupDialog({
                                                     p: 1,
                                                     bgcolor: "background.paper",
                                                     borderRadius: 1,
-                                                    border: "1px solid #eee",
+                                                    border: "1px solid",
+                                                    borderColor: "divider",
                                                 }}
                                             >
                                                 <Box

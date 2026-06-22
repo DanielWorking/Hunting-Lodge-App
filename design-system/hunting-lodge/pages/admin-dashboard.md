@@ -1,7 +1,7 @@
-# Admin Page Overrides
+# Admin Dashboard Page Overrides
 
 > **PROJECT:** Hunting Lodge
-> **Generated:** 2026-06-21 21:23:20
+> **Generated:** 2026-06-22 12:08:39
 > **Page Type:** Dashboard / Data View
 
 > ⚠️ **IMPORTANT:** Rules in this file **override** the Master file (`design-system/MASTER.md`).
@@ -15,7 +15,7 @@
 
 - **Max Width:** 1200px (standard)
 - **Layout:** Full-width sections, centered content
-- **Sections:** 1. Hero (Search focused), 2. Categories, 3. Featured Listings, 4. Trust/Safety, 5. CTA (Become a host/seller)
+- **Sections:** 1. Hero, 2. Problem intro, 3. Comparison table (product vs competitors), 4. Pricing (optional), 5. CTA
 
 ### Spacing Overrides
 
@@ -27,13 +27,13 @@
 
 ### Color Overrides
 
-- **Strategy:** Search: High contrast. Categories: Visual icons. Trust: Blue/Green.
+- **Strategy:** Table: Alternating rows (white/light grey). Your product: Highlight #FFFACD (light yellow) or green. Text: Dark
 
 ### Component Overrides
 
 - Avoid: Wide tables breaking layout
-- Avoid: Blank screen or '0 results'
 - Avoid: Use arbitrary large z-index values
+- Avoid: Single row actions only
 
 ---
 
@@ -47,6 +47,6 @@
 
 - Effects: Deal movement animations, metric updates, leaderboard ranking changes, gauge needle movements, status change highlights
 - Responsive: Use horizontal scroll or card layout
-- Search: Show 'No results' with suggestions
 - Layout: Define z-index scale system (10 20 30 50)
-- CTA Placement: Hero Search Bar + Navbar 'List your item'
+- Data Entry: Allow multi-select and bulk edit
+- CTA Placement: Table: Right column. CTA: Below table

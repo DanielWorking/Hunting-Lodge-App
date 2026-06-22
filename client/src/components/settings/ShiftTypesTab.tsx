@@ -64,7 +64,7 @@ export default function ShiftTypesTab() {
 
     const [formData, setFormData] = useState({
         name: "",
-        color: "#000000",
+        color: "#F59E0B",
         isVacation: false,
     });
 
@@ -83,7 +83,7 @@ export default function ShiftTypesTab() {
             });
         } else {
             setEditingType(null);
-            setFormData({ name: "", color: "#ff9800", isVacation: false });
+            setFormData({ name: "", color: "#F59E0B", isVacation: false });
         }
         setIsDialogOpen(true);
     };

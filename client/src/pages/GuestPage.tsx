@@ -27,7 +27,7 @@ export default function GuestPage() {
             alignItems="center"
             minHeight="100vh"
             sx={{
-                background: "linear-gradient(135deg, #F97316 0%, #EAB308 100%)",
+                background: (theme) => `linear-gradient(135deg, ${theme.palette.warning.main} 0%, ${theme.palette.warning.light} 100%)`,
             }}
         >
             <Container maxWidth="sm">
@@ -39,7 +39,7 @@ export default function GuestPage() {
                         borderRadius: 4,
                         backdropFilter: "blur(16px)",
                         backgroundColor: "background.paper",
-                        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
+                        boxShadow: (theme) => theme.palette.mode === "dark" ? "0 8px 32px rgba(0, 0, 0, 0.5)" : "0 8px 32px rgba(0, 0, 0, 0.1)",
                         transition: "transform 0.3s ease",
                         "&:hover": {
                             transform: "translateY(-4px)"
@@ -51,7 +51,7 @@ export default function GuestPage() {
                             sx={{ 
                                 fontSize: 72, 
                                 color: "warning.main",
-                                filter: "drop-shadow(0px 4px 8px rgba(0,0,0,0.1))"
+                                filter: (theme) => theme.palette.mode === "dark" ? "drop-shadow(0px 4px 8px rgba(0,0,0,0.5))" : "drop-shadow(0px 4px 8px rgba(0,0,0,0.1))"
                             }}
                         />
                     </Box>

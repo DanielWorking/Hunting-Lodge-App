@@ -92,7 +92,7 @@ export default function LoginPage() {
             alignItems="center"
             minHeight="100vh"
             sx={{
-                background: "linear-gradient(135deg, #7C3AED 0%, #3B82F6 100%)",
+                background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
                 position: "relative",
                 overflow: "hidden",
             }}
@@ -110,11 +110,11 @@ export default function LoginPage() {
                     borderRadius: 4,
                     backdropFilter: "blur(20px)",
                     backgroundColor: "background.paper",
-                    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
+                    boxShadow: (theme) => theme.palette.mode === "dark" ? "0 8px 32px rgba(0, 0, 0, 0.5)" : "0 8px 32px rgba(0, 0, 0, 0.1)",
                     transition: "transform 0.3s ease, box-shadow 0.3s ease",
                     "&:hover": {
                         transform: "translateY(-6px)",
-                        boxShadow: "0 12px 48px rgba(0, 0, 0, 0.3)",
+                        boxShadow: (theme) => theme.palette.mode === "dark" ? "0 12px 48px rgba(0, 0, 0, 0.6)" : "0 12px 48px rgba(0, 0, 0, 0.15)",
                     },
                 }}
             >
@@ -124,7 +124,7 @@ export default function LoginPage() {
                     color="primary"
                     sx={{ 
                         letterSpacing: "-0.5px",
-                        background: "linear-gradient(45deg, #7C3AED, #F97316)",
+                        background: (theme) => `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.warning.main})`,
                         WebkitBackgroundClip: "text",
                         WebkitTextFillColor: "transparent"
                     }}
@@ -162,11 +162,11 @@ export default function LoginPage() {
                         fontSize: "1.1rem",
                         borderRadius: 2,
                         textTransform: "none",
-                        boxShadow: "0 4px 14px 0 rgba(124, 58, 237, 0.39)",
+                        boxShadow: (theme) => `0 4px 14px 0 ${theme.palette.primary.main}66`,
                         transition: "all 0.2s ease-in-out",
                         "&:hover": {
                             transform: "scale(1.02)",
-                            boxShadow: "0 6px 20px rgba(124, 58, 237, 0.5)",
+                            boxShadow: (theme) => `0 6px 20px ${theme.palette.primary.main}80`,
                         }
                     }}
                 >

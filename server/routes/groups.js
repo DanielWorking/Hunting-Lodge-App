@@ -303,7 +303,7 @@ router.put("/:id/settings", protect, async (req, res) => {
  * @returns {Object} 200 - The updated group object.
  */
 router.put("/:id", protect, async (req, res) => {
-    const { name, settings, siteTags } = req.body;
+    const { name, settings, siteTags, reportEmails } = req.body;
     let query;
 
     // Determine if ID is a MongoDB ObjectId or a textual identifier
@@ -332,6 +332,7 @@ router.put("/:id", protect, async (req, res) => {
         if (name) group.name = name;
         if (settings) group.settings = settings;
         if (siteTags) group.siteTags = siteTags;
+        if (reportEmails) group.reportEmails = reportEmails;
 
         const updatedGroup = await group.save();
         res.json(updatedGroup);

@@ -136,6 +136,36 @@ router.post("/", async (req, res) => {
 });
 
 /**
+ * PUT /reorder/group
+ * 
+ * Updates the display order of users within a specific group.
+ * 
+ * @name reorderUsers
+ * @route {PUT} /reorder/group
+ * @authentication Requires valid JWT.
+ * @bodyparam {string} groupId - The ID of the target group.
+ * @bodyparam {Object[]} updates - List of {userId, order} objects.
+ * @returns {Object} 200 - Success message.
+ * @returns {Error}  500 - Internal server error.
+ */
+router.put("/reorder/group", async (req, res) => {
+    try {
+        const { groupId, updates } = req.body;
+        const promises = updates.map((update) => {
+            return User.updateOne(
+                { _id: update.userId, "groups.groupId": groupId },
+                { $set: { "groups.$.order": update.order } },
+            );
+        });
+
+        await Promise.all(promises);
+        res.json({ message: "Order updated" });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+/**
  * PUT /:id
  * 
  * Updates user profile and synchronizes group memberships.
@@ -249,35 +279,6 @@ router.delete("/:id", async (req, res) => {
     }
 });
 
-/**
- * PUT /reorder/group
- * 
- * Updates the display order of users within a specific group.
- * 
- * @name reorderUsers
- * @route {PUT} /reorder/group
- * @authentication Requires valid JWT.
- * @bodyparam {string} groupId - The ID of the target group.
- * @bodyparam {Object[]} updates - List of {userId, order} objects.
- * @returns {Object} 200 - Success message.
- * @returns {Error}  500 - Internal server error.
- */
-router.put("/reorder/group", async (req, res) => {
-    try {
-        const { groupId, updates } = req.body;
-        const promises = updates.map((update) => {
-            return User.updateOne(
-                { _id: update.userId, "groups.groupId": groupId },
-                { $set: { "groups.$.order": update.order } },
-            );
-        });
-
-        await Promise.all(promises);
-        res.json({ message: "Order updated" });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-});
 
 /**
  * PATCH /:id/manager-update

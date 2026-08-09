@@ -17,7 +17,7 @@ import {
     CircularProgress,
 } from "@mui/material";
 import LoginIcon from "@mui/icons-material/Login";
-import axios from "axios";
+import { getSsoUrl } from "../api/authApi";
 import { useSearchParams } from "react-router-dom";
 
 /**
@@ -63,7 +63,7 @@ export default function LoginPage() {
         try {
             setLoading(true);
             // Step 1: Request the SSO provider's URL from the server
-            const response = await axios.get("/api/auth/sso-url");
+            const response = await getSsoUrl();
 
             if (response.data.url) {
                 // Step 2: Redirect the browser to the SSO provider

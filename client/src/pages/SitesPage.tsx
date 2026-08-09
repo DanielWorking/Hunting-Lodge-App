@@ -39,7 +39,8 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SortIcon from "@mui/icons-material/Sort";
-import axios from "axios";
+import { createSite, updateSite, deleteSite, toggleFavoriteSite } from "../api/sitesApi";
+import { addGroupTag, renameGroupTag, deleteGroupTag } from "../api/groupsApi";
 import ThinkingLoader from "../components/ThinkingLoader";
 
 /**
@@ -54,7 +55,7 @@ import ThinkingLoader from "../components/ThinkingLoader";
 export default function SitesPage() {
     const { user, currentGroup } = useUser();
     const { showNotification } = useNotification();
-    const { sites, setSites, groups, refreshData, loading } = useData();
+    const { sites, groups, refreshData, loading } = useData();
 
     // Locate the active group within the data context to access extended fields
     // such as the database _id and site-specific tags.
@@ -123,13 +124,13 @@ export default function SitesPage() {
         try {
             if (editingSite) {
                 const siteId = editingSite._id || editingSite.id;
-                await axios.put(`/api/sites/${siteId}`, {
+                await updateSite(siteId, {
                     ...formData,
                     groupId: groupIdToSend,
                 });
                 showNotification("Site updated successfully", "success");
             } else {
-                await axios.post("/api/sites", {
+                await createSite({
                     ...formData,
                     groupId: groupIdToSend,
                 });
@@ -158,7 +159,7 @@ export default function SitesPage() {
         if (deleteSiteItem) {
             const idToDelete = deleteSiteItem._id || deleteSiteItem.id;
             try {
-                await axios.delete(`/api/sites/${idToDelete}`);
+                await deleteSite(idToDelete);
                 showNotification("Site deleted successfully", "success");
                 refreshData();
             } catch (error) {
@@ -178,7 +179,7 @@ export default function SitesPage() {
     const handleToggleFavorite = async (site: SiteCardType) => {
         try {
             const siteId = site._id || site.id;
-            await axios.put(`/api/sites/${siteId}/favorite`);
+            await toggleFavoriteSite(siteId);
             refreshData();
         } catch (error) {
             showNotification("Error updating favorite", "error");
@@ -216,14 +217,14 @@ export default function SitesPage() {
 
         try {
             if (tagDialogMode === "create") {
-                await axios.post(`/api/groups/${groupId}/tags`, {
+                await addGroupTag(groupId, {
                     tagName: tagValue,
                 });
                 showNotification("Tag created", "success");
                 setSelectedTag(tagValue);
             } else {
                 // Perform tag rename operation
-                await axios.put(`/api/groups/${groupId}/tags/${selectedTag}`, {
+                await renameGroupTag(groupId, selectedTag, {
                     newTagName: tagValue,
                 });
                 showNotification("Tag updated", "success");
@@ -255,7 +256,7 @@ export default function SitesPage() {
         const groupId = activeGroup.id;
 
         try {
-            await axios.delete(`/api/groups/${groupId}/tags/${tagToDelete}`);
+            await deleteGroupTag(groupId, tagToDelete);
             showNotification("Tag deleted. Sites moved to General.", "success");
             setSelectedTag("General");
             refreshData();
@@ -410,10 +411,11 @@ export default function SitesPage() {
             <Box
                 sx={{
                     display: "flex",
+                    flexDirection: { xs: "column", sm: "row" },
                     gap: 2,
                     mb: 4,
                     flexWrap: "wrap",
-                    alignItems: "center",
+                    alignItems: { xs: "stretch", sm: "center" },
                     bgcolor: "background.paper",
                     p: 2,
                     borderRadius: 2,

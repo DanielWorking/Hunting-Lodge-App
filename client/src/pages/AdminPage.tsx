@@ -8,7 +8,8 @@
 
 import { useState } from "react";
 import { Container, Typography, Box } from "@mui/material";
-import axios from "axios";
+import { createUser, updateUser, deleteUser } from "../api/usersApi";
+import { createGroup, updateGroup, deleteGroup } from "../api/groupsApi";
 
 import { useData } from "../context/DataContext";
 import { useNotification } from "../context/NotificationContext";
@@ -120,13 +121,13 @@ export default function AdminPage() {
     const handleSaveUser = async (userData: Partial<User>) => {
         try {
             if (editingUser) {
-                await axios.put(
-                    `/api/users/${editingUser._id || editingUser.id}`,
+                await updateUser(
+                    editingUser._id || editingUser.id,
                     userData,
                 );
                 showNotification("User updated successfully", "success");
             } else {
-                await axios.post("/api/users", userData);
+                await createUser(userData);
                 showNotification("User created successfully", "success");
             }
             refreshData();
@@ -149,13 +150,13 @@ export default function AdminPage() {
                 // We use _id if available for compatibility with MongoDB identifiers.
                 const identifier = editingGroup._id || editingGroup.id;
 
-                await axios.put(`/api/groups/${identifier}`, {
+                await updateGroup(identifier, {
                     name: groupData.name,
                 });
                 showNotification("Group updated successfully", "success");
             } else {
                 // Creation mode: The AdminDialogs component ensures id and name are present.
-                await axios.post("/api/groups", groupData);
+                await createGroup(groupData);
                 showNotification("Group created successfully", "success");
             }
 
@@ -182,10 +183,10 @@ export default function AdminPage() {
 
         try {
             if (isUser) {
-                await axios.delete(`/api/users/${id}`);
+                await deleteUser(id);
                 showNotification("User deleted", "success");
             } else {
-                await axios.delete(`/api/groups/${id}`);
+                await deleteGroup(id);
                 showNotification("Group deleted", "success");
             }
             refreshData();

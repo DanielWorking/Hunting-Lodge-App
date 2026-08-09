@@ -35,7 +35,7 @@ import { useData } from "../../context/DataContext";
 import { useNotification } from "../../context/NotificationContext";
 import ConfirmDialog from "../ConfirmDialog";
 import type { ShiftType } from "../../types";
-import axios from "axios";
+import { updateGroupSettings } from "../../api/groupsApi";
 
 /**
  * Renders the shift types management tab.
@@ -124,13 +124,10 @@ export default function ShiftTypesTab() {
                 updatedTypes.push({ ...formData } as ShiftType);
             }
 
-            await axios.put(
-                `/api/groups/${currentGroup._id || currentGroup.id}/settings`,
-                {
-                    ...groupSettings,
-                    shiftTypes: updatedTypes,
-                },
-            );
+            await updateGroupSettings(currentGroup._id || currentGroup.id, {
+                ...groupSettings,
+                shiftTypes: updatedTypes,
+            });
 
             showNotification("Shift types updated successfully", "success");
             refreshData();
@@ -163,13 +160,10 @@ export default function ShiftTypesTab() {
         try {
             const updatedTypes = shiftTypes.filter((t) => t._id !== deleteId);
 
-            await axios.put(
-                `/api/groups/${currentGroup._id || currentGroup.id}/settings`,
-                {
-                    ...groupSettings,
-                    shiftTypes: updatedTypes,
-                },
-            );
+            await updateGroupSettings(currentGroup._id || currentGroup.id, {
+                ...groupSettings,
+                shiftTypes: updatedTypes,
+            });
 
             showNotification("Shift type deleted", "success");
             refreshData();

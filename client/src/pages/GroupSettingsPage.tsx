@@ -93,7 +93,8 @@ export default function GroupSettingsPage() {
                     onChange={handleTabChange}
                     indicatorColor="primary"
                     textColor="primary"
-                    variant="fullWidth"
+                    variant="scrollable"
+                    scrollButtons="auto"
                 >
                     <Tab icon={<ViewListIcon />} label="Shift Types" />
                     <Tab icon={<AccessTimeIcon />} label="Time Slots" />

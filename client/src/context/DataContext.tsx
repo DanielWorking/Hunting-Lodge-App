@@ -13,7 +13,10 @@ import {
     useEffect,
     type ReactNode,
 } from "react";
-import axios from "axios";
+import { getSites } from "../api/sitesApi";
+import { getPhones } from "../api/phonesApi";
+import { getGroups } from "../api/groupsApi";
+import { getUsers } from "../api/usersApi";
 import type { SiteCard, PhoneRow, User, Group } from "../types";
 
 /**
@@ -82,10 +85,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
             const [sitesRes, phonesRes, groupsRes, usersRes] =
                 await Promise.all([
-                    axios.get("/api/sites"),
-                    axios.get("/api/phones"),
-                    axios.get("/api/groups"),
-                    axios.get("/api/users"),
+                    getSites(),
+                    getPhones(),
+                    getGroups(),
+                    getUsers(),
                 ]);
 
             // Consolidate and update site records in the state.

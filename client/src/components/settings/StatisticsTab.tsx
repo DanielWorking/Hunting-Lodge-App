@@ -25,7 +25,8 @@ import { useUser } from "../../context/UserContext";
 import { useData } from "../../context/DataContext";
 import { useNotification } from "../../context/NotificationContext";
 import ShiftDatesDialog from "../ShiftDatesDialog";
-import axios from "axios";
+import { getAllSchedules } from "../../api/schedulesApi";
+import { sendGroupReport } from "../../api/groupsApi";
 
 /**
  * Renders the statistics and reporting tab for group administrators.
@@ -87,9 +88,7 @@ export default function StatisticsTab() {
     const calculateStats = async () => {
         setLoading(true);
         try {
-            const res = await axios.get("/api/schedules/all", {
-                params: { groupId: currentGroup?._id || currentGroup?.id },
-            });
+            const res = await getAllSchedules({ groupId: currentGroup?._id || currentGroup?.id });
 
             const rawStats: any = {};
             const schedules = res.data;
@@ -129,14 +128,7 @@ export default function StatisticsTab() {
     const handleSendReport = async () => {
         setSendingEmail(true);
         try {
-            await axios.post(
-                `/api/groups/${
-                    currentGroup?._id || currentGroup?.id
-                }/send-report`,
-                {
-                    stats,
-                },
-            );
+            await sendGroupReport((currentGroup?._id || currentGroup?.id) as string, { stats });
             showNotification(`Report sent successfully`, "success");
         } catch (e) {
             showNotification("Report sent (simulation)", "success");

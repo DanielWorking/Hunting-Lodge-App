@@ -7,8 +7,8 @@
  */
 
 import { useState } from "react";
-import { Container, useTheme } from "@mui/material";
-import axios from "axios";
+import { Container } from "@mui/material";
+import { createPhone, updatePhone, deletePhone, toggleFavoritePhone } from "../api/phonesApi";
 
 import { useData } from "../context/DataContext";
 import { useNotification } from "../context/NotificationContext";
@@ -31,7 +31,6 @@ import ThinkingLoader from "../components/ThinkingLoader";
  * @returns {JSX.Element} The rendered PhonesPage component.
  */
 export default function PhonesPage() {
-    const theme = useTheme(); // Keep for potential future use; logic moved to table
     const { phones, refreshData, loading } = useData();
     const { showNotification } = useNotification();
 
@@ -104,7 +103,7 @@ export default function PhonesPage() {
         if (deleteItem) {
             const idToDelete = deleteItem._id || deleteItem.id;
             try {
-                await axios.delete(`/api/phones/${idToDelete}`);
+                await deletePhone(idToDelete);
                 showNotification("Phone deleted successfully", "success");
                 refreshData();
             } catch (error) {
@@ -124,13 +123,13 @@ export default function PhonesPage() {
     const handleSavePhone = async (phoneData: Partial<PhoneRow>) => {
         try {
             if (editingPhone) {
-                await axios.put(
-                    `/api/phones/${editingPhone._id || editingPhone.id}`,
+                await updatePhone(
+                    editingPhone._id || editingPhone.id,
                     phoneData,
                 );
                 showNotification("Phone updated successfully", "success");
             } else {
-                await axios.post("/api/phones", phoneData);
+                await createPhone(phoneData);
                 showNotification("Phone added successfully", "success");
             }
             refreshData();
@@ -149,7 +148,7 @@ export default function PhonesPage() {
     const handleToggleFavorite = async (phone: PhoneRow) => {
         try {
             // Call the server endpoint to toggle favorite status
-            await axios.patch(`/api/phones/${phone._id || phone.id}/favorite`);
+            await toggleFavoritePhone(phone._id || phone.id);
 
             // Trigger data refresh to sync the UI
             refreshData();

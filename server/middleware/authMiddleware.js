@@ -25,24 +25,24 @@ const User = require("../models/User");
 const protect = async (req, res, next) => {
     try {
         // Attempt to retrieve the User ID from the custom header.
-        // The frontend currently sends this header with every request.
         const userId = req.headers["x-user-id"];
 
-        if (userId) {
-            // Verify the user exists in the database.
-            const user = await User.findById(userId);
-            if (user) {
-                // Attach the user object to the request for use in subsequent middleware/routes.
-                req.user = user;
-            }
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized: No user ID provided" });
         }
 
-        // Always proceed. Authorization (blocking access) is handled at the route level.
+        // Verify the user exists in the database.
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(401).json({ message: "Unauthorized: Invalid user ID" });
+        }
+
+        // Attach the user object to the request for use in subsequent middleware/routes.
+        req.user = user;
         next();
     } catch (error) {
         console.error("Auth Middleware Error:", error);
-        // On technical error, proceed without attaching a user.
-        next();
+        return res.status(500).json({ message: "Internal server error" });
     }
 };
 

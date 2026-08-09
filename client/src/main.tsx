@@ -14,25 +14,10 @@ import { DataProvider } from "./context/DataContext.tsx";
 import { UserProvider } from "./context/UserContext.tsx";
 import { NotificationProvider } from "./context/NotificationContext.tsx";
 import { BrowserRouter } from "react-router-dom";
-import axios from "axios";
 
 import { CssBaseline } from "@mui/material";
 import { ColorModeProvider } from "./context/ThemeContext.tsx";
 
-/**
- * Configures a global axios request interceptor to inject the user ID from localStorage
- * into the 'x-user-id' header for all outgoing requests.
- */
-axios.interceptors.request.use(
-    (config) => {
-        const userId = localStorage.getItem("hunting_userId");
-        if (userId) {
-            config.headers["x-user-id"] = userId;
-        }
-        return config;
-    },
-    (error) => Promise.reject(error),
-);
 
 /**
  * Initializes and renders the React application root.

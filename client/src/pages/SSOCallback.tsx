@@ -8,7 +8,7 @@
 
 import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import axios from "axios";
+import { loginWithCode } from "../api/authApi";
 import ThinkingLoader from "../components/ThinkingLoader";
 
 /**
@@ -42,7 +42,7 @@ export default function SSOCallback() {
          */
         const handleSSOLogin = async () => {
             try {
-                const response = await axios.post("/api/auth/login", {
+                const response = await loginWithCode({
                     code,
                     state,
                 });

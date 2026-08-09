@@ -31,12 +31,13 @@ import SaveIcon from "@mui/icons-material/Save";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import UndoIcon from "@mui/icons-material/Undo";
+import MenuIcon from "@mui/icons-material/Menu";
 
 import { useUser } from "../context/UserContext";
 import { useData } from "../context/DataContext";
 import { useNotification } from "../context/NotificationContext";
 import ConfirmDialog from "../components/ConfirmDialog";
-import axios from "axios";
+import { getReports, createReport, updateReport, deleteReport } from "../api/reportsApi";
 import { format } from "date-fns";
 import ThinkingLoader from "../components/ThinkingLoader";
 
@@ -448,6 +449,7 @@ export default function ShiftReportPage() {
         {},
     );
     const [openDays, setOpenDays] = useState<{ [key: string]: boolean }>({});
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(true);
 
     const [deleteReportId, setDeleteReportId] = useState<string | null>(null);
 
@@ -481,9 +483,7 @@ export default function ShiftReportPage() {
         try {
             if (!isBackground) setLoading(true);
 
-            const res = await axios.get("/api/reports", {
-                params: { groupId: currentGroup?._id || currentGroup?.id },
-            });
+            const res = await getReports({ groupId: currentGroup?._id || currentGroup?.id });
 
             // Check if a new report was added (for notification purposes)
             setReports((prevReports) => {
@@ -578,7 +578,7 @@ export default function ShiftReportPage() {
         }
 
         try {
-            const res = await axios.post("/api/reports", {
+            const res = await createReport({
                 groupId: currentGroup._id || currentGroup.id,
                 title,
                 startTime,
@@ -605,7 +605,7 @@ export default function ShiftReportPage() {
     const handleSaveReport = async () => {
         if (!selectedReport) return;
         try {
-            await axios.put(`/api/reports/${selectedReport._id}`, {
+            await updateReport(selectedReport._id, {
                 currentTasks: selectedReport.currentTasks,
                 previousTasks: selectedReport.previousTasks,
                 attendees: selectedReport.attendees,
@@ -638,7 +638,7 @@ export default function ShiftReportPage() {
     const handleDeleteReport = async () => {
         if (!deleteReportId) return;
         try {
-            await axios.delete(`/api/reports/${deleteReportId}`);
+            await deleteReport(deleteReportId);
             setReports((prev) => prev.filter((r) => r._id !== deleteReportId));
             if (selectedReport?._id === deleteReportId) setSelectedReport(null);
             showNotification("Report deleted", "success");
@@ -712,7 +712,7 @@ export default function ShiftReportPage() {
         <Container maxWidth="xl" sx={{ mt: 2, mb: 2, height: "85vh" }}>
             <Grid container spacing={2} sx={{ height: "100%" }}>
                 {/* Sidebar */}
-                <Grid size={{ xs: 3 }} sx={{ height: "100%" }}>
+                <Grid size={{ xs: 12, md: 3 }} sx={{ height: { xs: "calc(100vh - 120px)", md: "100%" }, display: { xs: mobileSidebarOpen ? "block" : "none", md: "block" } }}>
                     <Paper
                         sx={{
                             height: "100%",
@@ -899,11 +899,10 @@ export default function ShiftReportPage() {
                                                                                                                     ? "action.selected"
                                                                                                                     : "inherit",
                                                                                                         }}
-                                                                                                        onClick={() =>
-                                                                                                            setSelectedReport(
-                                                                                                                rep,
-                                                                                                            )
-                                                                                                        }
+                                                                                                        onClick={() => {
+                                                                                                            setSelectedReport(rep);
+                                                                                                            setMobileSidebarOpen(false);
+                                                                                                        }}
                                                                                                     >
                                                                                                         <ListItemText
                                                                                                             primary={
@@ -954,7 +953,7 @@ export default function ShiftReportPage() {
                 </Grid>
 
                 {/* Content (RTL) */}
-                <Grid size={{ xs: 9 }} sx={{ height: "100%" }}>
+                <Grid size={{ xs: 12, md: 9 }} sx={{ height: "100%", display: { xs: mobileSidebarOpen ? "none" : "block", md: "block" } }}>
                     {selectedReport ? (
                         <Paper
                             sx={{
@@ -971,9 +970,17 @@ export default function ShiftReportPage() {
                                 mb={3}
                                 sx={{ direction: "ltr" }}
                             >
-                                <Typography variant="h4" fontWeight="bold">
-                                    {selectedReport.title}
-                                </Typography>
+                                <Box display="flex" alignItems="center">
+                                    <IconButton
+                                        onClick={() => setMobileSidebarOpen(true)}
+                                        sx={{ display: { xs: "flex", md: "none" }, mr: 1 }}
+                                    >
+                                        <MenuIcon />
+                                    </IconButton>
+                                    <Typography variant="h4" fontWeight="bold">
+                                        {selectedReport.title}
+                                    </Typography>
+                                </Box>
                                 <Box>
                                     <Button
                                         variant="outlined"
@@ -1138,9 +1145,17 @@ export default function ShiftReportPage() {
                                 gap: 2,
                             }}
                         >
-                            <Typography variant="h4" color="text.secondary">
-                                Select a report to view details
-                            </Typography>
+                            <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
+                                <IconButton
+                                    onClick={() => setMobileSidebarOpen(true)}
+                                    sx={{ display: { xs: "flex", md: "none" } }}
+                                >
+                                    <MenuIcon fontSize="large" />
+                                </IconButton>
+                                <Typography variant="h4" color="text.secondary">
+                                    Select a report to view details
+                                </Typography>
+                            </Box>
                             <Button
                                 variant="outlined"
                                 startIcon={<AddIcon />}

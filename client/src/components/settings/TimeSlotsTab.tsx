@@ -42,7 +42,7 @@ import { useData } from "../../context/DataContext";
 import { useNotification } from "../../context/NotificationContext";
 import ConfirmDialog from "../ConfirmDialog";
 import type { TimeSlot } from "../../types";
-import axios from "axios";
+import { updateGroupSettings } from "../../api/groupsApi";
 
 /**
  * Renders the time slots management tab for group settings.
@@ -125,13 +125,10 @@ export default function TimeSlotsTab() {
                 updatedSlots.push({ ...formData } as TimeSlot);
             }
 
-            await axios.put(
-                `/api/groups/${currentGroup._id || currentGroup.id}/settings`,
-                {
-                    ...groupSettings,
-                    timeSlots: updatedSlots,
-                },
-            );
+            await updateGroupSettings(currentGroup._id || currentGroup.id, {
+                ...groupSettings,
+                timeSlots: updatedSlots,
+            });
 
             showNotification("Time slots updated", "success");
             refreshData();
@@ -160,13 +157,10 @@ export default function TimeSlotsTab() {
 
         try {
             const updatedSlots = timeSlots.filter((s) => s._id !== deleteId);
-            await axios.put(
-                `/api/groups/${currentGroup._id || currentGroup.id}/settings`,
-                {
-                    ...groupSettings,
-                    timeSlots: updatedSlots,
-                },
-            );
+            await updateGroupSettings(currentGroup._id || currentGroup.id, {
+                ...groupSettings,
+                timeSlots: updatedSlots,
+            });
             showNotification("Slot deleted", "success");
             refreshData();
         } catch (error) {

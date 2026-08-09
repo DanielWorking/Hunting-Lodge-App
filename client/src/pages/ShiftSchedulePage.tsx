@@ -32,7 +32,7 @@ import {
     isSameDay,
     parseISO,
 } from "date-fns";
-import axios from "axios";
+import { getSchedule, saveSchedule, publishSchedule } from "../api/schedulesApi";
 
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
@@ -65,7 +65,7 @@ const Transition = React.forwardRef(function Transition(
 });
 
 export default function ShiftSchedulePage() {
-    const { user, currentGroup, isShiftManager, isAdmin } = useUser();
+    const { currentGroup, isShiftManager, isAdmin } = useUser();
     const { users, groups, refreshData } = useData();
     const { showNotification } = useNotification();
 
@@ -151,12 +151,8 @@ export default function ShiftSchedulePage() {
         try {
             setLoading(true);
             const groupId = currentGroup?._id || currentGroup?.id;
-            const userId = user?._id || user?.id;
 
-            const response = await axios.get("/api/schedules", {
-                params: { groupId, date: weekStart.toISOString() },
-                headers: { "x-user-id": userId },
-            });
+            const response = await getSchedule({ groupId, date: weekStart.toISOString() });
 
             const data = response.data;
             setScheduleData(data);
@@ -251,7 +247,7 @@ export default function ShiftSchedulePage() {
      */
     const performSave = async () => {
         const groupId = currentGroup?._id || currentGroup?.id;
-        const res = await axios.put("/api/schedules", {
+        const res = await saveSchedule({
             groupId,
             startDate: weekStart,
             endDate: endOfWeek(currentDate, { weekStartsOn: 0 }),
@@ -302,9 +298,7 @@ export default function ShiftSchedulePage() {
         if (!scheduleData?._id) return;
 
         try {
-            await axios.post("/api/schedules/publish", {
-                scheduleId: scheduleData._id,
-            });
+            await publishSchedule(scheduleData._id);
             showNotification("Schedule Published Successfully!", "success");
 
             refreshData();

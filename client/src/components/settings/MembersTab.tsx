@@ -34,7 +34,8 @@ import AddIcon from "@mui/icons-material/Add";
 import { useUser } from "../../context/UserContext";
 import { useData } from "../../context/DataContext";
 import { useNotification } from "../../context/NotificationContext";
-import axios from "axios";
+import { updateGroup } from "../../api/groupsApi";
+import { managerUpdateUser, reorderUsers } from "../../api/usersApi";
 
 /**
  * Renders the group members management tab.
@@ -124,12 +125,9 @@ export default function MembersTab() {
     const handleSaveEmails = async () => {
         if (!currentGroup) return;
         try {
-            await axios.put(
-                `/api/groups/${currentGroup._id || currentGroup.id}`,
-                {
-                    reportEmails: emails,
-                },
-            );
+            await updateGroup(currentGroup._id || currentGroup.id, {
+                reportEmails: emails,
+            });
             showNotification("Emails updated", "success");
             refreshData();
         } catch (e) {
@@ -179,7 +177,7 @@ export default function MembersTab() {
         if (!changes) return;
 
         try {
-            await axios.patch(`/api/users/${userId}/manager-update`, {
+            await managerUpdateUser(userId, {
                 isActive: changes.active,
                 vacationBalance: Number(changes.vacation),
             });
@@ -219,7 +217,7 @@ export default function MembersTab() {
         setSortedMembers(newSorted);
 
         try {
-            await axios.put("/api/users/reorder/group", {
+            await reorderUsers({
                 groupId: currentGroup?._id || currentGroup?.id,
                 updates,
             });

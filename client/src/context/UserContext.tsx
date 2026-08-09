@@ -13,7 +13,7 @@ import {
     type ReactNode,
     useEffect,
 } from "react";
-import axios from "axios";
+import { loginUser } from "../api/usersApi";
 import type { User, Group } from "../types";
 import { useData } from "./DataContext";
 
@@ -153,7 +153,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      */
     const login = async (username: string, _pass: string): Promise<boolean> => {
         try {
-            const response = await axios.post("/api/users/login", { username });
+            const response = await loginUser(username);
             const foundUser = response.data;
 
             if (foundUser) {

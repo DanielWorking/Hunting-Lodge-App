@@ -33,6 +33,7 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import CheckIcon from "@mui/icons-material/Check";
 import SettingsIcon from "@mui/icons-material/Settings";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import MenuIcon from "@mui/icons-material/Menu";
 import AboutDialog from "./AboutDialog";
 
 /**
@@ -54,7 +55,18 @@ export default function Navbar() {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const open = Boolean(anchorEl);
 
+    const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = useState<null | HTMLElement>(null);
+    const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
+
     const [aboutOpen, setAboutOpen] = useState(false);
+
+    const handleMobileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+        setMobileMoreAnchorEl(event.currentTarget);
+    };
+
+    const handleMobileMenuClose = () => {
+        setMobileMoreAnchorEl(null);
+    };
 
     /**
      * Opens the user/account settings menu.
@@ -142,16 +154,31 @@ export default function Navbar() {
                             sx={{
                                 fontWeight: "bold",
                                 color: theme.palette.primary.main,
+                                display: { xs: "none", sm: "block" },
                             }}
                         >
                             HUNTING LODGE
                         </Typography>
                     </Box>
 
+                    {/* Mobile Menu Icon */}
+                    <Box sx={{ display: { xs: "flex", md: "none" }, mr: 1 }}>
+                        <IconButton
+                            size="large"
+                            aria-label="show more"
+                            aria-controls="mobile-menu"
+                            aria-haspopup="true"
+                            onClick={handleMobileMenuOpen}
+                            color="inherit"
+                        >
+                            <MenuIcon />
+                        </IconButton>
+                    </Box>
+
                     <Box
                         sx={{
                             flexGrow: 1,
-                            display: "flex",
+                            display: { xs: "none", md: "flex" },
                             gap: 2,
                             justifyContent: "center",
                         }}
@@ -374,6 +401,47 @@ export default function Navbar() {
                             Logout
                         </MenuItem>
                     </Menu>
+
+                    {/* Mobile Menu */}
+                    <Menu
+                        anchorEl={mobileMoreAnchorEl}
+                        anchorOrigin={{
+                            vertical: 'bottom',
+                            horizontal: 'left',
+                        }}
+                        id="mobile-menu"
+                        keepMounted
+                        transformOrigin={{
+                            vertical: 'top',
+                            horizontal: 'left',
+                        }}
+                        open={isMobileMenuOpen}
+                        onClose={handleMobileMenuClose}
+                    >
+                        <MenuItem component={RouterLink} to="/" onClick={handleMobileMenuClose}>
+                            Sites
+                        </MenuItem>
+                        <MenuItem component={RouterLink} to="/phones" onClick={handleMobileMenuClose}>
+                            Phones
+                        </MenuItem>
+                        <MenuItem component={RouterLink} to="/schedule" onClick={handleMobileMenuClose}>
+                            Schedule
+                        </MenuItem>
+                        <MenuItem component={RouterLink} to="/reports" onClick={handleMobileMenuClose}>
+                            Reports
+                        </MenuItem>
+                        {isShiftManager && currentGroup && (
+                            <MenuItem component={RouterLink} to="/group-settings" onClick={handleMobileMenuClose}>
+                                Group Settings
+                            </MenuItem>
+                        )}
+                        {isAdmin && (
+                            <MenuItem component={RouterLink} to="/admin/users" onClick={handleMobileMenuClose} sx={{ color: "error.main" }}>
+                                Users & Groups
+                            </MenuItem>
+                        )}
+                    </Menu>
+
                 </Toolbar>
             </AppBar>
 

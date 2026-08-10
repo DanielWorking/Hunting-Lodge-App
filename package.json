@@ -1,0 +1,30 @@
+{
+  "name": "hunting-lodge-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A comprehensive full-stack management application designed for organizing operational groups, shifts, sites, and resources. This project utilizes a modern **MERN stack** (MongoDB, Express, React, Node.js) with **TypeScript** and **SSO Authentication**.",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "client": "npm run dev --workspace=client",
+    "server": "npm run dev --workspace=server",
+    "dev": "concurrently \"npm:client\" \"npm:server\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DanielWorking/Hunting-Lodge-App.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/DanielWorking/Hunting-Lodge-App/issues"
+  },
+  "homepage": "https://github.com/DanielWorking/Hunting-Lodge-App#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.4"
+  }
+}

@@ -10,7 +10,8 @@
   "scripts": {
     "client": "npm run dev --workspace=client",
     "server": "npm run dev --workspace=server",
-    "dev": "concurrently \"npm:client\" \"npm:server\""
+    "seed": "npm run seed --workspace=server",
+    "dev": "concurrently \"npm:server\" \"npm:seed\" \"npm:client\""
   },
   "repository": {
     "type": "git",

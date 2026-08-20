@@ -90,22 +90,35 @@ exports.login = async (req, res) => {
         console.log("👤 SSO User Claims:", claims);
 
         // Read configuration from environment variables
-        const identifierMode = process.env.SSO_IDENTIFIER_FIELD;
+        const identifierMode = process.env.SSO_IDENTIFIER_FIELD || "email";
         console.log(`⚙️ Auth Mode: ${identifierMode}`);
 
         let dbUsername; // Unique identifier to be saved in the username field
         let dbDisplayName; // Name to be saved in the displayName field
+        let dbEmail; // Email to be saved in the email field
         let searchCriteria; // DB search criteria
 
-        dbUsername = claims.preferred_username;
-        dbDisplayName = claims.name;
+        // Full name display from SSO claims, with fallback to nickname or username
+        dbDisplayName = claims.name || claims.nickname;
+        dbEmail = claims.email || "";
 
         if (identifierMode === "username") {
-            // --- Organizational mode ---
+            // --- Production / Organizational mode (Card / Smartcard / AD SSO) ---
+            dbUsername = claims.preferred_username || claims.nickname || claims.sub;
+            if (!dbDisplayName) {
+                dbDisplayName = dbUsername;
+            }
+            if (!dbEmail && dbUsername) {
+                dbEmail = `${dbUsername}@organization.local`;
+            }
             searchCriteria = { username: dbUsername };
         } else {
-            // --- Development/Home mode (connection by email) ---
-            searchCriteria = { email: claims.email };
+            // --- Development / Home mode (Auth0 / Google OAuth2) ---
+            dbUsername = claims.email || claims.preferred_username || claims.nickname || claims.sub;
+            if (!dbDisplayName) {
+                dbDisplayName = claims.name || claims.nickname || dbUsername;
+            }
+            searchCriteria = { email: claims.email || dbUsername };
         }
 
         console.log(`🔍 Searching user by:`, searchCriteria);
@@ -118,6 +131,12 @@ exports.login = async (req, res) => {
             if (!user.isActive) {
                 user.isActive = true;
             }
+            if (dbDisplayName && (!user.displayName || user.displayName === user.username)) {
+                user.displayName = dbDisplayName;
+            }
+            if (dbEmail && !user.email) {
+                user.email = dbEmail;
+            }
             user.lastLogin = new Date().toISOString();
 
             await user.save();
@@ -128,7 +147,7 @@ exports.login = async (req, res) => {
             user = new User({
                 username: dbUsername,
                 displayName: dbDisplayName,
-                email: claims.email,
+                email: dbEmail,
                 isActive: true,
                 groups: [],
                 lastLogin: new Date().toISOString(),

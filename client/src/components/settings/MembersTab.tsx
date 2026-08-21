@@ -68,16 +68,15 @@ export default function MembersTab() {
     useEffect(() => {
         if (!currentGroup || users.length === 0) return;
 
-        // Filter and map members belonging to the current group
+        // Filter and map members belonging to the current group (matching either _id or textual id)
+        const targetGroupIds = [currentGroup._id, currentGroup.id].filter(Boolean);
         const members = users
             .filter((u) =>
-                u.groups?.some(
-                    (g) => g.groupId === (currentGroup._id || currentGroup.id),
-                ),
+                u.groups?.some((g) => targetGroupIds.includes(g.groupId)),
             )
             .map((u) => {
-                const membership = u.groups?.find(
-                    (g) => g.groupId === (currentGroup._id || currentGroup.id),
+                const membership = u.groups?.find((g) =>
+                    targetGroupIds.includes(g.groupId),
                 );
                 return { ...u, membership };
             });

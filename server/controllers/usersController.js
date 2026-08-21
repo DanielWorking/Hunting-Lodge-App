@@ -5,6 +5,7 @@
  * profile updates, group synchronization, and administrative controls.
  */
 
+const mongoose = require("mongoose");
 const User = require("../models/User");
 const Group = require("../models/Group");
 
@@ -88,9 +89,22 @@ exports.createUser = async (req, res) => {
 exports.reorderUsers = async (req, res) => {
     try {
         const { groupId, updates } = req.body;
+        if (!groupId || !updates || !Array.isArray(updates)) {
+            return res.status(400).json({ message: "Invalid payload: groupId and updates array are required" });
+        }
+
+        // Support matching group by both its ObjectId and custom string id
+        const groupQuery = mongoose.Types.ObjectId.isValid(groupId)
+            ? { $or: [{ _id: groupId }, { id: groupId }] }
+            : { id: groupId };
+        const group = await Group.findOne(groupQuery);
+        const matchingGroupIds = group
+            ? [group._id.toString(), group.id]
+            : [groupId.toString()];
+
         const promises = updates.map((update) => {
             return User.updateOne(
-                { _id: update.userId, "groups.groupId": groupId },
+                { _id: update.userId, "groups.groupId": { $in: matchingGroupIds } },
                 { $set: { "groups.$.order": update.order } },
             );
         });
@@ -98,6 +112,7 @@ exports.reorderUsers = async (req, res) => {
         await Promise.all(promises);
         res.json({ message: "Order updated" });
     } catch (err) {
+        console.error("Reorder users error:", err);
         res.status(500).json({ message: err.message });
     }
 };
@@ -165,10 +180,13 @@ exports.deleteUser = async (req, res) => {
         const userToDelete = await User.findById(req.params.id);
         if (!userToDelete) return res.status(404).json({ message: "User not found" });
 
-        const superAdminName = process.env.SUPER_ADMIN_USERNAME;
+        const isSuperAdminUser =
+            userToDelete.username === process.env.SUPER_ADMIN_ID ||
+            userToDelete.username === process.env.SUPER_ADMIN_USERNAME ||
+            (process.env.SUPER_ADMIN_EMAIL && userToDelete.email === process.env.SUPER_ADMIN_EMAIL);
 
         // Protection: System prevents deletion of the Super Admin account
-        if (userToDelete.username === superAdminName) {
+        if (isSuperAdminUser) {
             return res
                 .status(403)
                 .json({ message: "Cannot delete Super Admin" });
@@ -201,7 +219,9 @@ exports.managerUpdate = async (req, res) => {
         // 2. Perform Authorization check
         const requestingUser = req.user;
         const isSuperAdmin =
-            requestingUser.username === process.env.SUPER_ADMIN_USERNAME;
+            requestingUser.username === process.env.SUPER_ADMIN_ID ||
+            requestingUser.username === process.env.SUPER_ADMIN_USERNAME ||
+            (process.env.SUPER_ADMIN_EMAIL && requestingUser.email === process.env.SUPER_ADMIN_EMAIL);
 
         let isAuthorized = isSuperAdmin;
 

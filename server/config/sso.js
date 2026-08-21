@@ -7,10 +7,10 @@
  * the OpenID Connect (OIDC) provider.
  */
 
-require("dotenv").config();
+const config = require("./index");
 
 /**
- * SSO Configuration object.
+ * SSO Configuration object sourced from the central configuration module.
  *
  * @type {Object}
  * @property {string} issuerUrl    - The base URL of the identity provider (e.g., Auth0, Okta).
@@ -19,10 +19,4 @@ require("dotenv").config();
  * @property {string} redirectUri  - The URL where the IDP redirects the user after successful login.
  * @property {string} scope        - The requested permissions (standard OIDC scopes: openid, profile, email).
  */
-module.exports = {
-    issuerUrl: process.env.SSO_ISSUER_URL,
-    clientId: process.env.SSO_CLIENT_ID,
-    clientSecret: process.env.SSO_CLIENT_SECRET,
-    redirectUri: process.env.SSO_REDIRECT_URI,
-    scope: "openid profile email",
-};
+module.exports = config.sso;

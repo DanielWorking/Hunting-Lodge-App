@@ -16,6 +16,7 @@ import {
 import { loginUser } from "../api/usersApi";
 import type { User, Group } from "../types";
 import { useData } from "./DataContext";
+import envConfig from "../config/env";
 
 /**
  * Defines the structure of the authentication and authorization context.
@@ -70,7 +71,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
     /** Calculates if the current group name matches the system's super admin group definition. */
     const isAdmin =
-        currentGroup?.name === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
+        currentGroup?.name === envConfig.superAdmin.groupName;
 
     /** 
      * Checks if the user has managerial privileges within the active group context.

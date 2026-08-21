@@ -89,8 +89,8 @@ exports.login = async (req, res) => {
         const claims = tokenSet.claims();
         console.log("👤 SSO User Claims:", claims);
 
-        // Read configuration from environment variables
-        const identifierMode = process.env.SSO_IDENTIFIER_FIELD || "email";
+        // Read configuration from SSO config module
+        const identifierMode = ssoConfig.identifierField || "email";
         console.log(`⚙️ Auth Mode: ${identifierMode}`);
 
         let dbUsername; // Unique identifier to be saved in the username field

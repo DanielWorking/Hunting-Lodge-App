@@ -1,11 +1,3 @@
-/**
- * @module SeedExample
- * 
- * A utility script to seed the database with initial sample data.
- * This script clears all existing data and populates groups, users, sites, 
- * and phone records to provide a functional starting point for the application.
- */
-
 const mongoose = require("mongoose");
 const config = require("./config");
 
@@ -16,12 +8,12 @@ if (config.isProd && !process.argv.includes("--force-production")) {
     console.error("==================================================================");
     console.error("This script executes deleteMany() and wipes all database records!");
     console.error("If you truly intend to wipe and re-seed the production database, run:");
-    console.error("  node seed.example.js --force-production\n");
+    console.error("  node seed.js --force-production\n");
     console.error("==================================================================\n");
     process.exit(1);
 }
 
-// Load database models
+// טעינת המודלים
 const Group = require("./models/Group");
 const User = require("./models/User");
 const Site = require("./models/Site");
@@ -29,49 +21,44 @@ const Phone = require("./models/Phone");
 const ShiftSchedule = require("./models/ShiftSchedule");
 const ShiftReport = require("./models/ShiftReport");
 
-// Detect operational mode (Local vs. Organizational) based on SSO configuration
+// זיהוי מצב העבודה (מקומי מול ארגוני)
 const AUTH_MODE = config.sso.identifierField;
 console.log(`⚙️  Seeding in Auth Mode: ${AUTH_MODE} [Environment: ${config.env}]`);
 
-/** @type {Object} Predefined administrative user data pulled from configuration. */
 const adminUserData = {
     username: config.superAdmin.id,
     displayName: config.superAdmin.username,
     email: config.superAdmin.email,
 };
 
-/** @type {Object} Sample regular user for testing non-privileged access. */
 const regularUserData = {
     username: "10002",
     displayName: "Regular User",
     email: "regular@corp.local",
 };
 
-/** @type {Array<Object>} Sample shift types for a NOC environment. */
 const NOC_SHIFT_TYPES = [
-    { name: "Morning", color: "#476db5", isVacation: false },
-    { name: "Evening", color: "#a32e9d", isVacation: false },
-    { name: "Night", color: "#2f3436", isVacation: false },
-    { name: "After", color: "#bac4c8", isVacation: false },
-    { name: "Middle", color: "#2c728e", isVacation: false },
-    { name: "Weekend", color: "#eee836", isVacation: false },
-    { name: "Vacation", color: "#E57373", isVacation: true },
-    { name: "Leave", color: "#9d6262", isVacation: true },
+    { name: "בוקר", color: "#476db5", isVacation: false },
+    { name: "ערב", color: "#a32e9d", isVacation: false },
+    { name: "לילה", color: "#2f3436", isVacation: false },
+    { name: "אפטר", color: "#bac4c8", isVacation: false },
+    { name: "אמצע", color: "#2c728e", isVacation: false },
+    { name: "שבת", color: "#eee836", isVacation: false },
+    { name: "חופש", color: "#E57373", isVacation: true },
+    { name: "חול", color: "#9d6262", isVacation: true },
 ];
 
-/** @type {Array<Object>} Sample time slots for shifts. */
 const NOC_TIME_SLOTS = [
-    { name: "Morning Shift", startTime: "08:00", endTime: "14:00" },
-    { name: "Evening Shift", startTime: "14:00", endTime: "19:30" },
-    { name: "Night Shift", startTime: "19:30", endTime: "08:00" },
-    { name: "After Shift", startTime: "08:00", endTime: "08:00" },
-    { name: "Weekend Shift", startTime: "08:00", endTime: "08:00" },
-    { name: "Vacation", startTime: "08:00", endTime: "08:00" },
-    { name: "Leave", startTime: "08:00", endTime: "08:00" },
-    { name: "Middle Shift", startTime: "10:00", endTime: "16:00" },
+    { name: "משמרת בוקר", startTime: "08:00", endTime: "14:00" },
+    { name: "משמרת ערב", startTime: "14:00", endTime: "19:30" },
+    { name: "משמרת לילה", startTime: "19:30", endTime: "08:00" },
+    { name: "אפטר", startTime: "08:00", endTime: "08:00" },
+    { name: "משמרת שבת", startTime: "08:00", endTime: "08:00" },
+    { name: "חופש", startTime: "08:00", endTime: "08:00" },
+    { name: "חול", startTime: "08:00", endTime: "08:00" },
+    { name: "משמרת אמצע", startTime: "10:00", endTime: "16:00" },
 ];
 
-/** @type {Array<Object>} Initial phone directory records. */
 const phones = [
     {
         name: "David",
@@ -87,19 +74,12 @@ const phones = [
     },
 ];
 
-/**
- * Main execution function to clear and populate database collections.
- * 
- * @async
- * @function importData
- * @returns {Promise<void>}
- */
 const importData = async () => {
     try {
         await mongoose.connect(config.mongoUri);
         console.log("✅ MongoDB Connected...");
 
-        // Clear existing collections
+        // ניקוי נתונים ישנים
         await Group.deleteMany();
         await User.deleteMany();
         await Site.deleteMany();
@@ -108,7 +88,7 @@ const importData = async () => {
         await ShiftReport.deleteMany();
         console.log("🗑️  Old Data Destroyed...");
 
-        // 1. Create default groups
+        // 1. יצירת קבוצות
         const createdGroups = await Group.insertMany([
             {
                 id: config.superAdmin.groupName,
@@ -127,7 +107,7 @@ const importData = async () => {
             },
         ]);
 
-        // Map group names to their MongoDB generated ObjectIds and string representations
+        // מיפוי חכם: יצירת מחרוזת מזהה (למשתמשים) ואובייקט מזהה (לאתרים) מתוך ה-_id האמיתי של מונגו
         const gMap = {};
         createdGroups.forEach((g) => {
             gMap[g.name] = {
@@ -137,11 +117,11 @@ const importData = async () => {
         });
         console.log("🏢 Groups Created...");
 
-        // 2. Create initial phone directory
+        // 2. יצירת טלפונים ראשית
         const createdPhones = await Phone.insertMany(phones);
         console.log("📞 Phones Created...");
 
-        // 3. Create sample users and assign group memberships
+        // 3. יצירת משתמשים
         const users = [
             {
                 ...adminUserData,
@@ -149,8 +129,7 @@ const importData = async () => {
                 vacationBalance: 999,
                 groups: [
                     {
-                        groupId:
-                            gMap[config.superAdmin.groupName].stringId,
+                        groupId: gMap[config.superAdmin.groupName].stringId,
                         role: "shift_manager",
                         order: 0,
                     },
@@ -178,7 +157,7 @@ const importData = async () => {
         await User.insertMany(users);
         console.log(`👤 Users Created (Admin: ${adminUserData.username})...`);
 
-        // 4. Create sample site links for quick access
+        // 4. יצירת אתרים
         const sites = [
             {
                 title: "NOC Dashboard",

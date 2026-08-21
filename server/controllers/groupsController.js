@@ -8,6 +8,7 @@
 const Group = require("../models/Group");
 const User = require("../models/User");
 const Site = require("../models/Site");
+const config = require("../config");
 
 exports.getGroups = async (req, res) => {
     try {
@@ -223,9 +224,9 @@ exports.updateGroup = async (req, res) => {
 
         // === SECURITY LAYER: Protect the System Admin Group ===
         // Prevents renaming or changing settings for the core administrative group
-        if (group.id === process.env.SUPER_ADMIN_GROUP_NAME) {
+        if (group.id === config.superAdmin.groupName) {
             return res.status(403).json({
-                message: `System Security: The '${process.env.SUPER_ADMIN_GROUP_NAME}' group cannot be modified.`,
+                message: `System Security: The '${config.superAdmin.groupName}' group cannot be modified.`,
             });
         }
 

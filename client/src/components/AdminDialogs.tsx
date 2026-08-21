@@ -31,6 +31,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import { useData } from "../context/DataContext";
 import { useUser } from "../context/UserContext";
 import type { User, Group } from "../types";
+import envConfig from "../config/env";
 
 /**
  * Props for the {@link UserDialog} component.
@@ -64,8 +65,8 @@ export function UserDialog({
     const { groups } = useData();
     const { user: currentUser } = useUser();
 
-    /** The unique identifier for the Super Admin account from environment variables. */
-    const SUPER_ADMIN_ID = import.meta.env.VITE_SUPER_ADMIN_ID;
+    /** The unique identifier for the Super Admin account from configuration. */
+    const SUPER_ADMIN_ID = envConfig.superAdmin.id;
 
     const [formData, setFormData] = useState<Partial<User>>({
         username: initialData?.username,
@@ -120,7 +121,7 @@ export function UserDialog({
         const groupObj = groups.find(
             (g) => (g._id || g.id) === membership.groupId,
         );
-        return groupObj?.name === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
+        return groupObj?.name === envConfig.superAdmin.groupName;
     });
 
     /**
@@ -169,7 +170,7 @@ export function UserDialog({
     const handleRoleChange = (groupId: string, isManager: boolean) => {
         if (isTargetUserAdmin) {
             const groupObj = groups.find((g) => (g._id || g.id) === groupId);
-            if (groupObj?.name === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME)
+            if (groupObj?.name === envConfig.superAdmin.groupName)
                 return;
         }
 
@@ -308,7 +309,7 @@ export function UserDialog({
 
                             const isAdministratorsGroup =
                                 groupObj.name ===
-                                import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
+                                envConfig.superAdmin.groupName;
 
                             const canRemove = !(
                                 isAdministratorsGroup &&
@@ -490,7 +491,7 @@ export function GroupDialog({
 
     /** Determine if this is a protected system group based on its identifier. */
     const isSystemGroup =
-        initialData?.id === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
+        initialData?.id === envConfig.superAdmin.groupName;
     const isCreateMode = !initialData;
 
     useEffect(() => {

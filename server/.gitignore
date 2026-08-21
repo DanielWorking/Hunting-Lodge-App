@@ -1,3 +1,7 @@
 node_modules
-seed.js
+# Ignore all real environment files
 .env
+.env.*
+# Allow only template example files
+!.env*.example
+*.log

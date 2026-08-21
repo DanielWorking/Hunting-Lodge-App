@@ -8,6 +8,7 @@
 const mongoose = require("mongoose");
 const User = require("../models/User");
 const Group = require("../models/Group");
+const config = require("../config");
 
 exports.login = async (req, res) => {
     try {
@@ -181,9 +182,9 @@ exports.deleteUser = async (req, res) => {
         if (!userToDelete) return res.status(404).json({ message: "User not found" });
 
         const isSuperAdminUser =
-            userToDelete.username === process.env.SUPER_ADMIN_ID ||
-            userToDelete.username === process.env.SUPER_ADMIN_USERNAME ||
-            (process.env.SUPER_ADMIN_EMAIL && userToDelete.email === process.env.SUPER_ADMIN_EMAIL);
+            userToDelete.username === config.superAdmin.id ||
+            userToDelete.username === config.superAdmin.username ||
+            (config.superAdmin.email && userToDelete.email === config.superAdmin.email);
 
         // Protection: System prevents deletion of the Super Admin account
         if (isSuperAdminUser) {
@@ -219,9 +220,9 @@ exports.managerUpdate = async (req, res) => {
         // 2. Perform Authorization check
         const requestingUser = req.user;
         const isSuperAdmin =
-            requestingUser.username === process.env.SUPER_ADMIN_ID ||
-            requestingUser.username === process.env.SUPER_ADMIN_USERNAME ||
-            (process.env.SUPER_ADMIN_EMAIL && requestingUser.email === process.env.SUPER_ADMIN_EMAIL);
+            requestingUser.username === config.superAdmin.id ||
+            requestingUser.username === config.superAdmin.username ||
+            (config.superAdmin.email && requestingUser.email === config.superAdmin.email);
 
         let isAuthorized = isSuperAdmin;
 

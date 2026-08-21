@@ -1,1 +1,17 @@
+# Dependencies
 node_modules/
+package-lock.json
+
+# Environment variables & secrets
+# Ignore all real environment files (.env, .env.development, .env.production, .env.local, etc.)
+.env
+.env.*
+# Allow only template example files to be pushed to Git
+!.env*.example
+
+# Build outputs & caches
+dist/
+build/
+*.local
+*.log
+.DS_Store

@@ -4,14 +4,15 @@ A comprehensive full-stack management application designed for organizing operat
 
 ## 🚀 Features
 
-* **User Authentication:** Secure login via Single Sign-On (SSO) integration with OpenID Connect.
-* **Role-Based Access:** Protected routes and specific views for Guests, Users, and Admins.
-* **Site Management:** View and manage operational sites.
+* **User Authentication:** Secure login via Single Sign-On (SSO) integration with OpenID Connect (OIDC).
+* **Role-Based Access:** Protected routes and specific views for Guests, Users, Shift Managers, and System Administrators.
+* **Site Management:** View and manage operational sites and direct links.
 * **Phone Directory:** Manage and view phone details associated with the organization.
-* **Shift Management:** * Interactive **Shift Schedule** planning.
+* **Shift Management:**
+    * Interactive **Shift Schedule** planning and publishing.
     * Detailed **Shift Reports** submission and viewing.
-* **Group Settings:** Configuration for different operational groups.
-* **Admin Dashboard:** User management and administrative controls.
+* **Group Settings:** Configuration for different operational groups (shift types, time slots, notification recipients).
+* **Admin Dashboard:** User management and administrative controls with system account protection.
 * **Responsive UI:** Built with Material UI (MUI) for a seamless experience across devices.
 
 ## 🛠 Tech Stack
@@ -28,82 +29,94 @@ A comprehensive full-stack management application designed for organizing operat
 * **Runtime:** Node.js
 * **Framework:** Express v5
 * **Database:** MongoDB (via Mongoose v9)
-* **Authentication:** openid-client (SSO)
-* **Environment:** Dotenv
+* **Authentication:** openid-client (SSO / OIDC)
+* **Environment:** Dotenv + Centralized Config & Validation
 
-## 📂 Project Structure
+---
 
-```bash
-├── client/          # Frontend application (Vite + React + TS)
-│   ├── public/      # Static assets accessible directly (images, icons, favicon).
-│   ├── src/
-│   │   ├── components/  # Reusable UI components
-│   │   ├── context/     # Global state (User, Theme, Notifications)
-│   │   ├── pages/       # Application views/routes
-│   │   └── theme/       # MUI Theme configuration
-├── server/          # Backend API (Node.js + Express)
-│   ├── config/          # Configuration files (SSO, DB)
-│   ├── middleware/      # Custom Express middleware (e.g., authentication logic).
-│   ├── models/          # Mongoose schemas (User, Site, Shift, etc.)
-│   ├── routes/          # API endpoints
-│   ├── .env             # Environment variables configuration (secrets, API keys, DB URI).
-│   ├── index.js         # Main server entry point (App initialization, DB connection).
-│   └── seed.js          # Database seeding script for populating initial data.
-```
+## ⚙️ Environment Configuration (Dev vs. Prod)
 
-## 📖 API Documentation
-The API for this project is documented using Postman. You can view the full list of endpoints, request examples, and expected responses here:
+The codebase has complete separation between **Development** and **Production** environments with zero code modifications needed when deploying.
 
-🔗 [View Postman API Documentation](https://daniel-reifer17-3583893.postman.co/workspace/0b8bf96d-e8ee-4217-8f44-f889e16733a0/collection/52098464-fd3b541a-ad9e-40a5-b809-78307b7eef83?action=share&source=copy-link&creator=52098464)
+### Quick Reference: Development vs. Production Variables
 
-## ⚙️ Installation & Setup
-### Prerequisites
-* Node.js (v18+ recommended)
-* MongoDB (Local instance or Atlas URI)
-#### 1. Clone the repository
-```
-git clone [https://github.com/your-username/hunting-lodge-app.git]
-cd hunting-lodge-app
-```
-#### 2. Backend Setup
-Navigate to the server directory, install dependencies, and configure environment variables.
-```
-cd server
-npm install
-```
- **Environment Variables:** Create a .env file in the server directory based on .env.example:
-```
-# Server Config
-PORT=5000
-MONGO_URI=mongodb://localhost:27017/hunting_lodge_db
+| Variable Name | Workspace | Purpose | Development Mode (Local / Auth0) | Production Mode (Enterprise / Cloud) | Required in Prod? |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `NODE_ENV` | Server | Specifies application runtime environment | `development` | `production` | **Yes** |
+| `PORT` | Server | Express HTTP server listen port | `5000` | `5000` (or host-assigned port) | Optional (Default: 5000) |
+| `MONGO_URI` | Server | MongoDB connection string | Local MongoDB / Dev cluster | Production MongoDB replica set URI | **Yes** |
+| `SSO_ISSUER_URL` | Server | OpenID Connect (OIDC) Issuer Base URL | `https://dev-xxx.us.auth0.com` | `https://sso.corp.local` / Okta / Azure AD | **Yes** |
+| `SSO_CLIENT_ID` | Server | SSO Client Application ID | Auth0 Dev App Client ID | Enterprise App Client ID | **Yes** |
+| `SSO_CLIENT_SECRET`| Server | SSO Client Secret key | Auth0 Dev Client Secret | Enterprise App Secret | **Yes** |
+| `SSO_REDIRECT_URI` | Server | OAuth2 redirect/callback URL | `http://localhost:5173/auth/callback` | `https://huntinglodge.corp.domain/auth/callback` | **Yes** |
+| `SSO_IDENTIFIER_FIELD` | Server | Claim used for user matching | `email` (Dev / Auth0) | `username` (AD / Smartcard / SSO) | **Yes** |
+| `SUPER_ADMIN_ID` | Server | Unique ID of system Super Admin | `10001` (or dev user ID) | Enterprise Active Directory User ID (e.g. `s991024`) | **Yes** |
+| `SUPER_ADMIN_USERNAME` | Server | Display name for system Super Admin | `"Super Admin"` | `"Admin Full Name"` | Optional |
+| `SUPER_ADMIN_EMAIL`| Server | Email for system Super Admin | `admin@dev.local` | `admin@organization.local` | Optional |
+| `SUPER_ADMIN_GROUP_NAME` | Server | Identifier of the protected Admin group | `ADMINISTRATORS` | `ADMINISTRATORS` (or org admin group) | **Yes** |
+| `CORS_ORIGIN` | Server | Allowed CORS origin | `http://localhost:5173` | `https://huntinglodge.corp.domain` | Recommended |
+| `RATE_LIMIT_MAX` | Server | Max API requests per 15-min window | `10000` | `100` (Strict DDoS protection) | Optional (Default: 100) |
+| `RATE_LIMIT_WINDOW_MS` | Server | Rate limit window in ms | `900000` (15 min) | `900000` (15 min) | Optional |
+| `VITE_SUPER_ADMIN_ID` | Client | UI Admin check (matches server) | `10001` | Enterprise User ID (matches server `SUPER_ADMIN_ID`) | **Yes** |
+| `VITE_SUPER_ADMIN_GROUP_NAME` | Client | UI Admin group check (matches server) | `ADMINISTRATORS` | `ADMINISTRATORS` (matches server) | **Yes** |
+| `VITE_API_URL` | Client | Base URL for API calls | `/api` | `/api` or `https://api.huntinglodge.corp.domain/api` | Optional (Default: `/api`) |
 
-# SSO Configuration
-SSO_ISSUER_URL=your_issuer_url
-SSO_CLIENT_ID=your_client_id
-SSO_CLIENT_SECRET=your_client_secret
-SSO_REDIRECT_URI=http://localhost:5173/auth/callback
-```
-#### 3. Frontend Setup
-Navigate to the client directory and install dependencies.
-```
-cd ../client
-npm install
-```
+---
 
-## 🏃‍♂️ Running the Application
-To run the application locally, you need to start both the server and the client.
-#### 1. Start the Backend Server:
-```
-cd server
-npm run dev
-# Server will run on http://localhost:5000
-```
-#### 2. Start the Frontend Client: Open a new terminal window:
-```
-cd client
-npm run dev
-# Client will run on http://localhost:5173 (or port assigned by Vite)
-```
+## 🚀 Running in Development
+
+1. **Install dependencies in root:**
+   ```bash
+   npm install
+   ```
+
+2. **Configure Development Environment:**
+   * Backend: Copy `server/.env.development.example` to `server/.env.development` and adjust credentials if needed:
+     ```bash
+     cp server/.env.development.example server/.env.development
+     ```
+   * Frontend: Copy `client/.env.development.example` to `client/.env.development`:
+     ```bash
+     cp client/.env.development.example client/.env.development
+     ```
+
+3. **Start Dev Servers (Frontend + Backend concurrently):**
+   ```bash
+   npm run dev
+   ```
+   * Client runs on: `http://localhost:5173`
+   * Server runs on: `http://localhost:5000`
+
+4. **(Optional) Seed Initial Dev Database:**
+   ```bash
+   npm run seed
+   ```
+
+---
+
+## 🚢 Deploying to Production (3 Simple Steps)
+
+1. **Configure Server Environment:**
+   * Copy `server/.env.production.example` to `server/.env.production` (or `server/.env`) on the server:
+     ```bash
+     cp server/.env.production.example server/.env.production
+     ```
+   * Fill in your production values (`MONGO_URI`, `SSO_*`, `SUPER_ADMIN_*`).
+
+2. **Configure Client Environment:**
+   * Copy `client/.env.production.example` to `client/.env.production` (or `client/.env`) on the build machine:
+     ```bash
+     cp client/.env.production.example client/.env.production
+     ```
+   * Set `VITE_SUPER_ADMIN_ID` and `VITE_SUPER_ADMIN_GROUP_NAME` matching your server configuration.
+
+3. **Build & Launch:**
+   ```bash
+   npm run build
+   npm start
+   ```
+
+---
 
 ## 📜 License
 This project is licensed under the ISC License.

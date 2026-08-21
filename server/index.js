@@ -11,36 +11,37 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const morgan = require("morgan");
-const dotenv = require("dotenv");
 const mongoose = require("mongoose");
+const config = require("./config");
 const authRoutes = require("./routes/auth");
 
-// Load environment variables from .env file
-const result = dotenv.config();
-if (result.error) {
-    console.log("❌ Error loading .env file", result.error);
-}
-
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 // Global Middleware setup
-app.use(morgan("dev")); // HTTP request logger
+app.use(morgan(config.logging.morganFormat)); // HTTP request logger (dev vs combined)
 app.use(helmet()); // Secure HTTP headers
-app.use(cors());
+
+// CORS configuration (Permissive in Dev, restricted in Prod if configured)
+if (config.security.corsOrigin === true) {
+    app.use(cors());
+} else if (config.security.corsOrigin) {
+    app.use(cors({ origin: config.security.corsOrigin, credentials: true }));
+} else {
+    app.use(cors());
+}
+
 app.use(express.json());
 
-// Apply rate limiting to all requests
+// Apply rate limiting to all requests based on environment configuration
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    // TODO: Reduce the max requests per windowMs for security reasons in PRODUCTION
-    max: 10000, // Limit each IP to 10000 requests per windowMs
-    message: "Too many requests from this IP, please try again after 15 minutes"
+    windowMs: config.security.rateLimitWindowMs,
+    max: config.security.rateLimitMax,
+    message: "Too many requests from this IP, please try again after 15 minutes",
 });
 app.use(limiter);
 
 /**
- * Establishes a connection to the MongoDB database using the URI provided in environment variables.
+ * Establishes a connection to the MongoDB database using the URI provided in configuration.
  *
  * Terminates the process with an error code if the connection fails, as the application
  * cannot function without a database.
@@ -51,7 +52,7 @@ app.use(limiter);
  */
 const connectDB = async () => {
     try {
-        const conn = await mongoose.connect(process.env.MONGO_URI);
+        const conn = await mongoose.connect(config.mongoUri);
         console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     } catch (error) {
         console.error(`❌ Error: ${error.message}`);
@@ -89,6 +90,6 @@ app.get("/", (req, res) => {
 });
 
 // Start listening for incoming requests
-app.listen(PORT, () => {
-    console.log(`🚀 Server is running on port ${PORT}`);
+app.listen(config.port, () => {
+    console.log(`🚀 Server is running on port ${config.port} [Environment: ${config.env}]`);
 });

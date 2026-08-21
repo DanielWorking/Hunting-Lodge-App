@@ -8,10 +8,16 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-.env
 dist
 dist-ssr
 *.local
+
+# Environment variables & secrets
+# Ignore all real environment files
+.env
+.env.*
+# Allow only template example files
+!.env*.example
 
 # Editor directories and files
 .vscode/*

@@ -1,11 +1,12 @@
 import axios from "axios";
+import envConfig from "../config/env";
 
 /**
  * Centralized Axios instance configured with the base API URL.
  * It also injects the user ID from localStorage into the headers of every request.
  */
 const apiClient = axios.create({
-    baseURL: "/api",
+    baseURL: envConfig.apiUrl,
 });
 
 apiClient.interceptors.request.use(

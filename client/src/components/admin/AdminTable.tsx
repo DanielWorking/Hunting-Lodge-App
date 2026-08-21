@@ -24,6 +24,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 import type { User, Group } from "../../types";
+import envConfig from "../../config/env";
 
 /**
  * Extension of the User type to include administrative metadata
@@ -161,7 +162,7 @@ export default function AdminTable({
      */
     const renderUserRow = (rawUser: User) => {
         const user = rawUser as unknown as ExtendedUser;
-        const superAdminId = import.meta.env.VITE_SUPER_ADMIN_ID;
+        const superAdminId = envConfig.superAdmin.id;
         const isSuperAdmin = user.username === superAdminId;
 
         /**
@@ -286,7 +287,7 @@ export default function AdminTable({
     const renderGroupRow = (rawGroup: Group) => {
         const group = rawGroup as unknown as ExtendedGroup;
         const isSystemGroup =
-            group.name === import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME;
+            group.name === envConfig.superAdmin.groupName;
         const groupId = group._id || group.id;
 
         /**

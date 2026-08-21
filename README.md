@@ -60,6 +60,7 @@ The codebase has complete separation between **Development** and **Production** 
 | `VITE_SUPER_ADMIN_ID` | Client | UI Admin check (matches server) | `10001` | Enterprise User ID (matches server `SUPER_ADMIN_ID`) | **Yes** |
 | `VITE_SUPER_ADMIN_GROUP_NAME` | Client | UI Admin group check (matches server) | `ADMINISTRATORS` | `ADMINISTRATORS` (matches server) | **Yes** |
 | `VITE_API_URL` | Client | Base URL for API calls | `/api` | `/api` or `https://api.huntinglodge.corp.domain/api` | Optional (Default: `/api`) |
+| `VITE_ENABLE_EMAIL_REPORTS` | Client | Feature flag: email report UI | `false` | `false` (Set `true` when internal SMTP is configured) | Optional (Default: `false`) |
 
 ---
 

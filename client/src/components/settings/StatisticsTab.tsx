@@ -27,6 +27,7 @@ import { useNotification } from "../../context/NotificationContext";
 import ShiftDatesDialog from "../ShiftDatesDialog";
 import { getAllSchedules } from "../../api/schedulesApi";
 import { sendGroupReport } from "../../api/groupsApi";
+import envConfig from "../../config/env";
 
 /**
  * Renders the statistics and reporting tab for group administrators.
@@ -179,20 +180,23 @@ export default function StatisticsTab() {
                 mb={2}
             >
                 <h3>Yearly Statistics (Published Shifts)</h3>
-                <Button
-                    variant="outlined"
-                    startIcon={
-                        sendingEmail ? (
-                            <CircularProgress size={20} />
-                        ) : (
-                            <EmailIcon />
-                        )
-                    }
-                    onClick={handleSendReport}
-                    disabled={sendingEmail}
-                >
-                    Email Report Now
-                </Button>
+                {/* Email Report Button (Feature Flagged: requires internal network SMTP configuration) */}
+                {envConfig.features.enableEmailReports && (
+                    <Button
+                        variant="outlined"
+                        startIcon={
+                            sendingEmail ? (
+                                <CircularProgress size={20} />
+                            ) : (
+                                <EmailIcon />
+                            )
+                        }
+                        onClick={handleSendReport}
+                        disabled={sendingEmail}
+                    >
+                        Email Report Now
+                    </Button>
+                )}
             </Box>
 
             {loading ? (

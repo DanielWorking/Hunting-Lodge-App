@@ -230,61 +230,63 @@ export default function MembersTab() {
 
     return (
         <Box p={3}>
-            {/* --- Report Emails Section --- */}
-            <Box mb={4} p={2} bgcolor="action.hover" borderRadius={1}>
-                <Typography variant="subtitle2" gutterBottom>
-                    Report Recipients
-                </Typography>
+            {/* --- Report Emails Section (Feature Flagged: requires internal network SMTP configuration) --- */}
+            {envConfig.features.enableEmailReports && (
+                <Box mb={4} p={2} bgcolor="action.hover" borderRadius={1}>
+                    <Typography variant="subtitle2" gutterBottom>
+                        Report Recipients
+                    </Typography>
 
-                <Box display="flex" gap={1} mb={2}>
-                    <TextField
-                        label="Add Email"
-                        size="small"
-                        fullWidth
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                    />
+                    <Box display="flex" gap={1} mb={2}>
+                        <TextField
+                            label="Add Email"
+                            size="small"
+                            fullWidth
+                            value={newEmail}
+                            onChange={(e) => setNewEmail(e.target.value)}
+                        />
+                        <Button
+                            variant="contained"
+                            onClick={handleAddEmail}
+                            startIcon={<AddIcon />}
+                        >
+                            Add
+                        </Button>
+                    </Box>
+
+                    <List dense>
+                        {emails.map((email) => (
+                            <ListItem
+                                key={email}
+                                secondaryAction={
+                                    <IconButton
+                                        edge="end"
+                                        onClick={() => handleDeleteEmail(email)}
+                                    >
+                                        <DeleteIcon />
+                                    </IconButton>
+                                }
+                            >
+                                <ListItemText primary={email} />
+                            </ListItem>
+                        ))}
+                        {emails.length === 0 && (
+                            <Typography variant="caption" color="text.secondary">
+                                No emails defined
+                            </Typography>
+                        )}
+                    </List>
+
                     <Button
-                        variant="contained"
-                        onClick={handleAddEmail}
-                        startIcon={<AddIcon />}
+                        variant="outlined"
+                        fullWidth
+                        onClick={handleSaveEmails}
+                        sx={{ mt: 1 }}
                     >
-                        Add
+                        Save Email List
                     </Button>
                 </Box>
-
-                <List dense>
-                    {emails.map((email) => (
-                        <ListItem
-                            key={email}
-                            secondaryAction={
-                                <IconButton
-                                    edge="end"
-                                    onClick={() => handleDeleteEmail(email)}
-                                >
-                                    <DeleteIcon />
-                                </IconButton>
-                            }
-                        >
-                            <ListItemText primary={email} />
-                        </ListItem>
-                    ))}
-                    {emails.length === 0 && (
-                        <Typography variant="caption" color="text.secondary">
-                            No emails defined
-                        </Typography>
-                    )}
-                </List>
-
-                <Button
-                    variant="outlined"
-                    fullWidth
-                    onClick={handleSaveEmails}
-                    sx={{ mt: 1 }}
-                >
-                    Save Email List
-                </Button>
-            </Box>
+            )}
 
             {/* --- Members Table Section --- */}
             <Typography variant="h6" gutterBottom>

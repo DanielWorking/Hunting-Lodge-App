@@ -53,7 +53,7 @@ export default function StatisticsTab() {
     const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
     const groupSettings = groups.find(
-        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
+        (g) => g._id === currentGroup?._id,
     )?.settings;
     const shiftTypes = groupSettings?.shiftTypes || [];
 
@@ -89,7 +89,7 @@ export default function StatisticsTab() {
     const calculateStats = async () => {
         setLoading(true);
         try {
-            const res = await getAllSchedules({ groupId: currentGroup?._id || currentGroup?.id });
+            const res = await getAllSchedules({ groupId: currentGroup?._id });
 
             const rawStats: any = {};
             const schedules = res.data;
@@ -129,7 +129,7 @@ export default function StatisticsTab() {
     const handleSendReport = async () => {
         setSendingEmail(true);
         try {
-            await sendGroupReport((currentGroup?._id || currentGroup?.id) as string, { stats });
+            await sendGroupReport((currentGroup?._id) as string, { stats });
             showNotification(`Report sent successfully`, "success");
         } catch (e) {
             showNotification("Report sent (simulation)", "success");
@@ -154,19 +154,19 @@ export default function StatisticsTab() {
     const sortedMembers = users
         .filter((u) =>
             u.groups.some(
-                (g) => g.groupId === (currentGroup?._id || currentGroup?.id),
+                (g) => g.groupId === currentGroup?._id,
             ),
         )
         .sort((a, b) => {
             const orderA =
                 a.groups.find(
                     (g) =>
-                        g.groupId === (currentGroup?._id || currentGroup?.id),
+                        g.groupId === currentGroup?._id,
                 )?.order || 0;
             const orderB =
                 b.groups.find(
                     (g) =>
-                        g.groupId === (currentGroup?._id || currentGroup?.id),
+                        g.groupId === currentGroup?._id,
                 )?.order || 0;
             return orderA - orderB;
         });
@@ -215,7 +215,7 @@ export default function StatisticsTab() {
                         </TableHead>
                         <TableBody>
                             {sortedMembers.map((u) => {
-                                const uid = u._id || u.id;
+                                const uid = u._id;
                                 const userStats = stats[uid] || { byType: {} };
 
                                 return (

@@ -11,6 +11,9 @@ const Site = require("../models/Site");
 const config = require("../config");
 const { resolveGroup, isAdmin } = require("../utils/authHelpers");
 
+const ShiftSchedule = require("../models/ShiftSchedule");
+const ShiftReport = require("../models/ShiftReport");
+
 exports.getGroups = async (req, res) => {
     try {
         let groups;
@@ -21,20 +24,14 @@ exports.getGroups = async (req, res) => {
         } else {
             // Regular users receive only the groups they are assigned to
             const userGroupIds = (req.user.groups || []).map((g) => g.groupId);
-            groups = await Group.find({
-                $or: [
-                    { _id: { $in: userGroupIds } },
-                    { id: { $in: userGroupIds } },
-                ],
-            }).lean();
+            groups = await Group.find({ _id: { $in: userGroupIds } }).lean();
         }
 
         // Query the User collection for each group to get the actual member count
         const groupsWithCounts = await Promise.all(
             groups.map(async (group) => {
-                const groupIdentifiers = [group.id, group._id.toString()];
                 const realCount = await User.countDocuments({
-                    "groups.groupId": { $in: groupIdentifiers },
+                    "groups.groupId": group._id,
                 });
 
                 return {
@@ -51,14 +48,17 @@ exports.getGroups = async (req, res) => {
 };
 
 exports.createGroup = async (req, res) => {
-    const { id, name } = req.body;
+    const groupName = req.body.name || req.body.id;
+    if (!groupName || !groupName.trim()) {
+        return res.status(400).json({ message: "Group name is required" });
+    }
+    const name = groupName.trim();
     try {
-        const existingGroup = await Group.findOne({ id });
+        const existingGroup = await Group.findOne({ name });
         if (existingGroup)
-            return res.status(400).json({ message: "Group ID already exists" });
+            return res.status(400).json({ message: "Group name already exists" });
 
         const newGroup = new Group({
-            id,
             name,
             settings: { shiftTypes: [], timeSlots: [] },
             siteTags: ["General"],
@@ -221,7 +221,7 @@ exports.updateGroup = async (req, res) => {
         }
 
         // === SECURITY LAYER: Protect the System Admin Group ===
-        if (group.id === config.superAdmin.groupName) {
+        if (group.name === config.superAdmin.groupName) {
             return res.status(403).json({
                 message: `System Security: The '${config.superAdmin.groupName}' group cannot be modified.`,
             });
@@ -246,7 +246,7 @@ exports.deleteGroup = async (req, res) => {
         if (!group) return res.status(404).json({ message: "Group not found" });
 
         // === SECURITY LAYER: Protect System Admin Group ===
-        if (group.id === config.superAdmin.groupName) {
+        if (group.name === config.superAdmin.groupName) {
             return res.status(403).json({
                 message: `System Security: The '${config.superAdmin.groupName}' group cannot be deleted.`,
             });
@@ -262,21 +262,19 @@ exports.deleteGroup = async (req, res) => {
             });
         }
 
-        // 2. Clean up "orphan" references in User documents
-        const groupIdentifiers = [group.id, group._id.toString()].filter(
-            Boolean,
-        );
-
+        // 2. Clean up references in User documents
         await User.updateMany(
-            { "groups.groupId": { $in: groupIdentifiers } },
-            { $pull: { groups: { groupId: { $in: groupIdentifiers } } } },
+            { "groups.groupId": group._id },
+            { $pull: { groups: { groupId: group._id } } },
         );
 
         // Safe to proceed with deletion
         await Group.findByIdAndDelete(group._id);
 
-        // Cleanup associated resources (sites, etc.)
+        // Cleanup associated resources (sites, schedules, reports)
         await Site.deleteMany({ groupId: group._id });
+        await ShiftSchedule.deleteMany({ groupId: group._id });
+        await ShiftReport.deleteMany({ groupId: group._id });
 
         res.json({ message: "Group deleted successfully" });
     } catch (err) {

@@ -35,8 +35,7 @@ exports.getReports = async (req, res) => {
             return res.status(404).json({ message: "Group not found" });
         }
 
-        const groupIdentifiers = [group.id, group._id.toString()];
-        let query = { groupId: { $in: groupIdentifiers } };
+        let query = { groupId: group._id };
 
         // Handle temporal filtering logic
         if (year) {
@@ -76,11 +75,9 @@ exports.createReport = async (req, res) => {
             return res.status(404).json({ message: "Group not found" });
         }
 
-        const groupIdentifiers = [group.id, group._id.toString()];
-
         // Inherit tasks from the most recent report of the same group
         const lastReport = await ShiftReport.findOne({
-            groupId: { $in: groupIdentifiers },
+            groupId: group._id,
         }).sort({ startTime: -1 });
         const previousTasks = lastReport ? lastReport.currentTasks : "";
 
@@ -89,7 +86,7 @@ exports.createReport = async (req, res) => {
 
         // Attempt to pull attendees automatically from the published schedule
         const schedule = await ShiftSchedule.findOne({
-            groupId: { $in: groupIdentifiers },
+            groupId: group._id,
             isPublished: true,
             startDate: { $lte: reportStart },
             endDate: { $gte: reportStart },
@@ -108,7 +105,7 @@ exports.createReport = async (req, res) => {
             });
 
             const relevantShiftTypeIds = matchingSlot
-                ? matchingSlot.linkedShiftTypes
+                ? (matchingSlot.linkedShiftTypes || []).map((id) => id.toString())
                 : null;
 
             // Filter shifts that match the date and optionally the shift type
@@ -118,7 +115,7 @@ exports.createReport = async (req, res) => {
                     reportStart.toDateString();
 
                 const isRelevantType = relevantShiftTypeIds
-                    ? relevantShiftTypeIds.includes(s.shiftTypeId)
+                    ? relevantShiftTypeIds.includes(s.shiftTypeId.toString())
                     : true;
 
                 return isSameDate && isRelevantType;
@@ -135,7 +132,7 @@ exports.createReport = async (req, res) => {
         }
 
         const newReport = new ShiftReport({
-            groupId: group._id.toString(),
+            groupId: group._id,
             title,
             date: reportStart,
             startTime,

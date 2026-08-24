@@ -31,10 +31,10 @@ export interface GroupMembership {
  * Represents a registered user in the system.
  */
 export interface User {
-    /** Internal database ID. */
-    _id?: string;
-    /** Unique application ID. */
-    id: string;
+    /** MongoDB primary key identifier. */
+    _id: string;
+    /** Legacy identifier alias. */
+    id?: string;
     /** The user's system username. */
     username: string;
     /** The display name shown in the UI. */
@@ -95,10 +95,10 @@ export interface GroupSettings {
  * Represents a group (or "Lodge") within the system.
  */
 export interface Group {
-    /** Internal database ID. */
-    _id?: string;
-    /** Unique application ID. */
-    id: string;
+    /** MongoDB primary key identifier. */
+    _id: string;
+    /** Legacy identifier alias. */
+    id?: string;
     /** Name of the group. */
     name: string;
     /** Array of user IDs belonging to this group. */
@@ -117,10 +117,10 @@ export interface Group {
  * Represents a bookmarked or managed website/resource.
  */
 export interface SiteCard {
-    /** Internal database ID. */
-    _id?: string;
-    /** Unique application ID. */
-    id: string;
+    /** MongoDB primary key identifier. */
+    _id: string;
+    /** Legacy identifier alias. */
+    id?: string;
     /** The title of the site/resource. */
     title: string;
     /** The destination URL. */
@@ -150,10 +150,10 @@ export type PhoneType = 'Black' | 'Red' | 'Mobile' | 'Landline';
  * Represents an entry in the phone directory.
  */
 export interface PhoneRow {
-    /** Internal database ID. */
-    _id?: string;
-    /** Unique application ID. */
-    id: string;
+    /** MongoDB primary key identifier. */
+    _id: string;
+    /** Legacy identifier alias. */
+    id?: string;
     /** List of phone numbers associated with this entry. */
     numbers: string[];
     /** The security or functional classification of the phone. */

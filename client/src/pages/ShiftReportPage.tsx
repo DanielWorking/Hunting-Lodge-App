@@ -455,7 +455,7 @@ export default function ShiftReportPage() {
 
     const groupUsers = users.filter((u) =>
         u.groups.some(
-            (g) => g.groupId === (currentGroup?._id || currentGroup?.id),
+            (g) => g.groupId === currentGroup?._id,
         ),
     );
 
@@ -483,7 +483,7 @@ export default function ShiftReportPage() {
         try {
             if (!isBackground) setLoading(true);
 
-            const res = await getReports({ groupId: currentGroup?._id || currentGroup?.id });
+            const res = await getReports({ groupId: currentGroup?._id });
 
             // Check if a new report was added (for notification purposes)
             setReports((prevReports) => {
@@ -519,7 +519,7 @@ export default function ShiftReportPage() {
         const currentTimeVal = currentHour * 60 + currentMinute;
 
         const groupSettings = groups.find(
-            (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
+            (g) => g._id === currentGroup?._id,
         )?.settings;
         const timeSlots = groupSettings?.timeSlots || [];
 
@@ -579,7 +579,7 @@ export default function ShiftReportPage() {
 
         try {
             const res = await createReport({
-                groupId: currentGroup._id || currentGroup.id,
+                groupId: currentGroup._id,
                 title,
                 startTime,
                 endTime,
@@ -658,7 +658,7 @@ export default function ShiftReportPage() {
     const handleAttendanceChange = (_event: any, newValue: any[]) => {
         if (!selectedReport) return;
         const newAttendees = newValue.map((u) => ({
-            userId: u._id || u.id,
+            userId: u._id,
             name: u.username,
             isManual: true,
         }));
@@ -1057,8 +1057,8 @@ export default function ShiftReportPage() {
                                         .map((a: any) =>
                                             groupUsers.find(
                                                 (u) =>
-                                                    (u._id || u.id) ===
-                                                    a.userId,
+                                                    u._id ===
+                                                    (a.userId?._id || a.userId),
                                             ),
                                         )
                                         .filter(Boolean)}

@@ -101,7 +101,7 @@ export default function PhonesPage() {
      */
     const handleConfirmDelete = async () => {
         if (deleteItem) {
-            const idToDelete = deleteItem._id || deleteItem.id;
+            const idToDelete = deleteItem._id;
             try {
                 await deletePhone(idToDelete);
                 showNotification("Phone deleted successfully", "success");
@@ -124,7 +124,7 @@ export default function PhonesPage() {
         try {
             if (editingPhone) {
                 await updatePhone(
-                    editingPhone._id || editingPhone.id,
+                    editingPhone._id,
                     phoneData,
                 );
                 showNotification("Phone updated successfully", "success");
@@ -148,7 +148,7 @@ export default function PhonesPage() {
     const handleToggleFavorite = async (phone: PhoneRow) => {
         try {
             // Call the server endpoint to toggle favorite status
-            await toggleFavoritePhone(phone._id || phone.id);
+            await toggleFavoritePhone(phone._id);
 
             // Trigger data refresh to sync the UI
             refreshData();

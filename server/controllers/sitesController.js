@@ -33,15 +33,7 @@ exports.getSites = async (req, res) => {
 
         // Global fetch (filtered strictly to groups the requesting user is a member of)
         const userGroupIds = (req.user.groups || []).map((g) => g.groupId);
-        const userGroups = await Group.find({
-            $or: [
-                { _id: { $in: userGroupIds } },
-                { id: { $in: userGroupIds } },
-            ],
-        });
-        const groupObjectIds = userGroups.map((g) => g._id);
-
-        const sites = await Site.find({ groupId: { $in: groupObjectIds } });
+        const sites = await Site.find({ groupId: { $in: userGroupIds } });
         res.json(sites);
     } catch (err) {
         res.status(500).json({ message: err.message });

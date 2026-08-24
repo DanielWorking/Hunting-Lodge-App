@@ -60,7 +60,7 @@ export default function SitesPage() {
     // Locate the active group within the data context to access extended fields
     // such as the database _id and site-specific tags.
     const activeGroup = groups.find(
-        (g) => (g.id || g._id) === (currentGroup?.id || currentGroup?._id),
+        (g) => g._id === currentGroup?._id,
     );
     const groupTags =
         activeGroup?.siteTags && activeGroup.siteTags.length > 0
@@ -118,12 +118,11 @@ export default function SitesPage() {
     const handleSaveSite = async (formData: Partial<SiteCardType>) => {
         if (!activeGroup) return;
 
-        // Ensure we use the MongoDB _id for relationship consistency
         const groupIdToSend = activeGroup._id;
 
         try {
             if (editingSite) {
-                const siteId = editingSite._id || editingSite.id;
+                const siteId = editingSite._id;
                 await updateSite(siteId, {
                     ...formData,
                     groupId: groupIdToSend,
@@ -157,7 +156,7 @@ export default function SitesPage() {
      */
     const handleConfirmDeleteSite = async () => {
         if (deleteSiteItem) {
-            const idToDelete = deleteSiteItem._id || deleteSiteItem.id;
+            const idToDelete = deleteSiteItem._id;
             try {
                 await deleteSite(idToDelete);
                 showNotification("Site deleted successfully", "success");
@@ -178,7 +177,7 @@ export default function SitesPage() {
      */
     const handleToggleFavorite = async (site: SiteCardType) => {
         try {
-            const siteId = site._id || site.id;
+            const siteId = site._id;
             await toggleFavoriteSite(siteId);
             refreshData();
         } catch (error) {
@@ -212,8 +211,7 @@ export default function SitesPage() {
      */
     const handleSaveTag = async () => {
         if (!tagValue.trim() || !activeGroup) return;
-        // The group route expects the string-based ID for tag operations
-        const groupId = activeGroup.id;
+        const groupId = activeGroup._id;
 
         try {
             if (tagDialogMode === "create") {
@@ -253,7 +251,7 @@ export default function SitesPage() {
      */
     const handleConfirmDeleteTag = async () => {
         if (!tagToDelete || !activeGroup) return;
-        const groupId = activeGroup.id;
+        const groupId = activeGroup._id;
 
         try {
             await deleteGroupTag(groupId, tagToDelete);
@@ -278,7 +276,7 @@ export default function SitesPage() {
         if (selectedTag !== "All" && siteTag !== selectedTag) return false;
 
         // Favorite Filtering (Per User)
-        const userId = user?._id || user?.id;
+        const userId = user?._id;
         const isFav =
             userId && site.favoritedBy
                 ? site.favoritedBy.includes(userId)
@@ -483,17 +481,17 @@ export default function SitesPage() {
                 <Grid container spacing={2}>
                     {sortedSites.map((site) => (
                         <Grid
-                            key={site._id || site.id}
+                            key={site._id}
                             size={{ xs: 12, sm: 6, md: 4 }}
                         >
                             <SiteCard
                                 data={{
                                     ...site,
                                     isFavorite:
-                                        (user?._id || user?.id) &&
+                                        user?._id &&
                                         site.favoritedBy
                                             ? site.favoritedBy.includes(
-                                                  user._id || user.id,
+                                                  user._id,
                                               )
                                             : false,
                                 }}

@@ -71,9 +71,8 @@ exports.getUsers = async (req, res) => {
                 }
             }
 
-            const groupIdentifiers = [group._id.toString(), group.id];
             const users = await User.find({
-                "groups.groupId": { $in: groupIdentifiers },
+                "groups.groupId": group._id,
             });
             return res.json(users);
         }
@@ -103,13 +102,13 @@ exports.reorderUsers = async (req, res) => {
         }
 
         const group = await resolveGroup(groupId);
-        const matchingGroupIds = group
-            ? [group._id.toString(), group.id]
-            : [groupId.toString()];
+        if (!group) {
+            return res.status(404).json({ message: "Group not found" });
+        }
 
         const promises = updates.map((update) => {
             return User.updateOne(
-                { _id: update.userId, "groups.groupId": { $in: matchingGroupIds } },
+                { _id: update.userId, "groups.groupId": group._id },
                 { $set: { "groups.$.order": update.order } },
             );
         });
@@ -150,8 +149,12 @@ exports.updateUser = async (req, res) => {
 
         // 4. Group membership synchronization logic
         if (req.body.groups) {
-            const oldGroupIds = oldUser.groups.map((g) => g.groupId);
-            const newGroupIds = updatedUser.groups.map((g) => g.groupId);
+            const oldGroupIds = (oldUser.groups || []).map((g) =>
+                (g.groupId?._id || g.groupId).toString(),
+            );
+            const newGroupIds = (updatedUser.groups || []).map((g) =>
+                (g.groupId?._id || g.groupId).toString(),
+            );
 
             // 4a. Remove user from groups they no longer belong to
             const groupsToRemove = oldGroupIds.filter(
@@ -159,12 +162,7 @@ exports.updateUser = async (req, res) => {
             );
             if (groupsToRemove.length > 0) {
                 await Group.updateMany(
-                    {
-                        $or: [
-                            { id: { $in: groupsToRemove } },
-                            { _id: { $in: groupsToRemove } },
-                        ],
-                    },
+                    { _id: { $in: groupsToRemove } },
                     { $pull: { members: updatedUser._id } },
                 );
             }
@@ -175,12 +173,7 @@ exports.updateUser = async (req, res) => {
             );
             if (groupsToAdd.length > 0) {
                 await Group.updateMany(
-                    {
-                        $or: [
-                            { id: { $in: groupsToAdd } },
-                            { _id: { $in: groupsToAdd } },
-                        ],
-                    },
+                    { _id: { $in: groupsToAdd } },
                     { $addToSet: { members: updatedUser._id } },
                 );
             }
@@ -236,10 +229,10 @@ exports.managerUpdate = async (req, res) => {
             // Check if requester is a 'shift_manager' in any group the target user belongs to
             const managerGroupIds = requestingUser.groups
                 .filter((g) => g.role === "shift_manager")
-                .map((g) => g.groupId?.toString());
+                .map((g) => (g.groupId?._id || g.groupId)?.toString());
 
             const targetGroupIds = targetUser.groups.map((g) =>
-                g.groupId?.toString(),
+                (g.groupId?._id || g.groupId)?.toString(),
             );
 
             // Determine if there's an overlap between managed groups and target groups

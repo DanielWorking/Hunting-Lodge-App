@@ -43,8 +43,7 @@ const TimeSlotSchema = new mongoose.Schema({
  * Represents a team with its specific configurations, members, and resources.
  * 
  * @class Group
- * @property {string} id - Unique string identifier for the group (e.g., "ops-team").
- * @property {string} name - Display name of the group.
+ * @property {string} name - Unique display name of the group.
  * @property {mongoose.Schema.Types.ObjectId[]} members - List of member IDs referencing the User model.
  * @property {Object} settings - Configuration settings for shifts and slots.
  * @property {string[]} reportEmails - List of email addresses to receive shift reports.
@@ -52,8 +51,7 @@ const TimeSlotSchema = new mongoose.Schema({
  * @property {Date} createdAt - Timestamp of when the group was created.
  */
 const GroupSchema = new mongoose.Schema({
-    id: { type: String, required: true, unique: true },
-    name: { type: String, required: true },
+    name: { type: String, required: true, unique: true },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     settings: {
         shiftTypes: [ShiftTypeSchema],

@@ -9,10 +9,9 @@ module.exports = {
     async up(db) {
         const adminGroupName = process.env.SUPER_ADMIN_GROUP_NAME || "ADMINISTRATORS";
 
-        const existingGroup = await db.collection("groups").findOne({ id: adminGroupName });
+        const existingGroup = await db.collection("groups").findOne({ name: adminGroupName });
         if (!existingGroup) {
             await db.collection("groups").insertOne({
-                id: adminGroupName,
                 name: adminGroupName,
                 members: [],
                 settings: {
@@ -31,7 +30,7 @@ module.exports = {
         const adminGroupName = process.env.SUPER_ADMIN_GROUP_NAME || "ADMINISTRATORS";
         // Only remove if group exists and has 0 members to prevent data loss
         await db.collection("groups").deleteOne({
-            id: adminGroupName,
+            name: adminGroupName,
             members: { $size: 0 },
         });
     },

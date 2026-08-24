@@ -52,7 +52,7 @@ export default function ShiftTypesTab() {
     const { showNotification } = useNotification();
 
     const groupSettings = groups.find(
-        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
+        (g) => g._id === currentGroup?._id,
     )?.settings;
     const shiftTypes = groupSettings?.shiftTypes || [];
 
@@ -124,7 +124,7 @@ export default function ShiftTypesTab() {
                 updatedTypes.push({ ...formData } as ShiftType);
             }
 
-            await updateGroupSettings(currentGroup._id || currentGroup.id, {
+            await updateGroupSettings(currentGroup._id, {
                 ...groupSettings,
                 shiftTypes: updatedTypes,
             });
@@ -160,7 +160,7 @@ export default function ShiftTypesTab() {
         try {
             const updatedTypes = shiftTypes.filter((t) => t._id !== deleteId);
 
-            await updateGroupSettings(currentGroup._id || currentGroup.id, {
+            await updateGroupSettings(currentGroup._id, {
                 ...groupSettings,
                 shiftTypes: updatedTypes,
             });

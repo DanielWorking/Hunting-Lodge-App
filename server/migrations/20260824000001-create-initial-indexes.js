@@ -41,7 +41,7 @@ module.exports = {
         await ensureIndex(db, "users", { email: 1 }, { unique: true, sparse: true });
 
         // Groups collection
-        await ensureIndex(db, "groups", { id: 1 }, { unique: true });
+        await ensureIndex(db, "groups", { name: 1 }, { unique: true });
 
         // ShiftSchedules collection
         await ensureIndex(db, "shiftschedules", { groupId: 1, startDate: 1 }, { unique: true });
@@ -68,7 +68,7 @@ module.exports = {
 
         await safeDropIndex("users", { username: 1 });
         await safeDropIndex("users", { email: 1 });
-        await safeDropIndex("groups", { id: 1 });
+        await safeDropIndex("groups", { name: 1 });
         await safeDropIndex("shiftschedules", { groupId: 1, startDate: 1 });
         await safeDropIndex("sites", { groupId: 1 });
         await safeDropIndex("sites", { tag: 1 });

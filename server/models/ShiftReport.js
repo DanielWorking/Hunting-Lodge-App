@@ -11,7 +11,7 @@ const mongoose = require("mongoose");
  * Represents a completed shift's output and attendance.
  * 
  * @class ShiftReport
- * @property {string} groupId - The identifier of the group this report belongs to.
+ * @property {mongoose.Schema.Types.ObjectId} groupId - Reference to the Group this report belongs to.
  * @property {string} title - Descriptive title for the shift report.
  * @property {Date} date - The date the shift occurred.
  * @property {string} startTime - Start time of the shift (HH:mm format).
@@ -19,11 +19,19 @@ const mongoose = require("mongoose");
  * @property {string} previousTasks - Unfinished tasks inherited from the prior shift's report.
  * @property {string} currentTasks - Rich text/HTML content detailing work performed during this shift.
  * @property {Object[]} attendees - List of personnel present during the shift.
+ * @property {mongoose.Schema.Types.ObjectId} [attendees.userId] - Reference to the User model.
+ * @property {string} [attendees.name] - Stored name of the user for historical records.
+ * @property {boolean} [attendees.isManual] - Indicates if attendee was added manually.
  * @property {boolean} isLocked - If true, the report can no longer be edited (typically after 24 hours).
  */
 const ShiftReportSchema = new mongoose.Schema(
     {
-        groupId: { type: String, required: true },
+        groupId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Group",
+            required: true,
+            index: true,
+        },
 
         // Title and times
         title: { type: String, required: true },
@@ -38,7 +46,10 @@ const ShiftReportSchema = new mongoose.Schema(
         // Attendance
         attendees: [
             {
-                userId: { type: String },
+                userId: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "User",
+                },
                 name: { type: String }, // Storing the name in case the user is deleted in the future (history)
                 isManual: { type: Boolean, default: false }, // Was added manually or pulled from the schedule?
             },

@@ -98,8 +98,8 @@ export function UserDialog({
      */
     const isEditingSelf = (() => {
         if (!currentUser) return false;
-        const currentUserId = currentUser._id || currentUser.id;
-        const targetUserId = formData._id || formData.id;
+        const currentUserId = currentUser._id;
+        const targetUserId = formData._id;
         if (currentUserId && targetUserId) {
             return currentUserId === targetUserId;
         }
@@ -112,7 +112,7 @@ export function UserDialog({
      */
     const isTargetUserAdmin = formData.groups?.some((membership) => {
         const groupObj = groups.find(
-            (g) => (g._id || g.id) === membership.groupId,
+            (g) => g._id === membership.groupId,
         );
         return groupObj?.name === envConfig.superAdmin.groupName;
     });
@@ -122,7 +122,7 @@ export function UserDialog({
      */
     const handleAddGroup = () => {
         if (!groupToAdd) return;
-        const groupId = groupToAdd._id || groupToAdd.id;
+        const groupId = groupToAdd._id;
 
         setFormData((prev) => {
             const currentGroups = prev.groups || [];
@@ -162,7 +162,7 @@ export function UserDialog({
      */
     const handleRoleChange = (groupId: string, isManager: boolean) => {
         if (isTargetUserAdmin) {
-            const groupObj = groups.find((g) => (g._id || g.id) === groupId);
+            const groupObj = groups.find((g) => g._id === groupId);
             if (groupObj?.name === envConfig.superAdmin.groupName)
                 return;
         }
@@ -203,7 +203,7 @@ export function UserDialog({
      * populating the Autocomplete options.
      */
     const availableGroups = groups.filter((g) => {
-        const gid = g._id || g.id;
+        const gid = g._id;
         return !formData.groups?.some((mg) => mg.groupId === gid);
     });
 
@@ -293,7 +293,7 @@ export function UserDialog({
 
                         {formData.groups?.map((membership) => {
                             const groupObj = groups.find(
-                                (g) => (g._id || g.id) === membership.groupId,
+                                (g) => g._id === membership.groupId,
                             );
                             if (!groupObj) return null;
 
@@ -310,7 +310,7 @@ export function UserDialog({
 
                             return (
                                 <Box
-                                    key={groupObj._id || groupObj.id}
+                                    key={groupObj._id}
                                     sx={{
                                         display: "flex",
                                         alignItems: "center",
@@ -420,7 +420,7 @@ export function UserDialog({
                                 />
                             )}
                             renderOption={(props, option) => (
-                                <li {...props} key={option._id || option.id}>
+                                <li {...props} key={option._id}>
                                     {option.name}
                                 </li>
                             )}
@@ -481,7 +481,7 @@ export function GroupDialog({
 
     /** Determine if this is a protected system group based on its identifier. */
     const isSystemGroup =
-        initialData?.id === envConfig.superAdmin.groupName;
+        initialData?.name === envConfig.superAdmin.groupName;
     const isCreateMode = !initialData;
 
     useEffect(() => {
@@ -492,14 +492,12 @@ export function GroupDialog({
 
     /**
      * Resolves the list of users who are members of this group.
-     * Supports matching against both the textual 'id' and the MongoDB '_id'.
      */
     const groupMembers = useMemo(() => {
         if (!initialData) return [];
         return users.filter((user) =>
             user.groups?.some(
                 (g) =>
-                    g.groupId === initialData.id ||
                     g.groupId === initialData._id,
             ),
         );
@@ -507,19 +505,13 @@ export function GroupDialog({
 
     /**
      * Validates input and invokes the save callback.
-     * In creation mode, automatically generates a snake_case ID from the group name.
      */
     const handleSave = () => {
         if (!name.trim()) return;
 
         if (isCreateMode) {
-            // Creation Mode: Automatically generate a unique ID from the name
-            // e.g., "Shift Managers" becomes "Shift_Managers"
-            const generatedId = name.trim().replace(/\s+/g, "_");
-
             onSave({
                 name: name.trim(),
-                id: generatedId,
             });
         } else {
             // Edit Mode: Update the display name only
@@ -543,30 +535,29 @@ export function GroupDialog({
                         mt: 1,
                     }}
                 >
-                    {/* Group Identity Section */}
-                    <Box>
-                        <TextField
-                            label="Group Name"
-                            fullWidth
-                            size="small"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            disabled={isSystemGroup} // Lock name for system-critical groups
-                            helperText={
-                                isSystemGroup
-                                    ? "System group name cannot be changed."
-                                    : isCreateMode
-                                      ? "Group ID will be generated automatically from the name."
-                                      : "Change the group name (updates everywhere)"
-                            }
-                        />
-                    </Box>
+                    <TextField
+                        autoFocus
+                        label="Group Name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        fullWidth
+                        disabled={isSystemGroup}
+                        helperText={
+                            isSystemGroup
+                                ? "System groups cannot be renamed"
+                                : ""
+                        }
+                    />
 
-                    {/* Member Visibility - Accessible only in Edit Mode */}
+                    {/* Member Directory View (Edit Mode Only) */}
                     {!isCreateMode && (
                         <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                                Current Members ({groupMembers.length})
+                            <Typography
+                                variant="subtitle2"
+                                color="text.secondary"
+                                gutterBottom
+                            >
+                                Members ({groupMembers.length})
                             </Typography>
 
                             <Box
@@ -588,7 +579,6 @@ export function GroupDialog({
                                         // Locate the specific membership to resolve the user's role
                                         const membership = member.groups?.find(
                                             (g) =>
-                                                g.groupId === initialData.id ||
                                                 g.groupId === initialData._id,
                                         );
                                         const isManager =
@@ -597,7 +587,7 @@ export function GroupDialog({
 
                                         return (
                                             <Box
-                                                key={member._id || member.id}
+                                                key={member._id}
                                                 sx={{
                                                     display: "flex",
                                                     alignItems: "center",

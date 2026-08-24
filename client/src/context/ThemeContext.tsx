@@ -70,7 +70,7 @@ export const ColorModeProvider = ({ children }: { children: ReactNode }) => {
      * If no valid preference is found, it defaults to 'light'.
      */
     useEffect(() => {
-        const key = getThemeKey(user?.id || user?._id);
+        const key = getThemeKey(user?._id);
         const savedMode = localStorage.getItem(key);
 
         if (savedMode === "dark" || savedMode === "light") {
@@ -89,7 +89,7 @@ export const ColorModeProvider = ({ children }: { children: ReactNode }) => {
                 setModeState((prevMode) => {
                     const newMode = prevMode === "light" ? "dark" : "light";
 
-                    const key = getThemeKey(user?.id || user?._id);
+                    const key = getThemeKey(user?._id);
                     localStorage.setItem(key, newMode);
 
                     return newMode;
@@ -102,7 +102,7 @@ export const ColorModeProvider = ({ children }: { children: ReactNode }) => {
              */
             setMode: (newMode: PaletteMode) => {
                 setModeState(newMode);
-                const key = getThemeKey(user?.id || user?._id);
+                const key = getThemeKey(user?._id);
                 localStorage.setItem(key, newMode);
             },
             mode,

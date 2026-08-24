@@ -91,7 +91,7 @@ export default function ShiftSchedulePage() {
     );
 
     const groupSettings = groups.find(
-        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
+        (g) => g._id === currentGroup?._id,
     )?.settings;
     const shiftTypes = groupSettings?.shiftTypes || [];
 
@@ -99,19 +99,19 @@ export default function ShiftSchedulePage() {
         .filter((u) => {
             if (!u.isActive) return false;
             return u.groups.some(
-                (g) => g.groupId === (currentGroup?._id || currentGroup?.id),
+                (g) => g.groupId === currentGroup?._id,
             );
         })
         .sort((a, b) => {
             const orderA =
                 a.groups.find(
                     (g) =>
-                        g.groupId === (currentGroup?._id || currentGroup?.id),
+                        g.groupId === currentGroup?._id,
                 )?.order || 0;
             const orderB =
                 b.groups.find(
                     (g) =>
-                        g.groupId === (currentGroup?._id || currentGroup?.id),
+                        g.groupId === currentGroup?._id,
                 )?.order || 0;
             return orderA - orderB;
         });
@@ -150,7 +150,7 @@ export default function ShiftSchedulePage() {
     const fetchSchedule = async () => {
         try {
             setLoading(true);
-            const groupId = currentGroup?._id || currentGroup?.id;
+            const groupId = currentGroup?._id;
 
             const response = await getSchedule({ groupId, date: weekStart.toISOString() });
 
@@ -246,7 +246,7 @@ export default function ShiftSchedulePage() {
      * @returns {Promise<string>} The ID of the saved schedule.
      */
     const performSave = async () => {
-        const groupId = currentGroup?._id || currentGroup?.id;
+        const groupId = currentGroup?._id;
         const res = await saveSchedule({
             groupId,
             startDate: weekStart,

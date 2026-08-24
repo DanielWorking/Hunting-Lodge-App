@@ -76,13 +76,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      */
     const isUserAdminEligible = Boolean(
         user?.username === envConfig.superAdmin.id ||
-        user?.groups?.some((g) => g.groupId === envConfig.superAdmin.groupName) ||
         (currentGroup &&
-            (currentGroup.name === envConfig.superAdmin.groupName ||
-                currentGroup.id === envConfig.superAdmin.groupName) &&
-            user?.groups?.some(
-                (g) => g.groupId === (currentGroup._id || currentGroup.id),
-            )),
+            currentGroup.name === envConfig.superAdmin.groupName &&
+            user?.groups?.some((g) => g.groupId === currentGroup._id)) ||
+        user?.groups?.some((g) => g.groupId === envConfig.superAdmin.groupName),
     );
 
     /**
@@ -90,10 +87,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      */
     const isActiveAdminGroup = Boolean(
         currentGroup
-            ? currentGroup.name === envConfig.superAdmin.groupName ||
-              currentGroup.id === envConfig.superAdmin.groupName
-            : localStorage.getItem("hunting_groupId") ===
-              envConfig.superAdmin.groupName,
+            ? currentGroup.name === envConfig.superAdmin.groupName
+            : false,
     );
 
     /**
@@ -109,7 +104,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const isShiftManagerBool = Boolean(
         user?.groups?.some(
             (g) =>
-                (g.groupId === (currentGroup?._id || currentGroup?.id) ||
+                (g.groupId === currentGroup?._id ||
                  g.groupId === localStorage.getItem("hunting_groupId")) &&
                 g.role === "shift_manager",
         ),
@@ -180,10 +175,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 if (token) {
                     localStorage.setItem("hunting_token", token);
                 }
-                localStorage.setItem(
-                    "hunting_userId",
-                    safeUser._id || safeUser.id,
-                );
+                localStorage.setItem("hunting_userId", safeUser._id);
 
                 if (safeUser.groups.length > 0) {
                     const firstGroupId = safeUser.groups[0].groupId;
@@ -223,9 +215,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 setCurrentGroup(targetGroup);
             } else {
                 setCurrentGroup((prev) => {
-                    if (prev && (prev._id === groupId || prev.id === groupId)) return prev;
+                    if (prev && prev._id === groupId) return prev;
                     return {
-                        id: groupId,
+                        _id: groupId,
                         name: groupId,
                         members: [],
                         createdAt: new Date().toISOString(),

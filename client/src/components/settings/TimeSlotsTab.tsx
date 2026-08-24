@@ -59,7 +59,7 @@ export default function TimeSlotsTab() {
     const { showNotification } = useNotification();
 
     const groupSettings = groups.find(
-        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
+        (g) => g._id === currentGroup?._id,
     )?.settings;
     const timeSlots = groupSettings?.timeSlots || [];
     const shiftTypes = groupSettings?.shiftTypes || [];
@@ -125,7 +125,7 @@ export default function TimeSlotsTab() {
                 updatedSlots.push({ ...formData } as TimeSlot);
             }
 
-            await updateGroupSettings(currentGroup._id || currentGroup.id, {
+            await updateGroupSettings(currentGroup._id, {
                 ...groupSettings,
                 timeSlots: updatedSlots,
             });
@@ -157,7 +157,7 @@ export default function TimeSlotsTab() {
 
         try {
             const updatedSlots = timeSlots.filter((s) => s._id !== deleteId);
-            await updateGroupSettings(currentGroup._id || currentGroup.id, {
+            await updateGroupSettings(currentGroup._id, {
                 ...groupSettings,
                 timeSlots: updatedSlots,
             });

@@ -184,10 +184,21 @@ const importData = async () => {
         await ShiftReport.deleteMany();
         console.log("🗑️  Old Data Destroyed...");
 
+        // Ensure indexes match current schema (drops obsolete indexes like old 'id_1')
+        try {
+            await Group.syncIndexes();
+            await User.syncIndexes();
+            await Site.syncIndexes();
+            await Phone.syncIndexes();
+            await ShiftSchedule.syncIndexes();
+            await ShiftReport.syncIndexes();
+        } catch (idxErr) {
+            console.log("  [Index sync notice]:", idxErr.message);
+        }
+
         // 1. Create Groups
         const createdGroups = await Group.insertMany([
             {
-                id: config.superAdmin.groupName,
                 name: config.superAdmin.groupName,
                 members: [],
                 settings: { shiftTypes: [], timeSlots: [] },
@@ -195,7 +206,6 @@ const importData = async () => {
                 siteTags: ["General"],
             },
             {
-                id: "noc",
                 name: "noc",
                 members: [],
                 settings: {
@@ -207,14 +217,10 @@ const importData = async () => {
             },
         ]);
 
-        // Map group names to their MongoDB generated ObjectIds and string IDs
+        // Map group names to their MongoDB generated ObjectIds
         const gMap = {};
         createdGroups.forEach((g) => {
-            gMap[g.name] = {
-                objectId: g._id,
-                stringId: g._id.toString(),
-                id: g.id,
-            };
+            gMap[g.name] = g._id;
         });
         console.log("🏢 Groups Created...");
 
@@ -230,12 +236,12 @@ const importData = async () => {
                 vacationBalance: 999,
                 groups: [
                     {
-                        groupId: gMap[config.superAdmin.groupName].stringId,
+                        groupId: gMap[config.superAdmin.groupName],
                         role: "shift_manager",
                         order: 0,
                     },
                     {
-                        groupId: gMap["noc"].stringId,
+                        groupId: gMap["noc"],
                         role: "shift_manager",
                         order: 0,
                     },
@@ -249,7 +255,7 @@ const importData = async () => {
                 vacationBalance: 18,
                 groups: [
                     {
-                        groupId: gMap["noc"].stringId,
+                        groupId: gMap["noc"],
                         role: "member",
                         order: 1,
                     },
@@ -264,11 +270,11 @@ const importData = async () => {
 
         // Synchronize Group.members with created user ObjectIds
         await Group.updateOne(
-            { _id: gMap[config.superAdmin.groupName].objectId },
+            { _id: gMap[config.superAdmin.groupName] },
             { $set: { members: [createdUsers[0]._id] } },
         );
         await Group.updateOne(
-            { _id: gMap["noc"].objectId },
+            { _id: gMap["noc"] },
             { $set: { members: [createdUsers[0]._id, createdUsers[1]._id] } },
         );
         console.log("🔗 Group Members Synchronized...");
@@ -281,7 +287,7 @@ const importData = async () => {
                 imageUrl:
                     "https://via.placeholder.com/300/0000FF/808080?text=Dashboard",
                 description: "Main monitoring dashboard",
-                groupId: gMap["noc"].objectId,
+                groupId: gMap["noc"],
                 tag: "General",
                 favoritedBy: [createdUsers[0]._id],
             },
@@ -291,7 +297,7 @@ const importData = async () => {
                 imageUrl:
                     "https://via.placeholder.com/300/FF0000/FFFFFF?text=Logs",
                 description: "Daily operational logs",
-                groupId: gMap["noc"].objectId,
+                groupId: gMap["noc"],
                 tag: "Tacti",
                 favoritedBy: [],
             },
@@ -301,7 +307,7 @@ const importData = async () => {
                 imageUrl:
                     "https://via.placeholder.com/300/FFFF00/000000?text=Portal",
                 description: "General company directory and tools",
-                groupId: gMap["noc"].objectId,
+                groupId: gMap["noc"],
                 tag: "General",
                 favoritedBy: [],
             },
@@ -314,47 +320,47 @@ const importData = async () => {
         const sampleShifts = [
             // Sunday: Admin on Morning, Regular on Evening
             {
-                userId: createdUsers[0]._id.toString(),
+                userId: createdUsers[0]._id,
                 date: weekDays[0],
-                shiftTypeId: shiftTypeMorningId.toString(),
+                shiftTypeId: shiftTypeMorningId,
                 vacationDeducted: false,
             },
             {
-                userId: createdUsers[1]._id.toString(),
+                userId: createdUsers[1]._id,
                 date: weekDays[0],
-                shiftTypeId: shiftTypeEveningId.toString(),
+                shiftTypeId: shiftTypeEveningId,
                 vacationDeducted: false,
             },
             // Monday: Regular on Morning, Admin on Evening
             {
-                userId: createdUsers[1]._id.toString(),
+                userId: createdUsers[1]._id,
                 date: weekDays[1],
-                shiftTypeId: shiftTypeMorningId.toString(),
+                shiftTypeId: shiftTypeMorningId,
                 vacationDeducted: false,
             },
             {
-                userId: createdUsers[0]._id.toString(),
+                userId: createdUsers[0]._id,
                 date: weekDays[1],
-                shiftTypeId: shiftTypeEveningId.toString(),
+                shiftTypeId: shiftTypeEveningId,
                 vacationDeducted: false,
             },
             // Tuesday: Admin on Night, Regular on Middle
             {
-                userId: createdUsers[0]._id.toString(),
+                userId: createdUsers[0]._id,
                 date: weekDays[2],
-                shiftTypeId: shiftTypeNightId.toString(),
+                shiftTypeId: shiftTypeNightId,
                 vacationDeducted: false,
             },
             {
-                userId: createdUsers[1]._id.toString(),
+                userId: createdUsers[1]._id,
                 date: weekDays[2],
-                shiftTypeId: shiftTypeMiddleId.toString(),
+                shiftTypeId: shiftTypeMiddleId,
                 vacationDeducted: false,
             },
         ];
 
         await ShiftSchedule.create({
-            groupId: gMap["noc"].stringId,
+            groupId: gMap["noc"],
             startDate: startOfWeekDate,
             endDate: endOfWeekDate,
             isPublished: true,
@@ -369,7 +375,7 @@ const importData = async () => {
         reportEndTime.setHours(14, 0, 0, 0);
 
         await ShiftReport.create({
-            groupId: gMap["noc"].stringId,
+            groupId: gMap["noc"],
             title: `Morning Shift - ${reportStartTime.toLocaleDateString("en-US")}`,
             date: reportStartTime,
             startTime: reportStartTime.toISOString(),
@@ -378,7 +384,7 @@ const importData = async () => {
             currentTasks: "<p><strong>Shift Status:</strong> All systems operational without incident.</p><ul><li>Performed connectivity checks across all endpoints.</li><li>Scheduled server maintenance completed successfully.</li></ul>",
             attendees: [
                 {
-                    userId: createdUsers[0]._id.toString(),
+                    userId: createdUsers[0]._id,
                     name: createdUsers[0].username,
                     isManual: false,
                 },

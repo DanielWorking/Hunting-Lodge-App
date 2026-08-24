@@ -170,7 +170,7 @@ export default function AdminTable({
          * This ensures the UI doesn't count or display defunct references.
          */
         const validUserGroups = (user.groups || []).filter((g) =>
-            allGroups.some((grp) => (grp._id || grp.id) === g.groupId),
+            allGroups.some((grp) => grp._id === g.groupId),
         );
 
         // Limit initial display to 2 groups to preserve row height
@@ -178,7 +178,7 @@ export default function AdminTable({
         const hiddenGroupsCount = validUserGroups.length - 2;
 
         return (
-            <TableRow key={user._id || user.id} hover>
+            <TableRow key={user._id} hover>
                 {/* 1. System ID (Username) */}
                 <TableCell>
                     <Typography variant="body2" fontFamily="monospace">
@@ -204,7 +204,7 @@ export default function AdminTable({
                                 const groupName =
                                     allGroups.find(
                                         (grp) =>
-                                            (grp._id || grp.id) === g.groupId,
+                                            grp._id === g.groupId,
                                     )?.name || "Unknown";
                                 return (
                                     <Chip
@@ -288,7 +288,7 @@ export default function AdminTable({
         const group = rawGroup as unknown as ExtendedGroup;
         const isSystemGroup =
             group.name === envConfig.superAdmin.groupName;
-        const groupId = group._id || group.id;
+        const groupId = group._id;
 
         /**
          * Calculate user population for this group in real-time.

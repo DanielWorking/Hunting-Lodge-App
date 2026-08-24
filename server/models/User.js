@@ -15,7 +15,7 @@ const mongoose = require("mongoose");
  * @property {string} [displayName] - Human-readable name for UI display.
  * @property {string} email - Verified email address (unique, sparse index).
  * @property {Object[]} groups - List of groups the user belongs to.
- * @property {string} groups.groupId - The ID of the group.
+ * @property {mongoose.Schema.Types.ObjectId} groups.groupId - Reference to the Group document.
  * @property {string} groups.role - User's authority level in the group ("member", "shift_manager").
  * @property {number} groups.order - Sorting preference for groups in the UI.
  * @property {boolean} isActive - Toggle for account access and visibility.
@@ -30,7 +30,11 @@ const UserSchema = new mongoose.Schema(
         email: { type: String, required: true, unique: true, sparse: true },
         groups: [
             {
-                groupId: { type: String },
+                groupId: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "Group",
+                    required: true,
+                },
                 role: { type: String, enum: ["member", "shift_manager"] },
                 order: { type: Number, default: 0 },
             },

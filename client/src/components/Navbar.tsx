@@ -95,7 +95,7 @@ export default function Navbar() {
      * @param {string} groupId The ID of the group to switch to.
      */
     const handleGroupSwitch = (groupId: string) => {
-        const targetGroup = groups.find((g) => (g._id || g.id) === groupId);
+        const targetGroup = groups.find((g) => g._id === groupId);
         switchGroup(groupId, targetGroup);
         handleClose();
         navigate("/");
@@ -108,7 +108,7 @@ export default function Navbar() {
      */
     const getGroupName = (groupId: string) => {
         if (!groups || groups.length === 0) return "Loading...";
-        const group = groups.find((g) => (g._id || g.id) === groupId);
+        const group = groups.find((g) => g._id === groupId);
         return group ? group.name : "Unknown Group";
     };
 
@@ -118,7 +118,7 @@ export default function Navbar() {
      * no longer exists in the system.
      */
     const validUserGroups = (user?.groups || []).filter((userGroup) =>
-        groups.some((g) => (g._id || g.id) === userGroup.groupId),
+        groups.some((g) => g._id === userGroup.groupId),
     );
 
     if (!user) return null;
@@ -349,7 +349,7 @@ export default function Navbar() {
                         {validUserGroups.map((membership) => {
                             const groupId = membership.groupId;
                             const isActive =
-                                (currentGroup?._id || currentGroup?.id) ===
+                                currentGroup?._id ===
                                 groupId;
 
                             return (

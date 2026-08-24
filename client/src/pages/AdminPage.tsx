@@ -133,7 +133,7 @@ export default function AdminPage() {
         if (!editingUser) return;
         try {
             await updateUser(
-                editingUser._id || editingUser.id,
+                editingUser._id,
                 userData,
             );
             showNotification("User updated successfully", "success");
@@ -154,15 +154,14 @@ export default function AdminPage() {
         try {
             if (editingGroup) {
                 // Update mode: The server expects only the name field for group updates.
-                // We use _id if available for compatibility with MongoDB identifiers.
-                const identifier = editingGroup._id || editingGroup.id;
+                const identifier = editingGroup._id;
 
                 await updateGroup(identifier, {
                     name: groupData.name,
                 });
                 showNotification("Group updated successfully", "success");
             } else {
-                // Creation mode: The AdminDialogs component ensures id and name are present.
+                // Creation mode
                 await createGroup(groupData);
                 showNotification("Group created successfully", "success");
             }
@@ -185,7 +184,7 @@ export default function AdminPage() {
     const handleConfirmDelete = async () => {
         if (!deleteItem) return;
 
-        const id = deleteItem._id || deleteItem.id;
+        const id = deleteItem._id;
         const isUser = "username" in deleteItem;
 
         try {

@@ -54,7 +54,7 @@ export default function MembersTab() {
 
     // Match the current group context with the detailed group data from the global store
     const activeGroupData = groups.find(
-        (g) => (g._id || g.id) === (currentGroup?._id || currentGroup?.id),
+        (g) => g._id === currentGroup?._id,
     );
 
     const [emails, setEmails] = useState<string[]>([]);
@@ -69,15 +69,15 @@ export default function MembersTab() {
     useEffect(() => {
         if (!currentGroup || users.length === 0) return;
 
-        // Filter and map members belonging to the current group (matching either _id or textual id)
-        const targetGroupIds = [currentGroup._id, currentGroup.id].filter(Boolean);
+        // Filter and map members belonging to the current group
+        const targetGroupId = currentGroup._id;
         const members = users
             .filter((u) =>
-                u.groups?.some((g) => targetGroupIds.includes(g.groupId)),
+                u.groups?.some((g) => g.groupId === targetGroupId),
             )
             .map((u) => {
                 const membership = u.groups?.find((g) =>
-                    targetGroupIds.includes(g.groupId),
+                    g.groupId === targetGroupId,
                 );
                 return { ...u, membership };
             });
@@ -125,7 +125,7 @@ export default function MembersTab() {
     const handleSaveEmails = async () => {
         if (!currentGroup) return;
         try {
-            await updateGroup(currentGroup._id || currentGroup.id, {
+            await updateGroup(currentGroup._id, {
                 reportEmails: emails,
             });
             showNotification("Emails updated", "success");
@@ -154,13 +154,13 @@ export default function MembersTab() {
                     field === "vacation"
                         ? value
                         : (prev[userId]?.vacation ??
-                          sortedMembers.find((u) => (u._id || u.id) === userId)
+                          sortedMembers.find((u) => u._id === userId)
                               ?.vacationBalance),
                 active:
                     field === "active"
                         ? value
                         : (prev[userId]?.active ??
-                          sortedMembers.find((u) => (u._id || u.id) === userId)
+                          sortedMembers.find((u) => u._id === userId)
                               ?.isActive),
             },
         }));
@@ -210,7 +210,7 @@ export default function MembersTab() {
         ];
 
         const updates = newSorted.map((u, i) => ({
-            userId: u._id || u.id,
+            userId: u._id,
             order: i,
         }));
 
@@ -218,7 +218,7 @@ export default function MembersTab() {
 
         try {
             await reorderUsers({
-                groupId: currentGroup?._id || currentGroup?.id,
+                groupId: currentGroup?._id,
                 updates,
             });
             refreshData();
@@ -321,7 +321,7 @@ export default function MembersTab() {
                     </TableHead>
                     <TableBody>
                         {sortedMembers.map((user, index) => {
-                            const userId = user._id || user.id;
+                            const userId = user._id;
                             const isEdited = !!editedValues[userId];
 
                             // Check if the user is the designated super admin

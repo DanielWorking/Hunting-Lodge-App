@@ -140,7 +140,7 @@ export default function PhonesTable({
                 <TableBody>
                     {phones.map((row) => (
                         <TableRow
-                            key={row._id || row.id}
+                            key={row._id}
                             onClick={() => onRowClick(row)}
                             sx={{
                                 cursor: "pointer",

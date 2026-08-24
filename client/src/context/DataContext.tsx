@@ -104,24 +104,22 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             const storedGroupId = localStorage.getItem("hunting_groupId");
             let targetGroup: Group | undefined;
 
-            if (currentGroup?._id || currentGroup?.id) {
+            if (currentGroup?._id) {
                 targetGroup = fetchedGroups.find(
-                    (g) =>
-                        (g._id || g.id) ===
-                        (currentGroup._id || currentGroup.id),
+                    (g) => g._id === currentGroup._id,
                 );
             }
 
             if (!targetGroup && storedGroupId) {
                 targetGroup = fetchedGroups.find(
-                    (g) => (g._id || g.id) === storedGroupId,
+                    (g) => g._id === storedGroupId,
                 );
             }
 
             if (!targetGroup && user.groups && user.groups.length > 0) {
                 const firstGid = user.groups[0].groupId;
                 targetGroup = fetchedGroups.find(
-                    (g) => (g._id || g.id) === firstGid,
+                    (g) => g._id === firstGid,
                 );
             }
 
@@ -137,7 +135,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             } else {
                 const activeGroupId =
                     targetGroup?._id ||
-                    targetGroup?.id ||
                     storedGroupId ||
                     user.groups[0]?.groupId;
 
@@ -158,7 +155,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         isRestoringSession,
         isAdmin,
         currentGroup?._id,
-        currentGroup?.id,
         setCurrentGroup,
     ]);
 
@@ -182,7 +178,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const fetchScopedUsers = async () => {
             if (!user || isRestoringSession || !currentGroup) return;
 
-            const activeGroupId = currentGroup._id || currentGroup.id;
+            const activeGroupId = currentGroup._id;
             if (!activeGroupId) return;
 
             try {
@@ -201,7 +197,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         };
 
         fetchScopedUsers();
-    }, [currentGroup?._id, currentGroup?.id, currentGroup?.name, user, isAdmin, isRestoringSession]);
+    }, [currentGroup?._id, currentGroup?.name, user, isAdmin, isRestoringSession]);
 
     return (
         <DataContext.Provider

@@ -50,12 +50,12 @@ export default function SSOCallback() {
                 const user = data.user || data;
                 const token = data.token;
 
-                if (user && (user._id || user.id)) {
+                if (user && user._id) {
                     // Persist the JWT token and user identifier for secure session persistence.
                     if (token) {
                         localStorage.setItem("hunting_token", token);
                     }
-                    localStorage.setItem("hunting_userId", user._id || user.id);
+                    localStorage.setItem("hunting_userId", user._id);
 
                     // Force a full application reload to synchronize contexts.
                     window.location.href = "/";

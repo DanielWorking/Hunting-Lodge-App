@@ -164,7 +164,7 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
                     </TableHead>
                     <TableBody>
                         {activeUsers.map((user) => (
-                            <TableRow key={user._id || user.id} hover>
+                            <TableRow key={user._id} hover>
                                 <TableCell
                                     component="th"
                                     scope="row"
@@ -180,7 +180,7 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
                                 </TableCell>
                                 {weekDays.map((day) => {
                                     const shift = getShiftForCell(
-                                        user._id || user.id,
+                                        user._id,
                                         day,
                                     );
                                     const shiftType = shift
@@ -189,7 +189,7 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
 
                                     const isSelected =
                                         selectedCell?.userId ===
-                                            (user._id || user.id) &&
+                                            user._id &&
                                         selectedCell?.date &&
                                         isSameDay(selectedCell.date, day);
 
@@ -200,7 +200,7 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
                                             onClick={(e) =>
                                                 onCellClick(
                                                     e,
-                                                    user._id || user.id,
+                                                    user._id,
                                                     day,
                                                 )
                                             }

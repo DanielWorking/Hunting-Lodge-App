@@ -10,25 +10,26 @@ const config = require("../config");
 const Group = require("../models/Group");
 
 /**
- * Resolves a group from a given string or ObjectId identifier.
- * Matches by MongoDB _id or custom string id.
+ * Resolves a group from a given string, ObjectId, or document identifier.
+ * Matches by MongoDB _id or group name.
  * 
  * @async
  * @function resolveGroup
- * @param {string|mongoose.Types.ObjectId} groupId - Group identifier.
+ * @param {string|mongoose.Types.ObjectId|Object} groupId - Group identifier or document.
  * @returns {Promise<Object|null>} The Group document or null.
  */
 async function resolveGroup(groupId) {
     if (!groupId) return null;
-    const strId = groupId.toString();
-    const isObjectId = mongoose.Types.ObjectId.isValid(strId);
-    
-    if (isObjectId) {
-        return Group.findOne({
-            $or: [{ _id: strId }, { id: strId }],
-        });
+    if (typeof groupId === "object" && groupId._id) {
+        return groupId;
     }
-    return Group.findOne({ id: strId });
+    const strId = groupId.toString();
+    if (mongoose.Types.ObjectId.isValid(strId)) {
+        const byId = await Group.findById(strId);
+        if (byId) return byId;
+    }
+    // Fallback: lookup by group name (useful for configuration strings like SUPER_ADMIN_GROUP_NAME)
+    return Group.findOne({ name: strId });
 }
 
 /**
@@ -63,7 +64,7 @@ function isAdmin(user) {
     const adminGroupName = config.superAdmin.groupName;
     const userGroups = user.groups || [];
     return userGroups.some((g) => {
-        const gid = g.groupId?.toString();
+        const gid = (g.groupId?._id || g.groupId)?.toString();
         return gid === adminGroupName;
     });
 }
@@ -84,12 +85,12 @@ async function isGroupMember(user, groupId) {
     const group = await resolveGroup(groupId);
     if (!group) return false;
 
-    const validGroupIdentifiers = [group._id.toString(), group.id];
+    const targetGroupId = group._id.toString();
     const userGroups = user.groups || [];
 
     return userGroups.some((g) => {
-        const gid = g.groupId?.toString();
-        return validGroupIdentifiers.includes(gid);
+        const gid = (g.groupId?._id || g.groupId)?.toString();
+        return gid === targetGroupId;
     });
 }
 
@@ -109,12 +110,12 @@ async function isShiftManager(user, groupId) {
     const group = await resolveGroup(groupId);
     if (!group) return false;
 
-    const validGroupIdentifiers = [group._id.toString(), group.id];
+    const targetGroupId = group._id.toString();
     const userGroups = user.groups || [];
 
     return userGroups.some((g) => {
-        const gid = g.groupId?.toString();
-        return validGroupIdentifiers.includes(gid) && g.role === "shift_manager";
+        const gid = (g.groupId?._id || g.groupId)?.toString();
+        return gid === targetGroupId && g.role === "shift_manager";
     });
 }
 

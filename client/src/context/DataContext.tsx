@@ -3,7 +3,8 @@
  *
  * Provides a global state management for core application data entities.
  * Synchronizes sites, phones, users, and groups from the backend to ensure
- * data consistency across different pages and components.
+ * data consistency across different pages and components, enforcing group-scoped
+ * user queries for standard users and full directory access for administrators.
  */
 
 import {
@@ -11,12 +12,14 @@ import {
     useContext,
     useState,
     useEffect,
+    useCallback,
     type ReactNode,
 } from "react";
 import { getSites } from "../api/sitesApi";
 import { getPhones } from "../api/phonesApi";
 import { getGroups } from "../api/groupsApi";
 import { getUsers } from "../api/usersApi";
+import { useUser } from "./UserContext";
 import type { SiteCard, PhoneRow, User, Group } from "../types";
 
 /**
@@ -31,11 +34,11 @@ interface DataContextType {
     phones: PhoneRow[];
     /** Direct state setter for phones. */
     setPhones: React.Dispatch<React.SetStateAction<PhoneRow[]>>;
-    /** List of all system users. */
+    /** List of users (scoped to active group for regular users; full directory for administrators). */
     users: User[];
     /** Direct state setter for users. */
     setUsers: React.Dispatch<React.SetStateAction<User[]>>;
-    /** List of all user groups/departments. */
+    /** List of user groups/departments accessible to the authenticated user. */
     groups: Group[];
     /** Direct state setter for groups. */
     setGroups: React.Dispatch<React.SetStateAction<Group[]>>;
@@ -48,16 +51,20 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 /**
- * Context provider that handles the initial data fetch and state distribution.
+ * Context provider that handles data synchronization and state distribution.
  * 
- * Automatically attempts to fetch data on mount if a valid user ID is found
- * in local storage. Wraps the application to provide global data access.
+ * Scopes user entities according to the active user's role and selected group:
+ * - Administrators receive the full user directory for administrative operations.
+ * - Regular users receive only members belonging to their currently active group.
  *
  * @param {Object} props - Component properties.
  * @param {ReactNode} props.children - The child components that will consume the context.
  * @returns {JSX.Element} The provider component wrapping its children.
  */
 export const DataProvider = ({ children }: { children: ReactNode }) => {
+    const { user, currentGroup, setCurrentGroup, isAdmin, isRestoringSession } =
+        useUser();
+
     const [sites, setSites] = useState<SiteCard[]>([]);
     const [phones, setPhones] = useState<PhoneRow[]>([]);
     const [users, setUsers] = useState<User[]>([]);
@@ -66,17 +73,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
 
     /**
-     * Fetches all core entities from the backend in parallel.
-     * 
-     * Requires an authenticated session (via stored userId). Updates multiple
-     * state slices simultaneously and manages the global loading state.
-     * 
-     * @returns {Promise<void>}
+     * Fetches core application entities from the backend.
+     * Enforces group scoping on user data queries for regular users.
      */
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         const storedToken = localStorage.getItem("hunting_token");
         const storedUserId = localStorage.getItem("hunting_userId");
-        if (!storedToken || !storedUserId) {
+
+        if (!storedToken || !storedUserId || !user || isRestoringSession) {
             setLoading(false);
             return;
         }
@@ -84,30 +88,113 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         try {
             setLoading(true);
 
-            const [sitesRes, phonesRes, groupsRes, usersRes] =
-                await Promise.all([
-                    getSites(),
-                    getPhones(),
-                    getGroups(),
-                    getUsers(),
-                ]);
+            // Fetch sites, phones, and groups in parallel
+            const [sitesRes, phonesRes, groupsRes] = await Promise.all([
+                getSites(),
+                getPhones(),
+                getGroups(),
+            ]);
 
-            // Consolidate and update site records in the state.
             setSites(sitesRes.data);
-
             setPhones(phonesRes.data);
-            setGroups(groupsRes.data);
-            setUsers(usersRes.data);
+            const fetchedGroups: Group[] = groupsRes.data;
+            setGroups(fetchedGroups);
+
+            // Synchronize and resolve full Group object in UserContext
+            const storedGroupId = localStorage.getItem("hunting_groupId");
+            let targetGroup: Group | undefined;
+
+            if (currentGroup?._id || currentGroup?.id) {
+                targetGroup = fetchedGroups.find(
+                    (g) =>
+                        (g._id || g.id) ===
+                        (currentGroup._id || currentGroup.id),
+                );
+            }
+
+            if (!targetGroup && storedGroupId) {
+                targetGroup = fetchedGroups.find(
+                    (g) => (g._id || g.id) === storedGroupId,
+                );
+            }
+
+            if (!targetGroup && user.groups && user.groups.length > 0) {
+                const firstGid = user.groups[0].groupId;
+                targetGroup = fetchedGroups.find(
+                    (g) => (g._id || g.id) === firstGid,
+                );
+            }
+
+            if (targetGroup) {
+                setCurrentGroup(targetGroup);
+            }
+
+            // Fetch users with appropriate scope
+            if (isAdmin) {
+                // Administrators fetch the full directory
+                const usersRes = await getUsers();
+                setUsers(usersRes.data);
+            } else {
+                const activeGroupId =
+                    targetGroup?._id ||
+                    targetGroup?.id ||
+                    storedGroupId ||
+                    user.groups[0]?.groupId;
+
+                if (activeGroupId) {
+                    const usersRes = await getUsers(activeGroupId);
+                    setUsers(usersRes.data);
+                } else {
+                    setUsers([]);
+                }
+            }
         } catch (error) {
             console.error("Error fetching data:", error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [
+        user,
+        isRestoringSession,
+        isAdmin,
+        currentGroup?._id,
+        currentGroup?.id,
+        setCurrentGroup,
+    ]);
 
+    // Re-fetch data upon authentication state stabilization
     useEffect(() => {
-        fetchData();
-    }, []);
+        if (!isRestoringSession) {
+            if (user) {
+                fetchData();
+            } else {
+                setSites([]);
+                setPhones([]);
+                setGroups([]);
+                setUsers([]);
+                setLoading(false);
+            }
+        }
+    }, [user, isRestoringSession, fetchData]);
+
+    // Dynamically update scoped users when the active group switches (for standard users)
+    useEffect(() => {
+        const fetchScopedUsers = async () => {
+            if (!user || isAdmin || isRestoringSession || !currentGroup) return;
+
+            const activeGroupId = currentGroup._id || currentGroup.id;
+            if (!activeGroupId) return;
+
+            try {
+                const usersRes = await getUsers(activeGroupId);
+                setUsers(usersRes.data);
+            } catch (error) {
+                console.error("Error fetching scoped users for group:", error);
+            }
+        };
+
+        fetchScopedUsers();
+    }, [currentGroup?._id, currentGroup?.id, user, isAdmin, isRestoringSession]);
 
     return (
         <DataContext.Provider
@@ -145,3 +232,4 @@ export const useData = () => {
     }
     return context;
 };
+

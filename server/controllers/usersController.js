@@ -10,7 +10,7 @@ const User = require("../models/User");
 const Group = require("../models/Group");
 const config = require("../config");
 const { generateToken } = require("../utils/jwt");
-const { isAdmin, isSuperAdminUser, resolveGroup } = require("../utils/authHelpers");
+const { isAdmin, isSuperAdminUser, resolveGroup, isGroupMember } = require("../utils/authHelpers");
 
 exports.login = async (req, res) => {
     try {
@@ -33,12 +33,65 @@ exports.login = async (req, res) => {
     }
 };
 
+/**
+ * Retrieves users from the system.
+ * 
+ * - If `groupId` is provided in query params:
+ *   Resolves the group and ensures the requester is an authorized member or an Administrator.
+ *   Returns ONLY users who are members of that group (admins are included only if assigned to that group).
+ * - If `groupId` is omitted:
+ *   Returns the full user directory across all groups. Strictly restricted to Administrators.
+ * 
+ * @async
+ * @function getUsers
+ * @param {Object} req - Express request object containing query parameters and authenticated user (`req.user`).
+ * @param {Object} res - Express response object.
+ * @returns {Promise<void>}
+ */
 exports.getUsers = async (req, res) => {
     try {
+        const { groupId } = req.query;
+        const requestingUser = req.user;
+
+        // Group-scoped user query
+        if (groupId) {
+            const group = await resolveGroup(groupId);
+            if (!group) {
+                return res.status(404).json({ message: "Group not found" });
+            }
+
+            // Authorization: If not an administrator, requester must be a member of the requested group
+            if (!isAdmin(requestingUser)) {
+                const isMember = await isGroupMember(requestingUser, groupId);
+                if (!isMember) {
+                    return res.status(403).json({
+                        message: "Forbidden: You are not a member of this group.",
+                        code: "FORBIDDEN_GROUP_MEMBER_REQUIRED",
+                    });
+                }
+            }
+
+            const groupIdentifiers = [group._id.toString(), group.id];
+            const users = await User.find({
+                "groups.groupId": { $in: groupIdentifiers },
+            });
+            return res.json(users);
+        }
+
+        // Full directory fetch (no groupId provided)
+        // Strictly restricted to Administrators (members of SUPER_ADMIN_GROUP_NAME or root super admin)
+        if (!isAdmin(requestingUser)) {
+            return res.status(403).json({
+                message: "Forbidden: Administrator privileges required for full user directory.",
+                code: "FORBIDDEN_ADMIN_REQUIRED",
+            });
+        }
+
         const users = await User.find();
-        res.json(users);
+        return res.json(users);
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        console.error("Get users error:", err);
+        return res.status(500).json({ message: err.message });
     }
 };
 

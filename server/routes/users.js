@@ -28,7 +28,9 @@ router.use(protect);
 /**
  * GET /
  * 
- * Retrieves all registered users.
+ * Retrieves users.
+ * - With `groupId` query parameter: returns only members of that specific group (requires membership or Administrator privileges).
+ * - Without `groupId` query parameter: returns the full user directory across all groups (strictly restricted to Administrators).
  * 
  * @name getUsers
  * @route {GET} /

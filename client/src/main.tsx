@@ -31,8 +31,8 @@ import { ColorModeProvider } from "./context/ThemeContext.tsx";
 ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
         <BrowserRouter>
-            <DataProvider>
-                <UserProvider>
+            <UserProvider>
+                <DataProvider>
                     <NotificationProvider>
                         <ColorModeProvider>
                             {/* CssBaseline resets CSS to a consistent baseline and applies theme-specific background colors (light/dark) */}
@@ -40,8 +40,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                             <App />
                         </ColorModeProvider>
                     </NotificationProvider>
-                </UserProvider>
-            </DataProvider>
+                </DataProvider>
+            </UserProvider>
         </BrowserRouter>
     </React.StrictMode>,
 );

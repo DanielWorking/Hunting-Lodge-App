@@ -2,18 +2,18 @@
  * @module AuthMiddleware
  *
  * Provides authentication-related middleware functions.
- * Currently supports a simplified user identification flow based on a custom header.
+ * Validates cryptographically signed JSON Web Tokens (JWT) from Bearer headers
+ * and attaches the authenticated user record to incoming requests.
  */
 
 const User = require("../models/User");
+const { verifyToken } = require("../utils/jwt");
 
 /**
- * Identifies a user based on the 'x-user-id' header and attaches the user object to the request.
- *
- * This middleware is "passive"—it does not block requests if authentication fails.
- * Instead, it populates `req.user` if a valid user ID is provided. Downstream
- * route handlers are responsible for checking `req.user` and responding with 401
- * if authentication is mandatory for a specific endpoint.
+ * Protects routes by requiring a valid JSON Web Token in the Authorization header.
+ * 
+ * Verifies the token signature and expiration, retrieves the active user from
+ * the database, and attaches the user document to `req.user`.
  *
  * @async
  * @function protect
@@ -24,21 +24,52 @@ const User = require("../models/User");
  */
 const protect = async (req, res, next) => {
     try {
-        // Attempt to retrieve the User ID from the custom header.
-        const userId = req.headers["x-user-id"];
+        const authHeader = req.headers.authorization || req.headers.Authorization;
 
-        if (!userId) {
-            return res.status(401).json({ message: "Unauthorized: No user ID provided" });
+        if (!authHeader || typeof authHeader !== "string" || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({
+                message: "Unauthorized: No token provided",
+                code: "NO_TOKEN",
+            });
         }
 
-        // Verify the user exists in the database.
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(401).json({ message: "Unauthorized: Invalid user ID" });
+        const token = authHeader.split(" ")[1];
+
+        if (!token) {
+            return res.status(401).json({
+                message: "Unauthorized: Malformed authorization header",
+                code: "MALFORMED_TOKEN",
+            });
         }
 
-        // Attach the user object to the request for use in subsequent middleware/routes.
+        let decoded;
+        try {
+            decoded = verifyToken(token);
+        } catch (jwtError) {
+            if (jwtError.name === "TokenExpiredError") {
+                return res.status(401).json({
+                    message: "Unauthorized: Token expired",
+                    code: "TOKEN_EXPIRED",
+                });
+            }
+            return res.status(401).json({
+                message: "Unauthorized: Invalid token signature",
+                code: "INVALID_TOKEN",
+            });
+        }
+
+        // Verify the user exists and is active in the database
+        const user = await User.findById(decoded.userId);
+        if (!user || user.isActive === false) {
+            return res.status(401).json({
+                message: "Unauthorized: User not found or inactive",
+                code: "USER_INACTIVE",
+            });
+        }
+
+        // Attach user and token claims to request
         req.user = user;
+        req.auth = decoded;
         next();
     } catch (error) {
         console.error("Auth Middleware Error:", error);

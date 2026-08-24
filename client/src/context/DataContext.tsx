@@ -74,8 +74,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
      * @returns {Promise<void>}
      */
     const fetchData = async () => {
+        const storedToken = localStorage.getItem("hunting_token");
         const storedUserId = localStorage.getItem("hunting_userId");
-        if (!storedUserId) {
+        if (!storedToken || !storedUserId) {
             setLoading(false);
             return;
         }

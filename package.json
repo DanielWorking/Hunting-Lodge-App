@@ -30,5 +30,8 @@
   "homepage": "https://github.com/DanielWorking/Hunting-Lodge-App#readme",
   "devDependencies": {
     "concurrently": "^10.0.4"
+  },
+  "dependencies": {
+    "mongoose": "^9.0.0"
   }
 }

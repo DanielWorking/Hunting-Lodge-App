@@ -46,13 +46,18 @@ export default function SSOCallback() {
                     code,
                     state,
                 });
-                const user = response.data;
+                const data = response.data;
+                const user = data.user || data;
+                const token = data.token;
 
                 if (user && (user._id || user.id)) {
-                    // Persist the user identifier for session persistence.
+                    // Persist the JWT token and user identifier for secure session persistence.
+                    if (token) {
+                        localStorage.setItem("hunting_token", token);
+                    }
                     localStorage.setItem("hunting_userId", user._id || user.id);
 
-                    // Force a full application reload to synchronize the UserContext.
+                    // Force a full application reload to synchronize contexts.
                     window.location.href = "/";
                 } else {
                     console.error("No user data returned from authentication endpoint.");

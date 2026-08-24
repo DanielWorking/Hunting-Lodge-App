@@ -15,6 +15,7 @@ console.log("Issuer exists?", !!Issuer); // If false, the version is incorrect
 
 const User = require("../models/User");
 const ssoConfig = require("../config/sso");
+const { generateToken } = require("../utils/jwt");
 
 /** @type {Object | null} Cached OIDC client instance to avoid repeated discoveries. */
 let client;
@@ -155,7 +156,8 @@ exports.login = async (req, res) => {
             await user.save();
         }
 
-        res.json(user);
+        const token = generateToken(user);
+        res.json({ user, token });
     } catch (error) {
         console.error("❌ SSO Login Error:", error);
         // Added full error message printing for debugging
@@ -163,5 +165,21 @@ exports.login = async (req, res) => {
             message: "SSO Authentication failed",
             error: error.message,
         });
+    }
+};
+
+/**
+ * Retrieves the currently authenticated user's profile and permissions.
+ * Requires protect middleware.
+ */
+exports.getMe = async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ message: "Not authenticated" });
+        }
+        res.json(req.user);
+    } catch (error) {
+        console.error("GetMe Error:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
 };

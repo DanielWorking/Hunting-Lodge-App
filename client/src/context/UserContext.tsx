@@ -94,10 +94,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         if (dataLoading) return;
 
         const restoreSession = () => {
+            const storedToken = localStorage.getItem("hunting_token");
             const storedUserId = localStorage.getItem("hunting_userId");
             const storedGroupId = localStorage.getItem("hunting_groupId");
 
-            if (storedUserId) {
+            // Require both valid token and userId for a valid session
+            if (storedToken && storedUserId) {
                 const foundUser = users.find(
                     (u) => (u._id || u.id) === storedUserId,
                 );
@@ -127,6 +129,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 } else {
                     logout();
                 }
+            } else if (storedUserId && !storedToken) {
+                // Clear legacy session lacking JWT
+                logout();
             }
             setIsRestoringSession(false);
         };
@@ -155,7 +160,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const login = async (username: string, _pass: string): Promise<boolean> => {
         try {
             const response = await loginUser(username);
-            const foundUser = response.data;
+            const data = response.data;
+            const foundUser = data.user || data;
+            const token = data.token;
 
             if (foundUser) {
                 // Ensure groups property is a valid array upon login.
@@ -166,6 +173,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
                 setUser(safeUser);
 
+                if (token) {
+                    localStorage.setItem("hunting_token", token);
+                }
                 localStorage.setItem(
                     "hunting_userId",
                     safeUser._id || safeUser.id,
@@ -202,6 +212,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const logout = () => {
         setUser(null);
         setCurrentGroup(null);
+        localStorage.removeItem("hunting_token");
         localStorage.removeItem("hunting_userId");
         localStorage.removeItem("hunting_groupId");
     };

@@ -8,6 +8,8 @@ const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
 
+const { protect } = require("../middleware/authMiddleware");
+
 /**
  * GET /sso-url
  * 
@@ -30,5 +32,16 @@ router.get("/sso-url", authController.getSsoUrl);
  * @route {POST} /login
  */
 router.post("/login", authController.login);
+
+/**
+ * GET /me
+ * 
+ * Retrieves the currently authenticated user profile from token.
+ * 
+ * @name getMe
+ * @route {GET} /me
+ * @authentication Requires valid JWT Bearer token.
+ */
+router.get("/me", protect, authController.getMe);
 
 module.exports = router;

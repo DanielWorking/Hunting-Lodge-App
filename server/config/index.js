@@ -48,6 +48,7 @@ if (customEnvPath && fs.existsSync(customEnvPath)) {
 function validateConfig() {
     const requiredInProd = [
         { key: "MONGO_URI", desc: "MongoDB connection string" },
+        { key: "JWT_SECRET", desc: "Cryptographic secret key for signing JSON Web Tokens" },
         { key: "SSO_ISSUER_URL", desc: "SSO/OIDC Issuer URL (Auth0, Okta, Azure AD, etc.)" },
         { key: "SSO_CLIENT_ID", desc: "SSO Client Application ID" },
         { key: "SSO_CLIENT_SECRET", desc: "SSO Client Secret key" },
@@ -76,6 +77,9 @@ function validateConfig() {
         if (!process.env.MONGO_URI) {
             console.warn("⚠️  [Dev Warning] MONGO_URI is not set. Database connection will likely fail.");
         }
+        if (!process.env.JWT_SECRET) {
+            console.warn("⚠️  [Dev Warning] JWT_SECRET is not set. Using fallback development secret.");
+        }
         if (!process.env.SSO_CLIENT_ID || !process.env.SSO_ISSUER_URL) {
             console.warn("⚠️  [Dev Warning] SSO variables are partially missing. SSO login may not work.");
         }
@@ -98,6 +102,12 @@ const config = Object.freeze({
 
     // Database
     mongoUri: process.env.MONGO_URI || "mongodb://localhost:27017/hunting_lodge_db",
+
+    // JWT Authentication
+    jwt: {
+        secret: process.env.JWT_SECRET || (isProd ? "" : "dev-jwt-secret-hunting-lodge-change-in-production"),
+        expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    },
 
     // Single Sign-On (SSO / OIDC)
     sso: {

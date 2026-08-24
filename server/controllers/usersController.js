@@ -9,6 +9,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const Group = require("../models/Group");
 const config = require("../config");
+const { generateToken } = require("../utils/jwt");
 
 exports.login = async (req, res) => {
     try {
@@ -24,7 +25,8 @@ exports.login = async (req, res) => {
         }
 
         const updatedUser = await user.save();
-        res.json(updatedUser);
+        const token = generateToken(updatedUser);
+        res.json({ user: updatedUser, token });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

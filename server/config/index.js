@@ -89,6 +89,27 @@ function validateConfig() {
 validateConfig();
 
 /**
+ * Parses the TRUST_PROXY environment variable into a valid Express 'trust proxy' setting.
+ *
+ * Supports boolean flags ('true'/'false'), integer hop counts (e.g., '1', '2'),
+ * subnet/IP range strings (e.g., 'loopback', '10.0.0.0/8'), or defaults to 1 hop.
+ *
+ * @param  {string | undefined} val  Raw environment variable value.
+ * @returns {boolean | number | string}  Parsed Express trust proxy setting.
+ */
+function parseTrustProxy(val) {
+    if (val === undefined || val === null || val === "") {
+        return 1;
+    }
+    const trimmed = String(val).trim();
+    if (trimmed.toLowerCase() === "true") return true;
+    if (trimmed.toLowerCase() === "false") return false;
+    const num = Number(trimmed);
+    if (!isNaN(num) && Number.isInteger(num)) return num;
+    return trimmed;
+}
+
+/**
  * Central structured configuration object.
  */
 const config = Object.freeze({
@@ -135,6 +156,8 @@ const config = Object.freeze({
         // Max requests per windowMs (10,000 in dev, 100 in prod by default)
         rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || (isProd ? "100" : "10000"), 10),
         rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || String(15 * 60 * 1000), 10),
+        // Express reverse proxy trust hop setting (default: 1 hop)
+        trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
     },
 
     // Logging & Observability

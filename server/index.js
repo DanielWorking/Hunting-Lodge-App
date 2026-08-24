@@ -18,6 +18,9 @@ const { notFoundHandler, errorHandler } = require("./middleware/errorMiddleware"
 
 const app = express();
 
+// Configure reverse proxy trust for correct client IP resolution behind proxies (Nginx, ALB, Cloudflare)
+app.set("trust proxy", config.security.trustProxy);
+
 // Global Middleware setup
 app.use(morgan(config.logging.morganFormat)); // HTTP request logger (dev vs combined)
 app.use(helmet()); // Secure HTTP headers

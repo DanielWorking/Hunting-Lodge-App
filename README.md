@@ -88,10 +88,36 @@ The codebase has complete separation between **Development** and **Production** 
    * Client runs on: `http://localhost:5173`
    * Server runs on: `http://localhost:5000`
 
-4. **(Optional) Seed Initial Dev Database:**
+4. **(Optional) Seed Initial Dev Database or Run Migrations:**
    ```bash
-   npm run seed
+   npm run seed       # Seeds development test data (resets dev DB)
+   npm run migrate:up # Applies pending database migrations
    ```
+
+---
+
+## 🗄️ Database Migrations (`migrate-mongo`)
+
+Database schema evolutions, index lifecycle, and data transformations are managed safely via `migrate-mongo`. Migration history is recorded in MongoDB's `changelog` collection.
+
+### Available Commands:
+* **Apply all pending migrations:**
+  ```bash
+  npm run migrate:up
+  ```
+* **Roll back the most recent migration:**
+  ```bash
+  npm run migrate:down
+  ```
+* **Check migration status:**
+  ```bash
+  npm run migrate:status
+  ```
+* **Create a new migration file:**
+  ```bash
+  npm run migrate:create <migration-name>
+  ```
+  *(Creates a new timestamped migration file in `server/migrations/`)*
 
 ---
 
@@ -111,10 +137,11 @@ The codebase has complete separation between **Development** and **Production** 
      ```
    * Set `VITE_SUPER_ADMIN_ID` and `VITE_SUPER_ADMIN_GROUP_NAME` matching your server configuration.
 
-3. **Build & Launch:**
+3. **Build, Migrate & Launch:**
    ```bash
-   npm run build
-   npm start
+   npm run build       # Build React SPA bundle
+   npm run migrate:up  # Apply pending database migrations & ensure indexes
+   npm start           # Launch production server
    ```
 
 ---

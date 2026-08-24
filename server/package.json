@@ -6,7 +6,11 @@
     "scripts": {
         "dev": "nodemon index.js",
         "start": "node index.js",
-        "seed": "node seed.js"
+        "seed": "node seed.js",
+        "migrate:up": "migrate-mongo up",
+        "migrate:down": "migrate-mongo down",
+        "migrate:status": "migrate-mongo status",
+        "migrate:create": "migrate-mongo create"
     },
     "keywords": [],
     "author": "",
@@ -19,6 +23,7 @@
         "express-rate-limit": "^8.5.2",
         "helmet": "^8.2.0",
         "jsonwebtoken": "^9.0.3",
+        "migrate-mongo": "^14.0.7",
         "mongoose": "^9.9.3",
         "morgan": "^1.11.0",
         "node-cron": "^4.2.1",

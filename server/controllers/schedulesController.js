@@ -18,22 +18,15 @@ exports.getSchedule = async (req, res) => {
 
         const startDate = new Date(date);
 
-        // --- Permission check (cleaner) ---
+        // --- Permission check: Only shift managers can view unpublished draft schedules ---
         let isPrivileged = false;
 
-        // req.user exists thanks to the middleware!
-        if (req.user) {
-            const isAdmin = req.user.username === "Admin";
-
-            const isShiftManager = req.user.groups.some(
+        if (req.user && req.user.groups) {
+            isPrivileged = req.user.groups.some(
                 (g) =>
                     g.groupId.toString() === groupId &&
                     g.role === "shift_manager",
             );
-
-            if (isAdmin || isShiftManager) {
-                isPrivileged = true;
-            }
         }
 
         let query = {
@@ -53,41 +46,55 @@ exports.getSchedule = async (req, res) => {
 };
 
 exports.saveSchedule = async (req, res) => {
-    // Additional protection: only a registered user can save
-
     try {
         const { groupId, startDate, endDate, shifts } = req.body;
+        if (!groupId) {
+            return res.status(400).json({ message: "Missing groupId" });
+        }
 
-        // Here you can add a check that req.user is indeed a manager in this group
-        // But for simplicity, we will leave the original working logic
+        // Authorization check: Only a shift manager of this group can save schedules
+        const isShiftManager = req.user?.groups?.some(
+            (g) =>
+                g.groupId.toString() === groupId.toString() &&
+                g.role === "shift_manager",
+        );
+
+        if (!isShiftManager) {
+            return res.status(403).json({
+                message:
+                    "Not authorized: You must be a Shift Manager of this group to save schedules.",
+            });
+        }
 
         const oldSchedule = await ShiftSchedule.findOne({ groupId, startDate });
 
         if (oldSchedule && oldSchedule.isPublished) {
             const group = await Group.findById(groupId);
-            const vacationTypeIds = group.settings.shiftTypes
-                .filter((t) => t.isVacation)
-                .map((t) => String(t._id));
+            const vacationTypeIds = group?.settings?.shiftTypes
+                ?.filter((t) => t.isVacation)
+                ?.map((t) => String(t._id)) || [];
 
-            for (const oldShift of oldSchedule.shifts) {
-                if (oldShift.vacationDeducted) {
-                    const stillExistsAsVacation = shifts.find(
-                        (newShift) =>
-                            newShift.userId === oldShift.userId &&
-                            new Date(newShift.date).toISOString() ===
-                                new Date(oldShift.date).toISOString() &&
-                            vacationTypeIds.includes(
-                                String(newShift.shiftTypeId),
-                            ),
-                    );
-
-                    if (!stillExistsAsVacation) {
-                        console.log(
-                            `♻️ Refunding vacation day to user ${oldShift.userId}`,
+            if (vacationTypeIds.length > 0) {
+                for (const oldShift of oldSchedule.shifts) {
+                    if (oldShift.vacationDeducted) {
+                        const stillExistsAsVacation = shifts.find(
+                            (newShift) =>
+                                newShift.userId === oldShift.userId &&
+                                new Date(newShift.date).toISOString() ===
+                                    new Date(oldShift.date).toISOString() &&
+                                vacationTypeIds.includes(
+                                    String(newShift.shiftTypeId),
+                                ),
                         );
-                        await User.findByIdAndUpdate(oldShift.userId, {
-                            $inc: { vacationBalance: 1 },
-                        });
+
+                        if (!stillExistsAsVacation) {
+                            console.log(
+                                `♻️ Refunding vacation day to user ${oldShift.userId}`,
+                            );
+                            await User.findByIdAndUpdate(oldShift.userId, {
+                                $inc: { vacationBalance: 1 },
+                            });
+                        }
                     }
                 }
             }
@@ -126,6 +133,20 @@ exports.publishSchedule = async (req, res) => {
         const schedule = await ShiftSchedule.findById(scheduleId);
         if (!schedule)
             return res.status(404).json({ message: "Schedule not found" });
+
+        // Authorization check: Only a shift manager of this group can publish schedules
+        const isShiftManager = req.user?.groups?.some(
+            (g) =>
+                g.groupId.toString() === schedule.groupId.toString() &&
+                g.role === "shift_manager",
+        );
+
+        if (!isShiftManager) {
+            return res.status(403).json({
+                message:
+                    "Not authorized: You must be a Shift Manager of this group to publish schedules.",
+            });
+        }
 
         const group = await Group.findById(schedule.groupId);
         if (!group) return res.status(404).json({ message: "Group not found" });
@@ -169,16 +190,14 @@ exports.getAllSchedules = async (req, res) => {
         const { groupId } = req.query;
         let query = { groupId };
 
-        // Using req.user from the middleware
+        // Permission check: Only shift managers can view unpublished draft schedules
         let isPrivileged = false;
-        if (req.user) {
-            const isAdmin = req.user.username === "Admin";
-            const isShiftManager = req.user.groups.some(
+        if (req.user && req.user.groups) {
+            isPrivileged = req.user.groups.some(
                 (g) =>
                     g.groupId.toString() === groupId &&
                     g.role === "shift_manager",
             );
-            if (isAdmin || isShiftManager) isPrivileged = true;
         }
 
         if (!isPrivileged) {

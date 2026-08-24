@@ -65,7 +65,7 @@ const Transition = React.forwardRef(function Transition(
 });
 
 export default function ShiftSchedulePage() {
-    const { currentGroup, isShiftManager, isAdmin } = useUser();
+    const { currentGroup, isShiftManager } = useUser();
     const { users, groups, refreshData } = useData();
     const { showNotification } = useNotification();
 
@@ -179,7 +179,7 @@ export default function ShiftSchedulePage() {
     /**
      * Handles clicking on a table cell to select a shift.
      * 
-     * Only allows interaction if the user is a shift manager or admin.
+     * Only allows interaction if the user is a shift manager of this group.
      * 
      * @param {React.MouseEvent<HTMLTableDataCellElement>} event  The mouse event.
      * @param {string}                                     userId The ID of the user for the selected cell.
@@ -191,11 +191,11 @@ export default function ShiftSchedulePage() {
             userId: string,
             date: Date,
         ) => {
-            if (!isShiftManager && !isAdmin) return;
+            if (!isShiftManager) return;
             setAnchorEl(event.currentTarget);
             setSelectedCell({ userId, date });
         },
-        [isShiftManager, isAdmin],
+        [isShiftManager],
     );
 
     /**
@@ -324,7 +324,6 @@ export default function ShiftSchedulePage() {
         shifts,
         shiftTypes,
         isShiftManager: !!isShiftManager,
-        isAdmin: !!isAdmin,
         selectedCell,
         onCellClick: handleCellClick,
     };
@@ -392,7 +391,7 @@ export default function ShiftSchedulePage() {
                     </Tooltip>
                 </Box>
 
-                {(isShiftManager || isAdmin) && (
+                {isShiftManager && (
                     <Box gap={2} display="flex">
                         <Button
                             variant="outlined"

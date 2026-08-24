@@ -52,8 +52,6 @@ interface ScheduleTableProps {
     shiftTypes: ShiftType[];
     /** Whether the current user has shift management privileges. */
     isShiftManager: boolean;
-    /** Whether the current user has administrative privileges. */
-    isAdmin: boolean;
     /** The currently highlighted cell, if any. */
     selectedCell: { userId: string; date: Date } | null;
     /** 
@@ -97,7 +95,6 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
             shifts,
             shiftTypes,
             isShiftManager,
-            isAdmin,
             selectedCell,
             onCellClick,
         },
@@ -208,10 +205,9 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
                                                 )
                                             }
                                             sx={{
-                                                cursor:
-                                                    isShiftManager || isAdmin
-                                                        ? "pointer"
-                                                        : "default",
+                                                cursor: isShiftManager
+                                                    ? "pointer"
+                                                    : "default",
                                                 bgcolor: shiftType
                                                     ? `${shiftType.color}40`
                                                     : "inherit",
@@ -234,7 +230,7 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
                                                         border: "1px solid rgba(0,0,0,0.1)",
                                                     }}
                                                 />
-                                            ) : isShiftManager || isAdmin ? (
+                                            ) : isShiftManager ? (
                                                 <Box
                                                     sx={{
                                                         opacity: 0.1,

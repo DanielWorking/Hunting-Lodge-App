@@ -121,8 +121,17 @@ const config = Object.freeze({
     // Server Networking
     port: parseInt(process.env.PORT || "5000", 10),
 
-    // Database
+    // Database Configuration & Connection Pool Settings
     mongoUri: process.env.MONGO_URI || "mongodb://localhost:27017/hunting_lodge_db",
+    database: {
+        uri: process.env.MONGO_URI || "mongodb://localhost:27017/hunting_lodge_db",
+        options: {
+            maxPoolSize: parseInt(process.env.MONGO_MAX_POOL_SIZE || (isProd ? "50" : "10"), 10),
+            minPoolSize: parseInt(process.env.MONGO_MIN_POOL_SIZE || (isProd ? "5" : "2"), 10),
+            serverSelectionTimeoutMS: parseInt(process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS || "5000", 10),
+            socketTimeoutMS: parseInt(process.env.MONGO_SOCKET_TIMEOUT_MS || "45000", 10),
+        },
+    },
 
     // JWT Authentication
     jwt: {

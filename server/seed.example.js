@@ -172,7 +172,7 @@ function getCurrentWeekRange() {
  */
 const importData = async () => {
     try {
-        await mongoose.connect(config.mongoUri);
+        await mongoose.connect(config.mongoUri, config.database ? config.database.options : {});
         console.log("✅ MongoDB Connected...");
 
         // Wipe existing collections

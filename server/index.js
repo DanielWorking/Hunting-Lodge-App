@@ -64,22 +64,47 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// === Mongoose Connection Lifecycle Event Listeners ===
+mongoose.connection.on("connected", () => {
+    console.log(`✅ [MongoDB] Connection established to: ${mongoose.connection.host}`);
+});
+
+mongoose.connection.on("error", (err) => {
+    console.error(`❌ [MongoDB] Connection error: ${err.message}`);
+});
+
+mongoose.connection.on("disconnected", () => {
+    console.warn("⚠️  [MongoDB] Lost database connection. Waiting for reconnect...");
+});
+
+mongoose.connection.on("reconnected", () => {
+    console.log("🔄 [MongoDB] Reconnected to database successfully.");
+});
+
+mongoose.connection.on("close", () => {
+    console.log("🔒 [MongoDB] Connection closed.");
+});
+
 /**
- * Establishes a connection to the MongoDB database using the URI provided in configuration.
+ * Establishes a connection to the MongoDB database using the configured URI and connection pool parameters.
  *
  * Terminates the process with an error code if the initial connection fails, as the application
- * cannot function without a database.
+ * cannot function without an active database connection.
  *
  * @async
  * @function connectDB
- * @throws {Error} If the connection to MongoDB fails.
+ * @returns {Promise<void>}
+ * @throws {Error} If the initial connection to MongoDB fails.
  */
 const connectDB = async () => {
     try {
-        const conn = await mongoose.connect(config.mongoUri);
-        console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+        const conn = await mongoose.connect(config.mongoUri, config.database.options);
+        const { minPoolSize, maxPoolSize, serverSelectionTimeoutMS } = config.database.options;
+        console.log(
+            `📦 [MongoDB] Pool initialized: minPoolSize=${minPoolSize}, maxPoolSize=${maxPoolSize}, serverSelectionTimeoutMS=${serverSelectionTimeoutMS}ms`
+        );
     } catch (error) {
-        console.error(`❌ Error: ${error.message}`);
+        console.error(`❌ [MongoDB] Initial connection failed: ${error.message}`);
         process.exit(1);
     }
 };

@@ -2,13 +2,13 @@
  * @module AdminPage
  *
  * Provides the administrative dashboard for managing users and groups.
- * Includes functionality for searching, creating, editing, and deleting
- * both user and group entities.
+ * Includes functionality for searching, editing, and deleting users,
+ * as well as full group management.
  */
 
 import { useState } from "react";
 import { Container, Typography, Box } from "@mui/material";
-import { createUser, updateUser, deleteUser } from "../api/usersApi";
+import { updateUser, deleteUser } from "../api/usersApi";
 import { createGroup, updateGroup, deleteGroup } from "../api/groupsApi";
 
 import { useData } from "../context/DataContext";
@@ -114,22 +114,18 @@ export default function AdminPage() {
     // --- Save Logic ---
 
     /**
-     * Persists user changes (create or update) to the server.
+     * Persists user profile updates to the server.
      *
      * @param {Partial<User>} userData The updated user data.
      */
     const handleSaveUser = async (userData: Partial<User>) => {
+        if (!editingUser) return;
         try {
-            if (editingUser) {
-                await updateUser(
-                    editingUser._id || editingUser.id,
-                    userData,
-                );
-                showNotification("User updated successfully", "success");
-            } else {
-                await createUser(userData);
-                showNotification("User created successfully", "success");
-            }
+            await updateUser(
+                editingUser._id || editingUser.id,
+                userData,
+            );
+            showNotification("User updated successfully", "success");
             refreshData();
             setIsUserDialogOpen(false);
         } catch (error) {

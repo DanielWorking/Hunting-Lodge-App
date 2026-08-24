@@ -43,12 +43,12 @@ interface UserDialogProps {
     onClose: () => void;
     /** Callback function triggered when the user form is saved. */
     onSave: (user: Partial<User>) => void;
-    /** Existing user data for editing, or null if creating a new user. */
+    /** Existing user data for the account being edited. */
     initialData: User | null;
 }
 
 /**
- * Renders a dialog for creating or editing user accounts and their group memberships.
+ * Renders a dialog for editing user accounts and their group memberships.
  *
  * Implements security logic to prevent self-deactivation and restricted
  * modifications to Super Admin profiles or administrative group roles.
@@ -80,18 +80,11 @@ export function UserDialog({
     const [groupToAdd, setGroupToAdd] = useState<Group | null>(null);
 
     /**
-     * Synchronizes form state with provided initial data or resets for a new user.
+     * Synchronizes form state with provided initial data.
      */
     useEffect(() => {
         if (initialData) {
             setFormData(initialData);
-        } else {
-            setFormData({
-                username: "",
-                isActive: true,
-                vacationBalance: 0,
-                groups: [],
-            });
         }
         setGroupToAdd(null);
     }, [initialData, open]);
@@ -216,9 +209,7 @@ export function UserDialog({
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>
-                {initialData ? "Edit User" : "Add New User"}
-            </DialogTitle>
+            <DialogTitle>Edit User</DialogTitle>
             <DialogContent>
                 <Box
                     display="flex"
@@ -227,15 +218,14 @@ export function UserDialog({
                     sx={{ mt: 1 }}
                 >
                     <TextField
-                        autoFocus
                         margin="dense"
                         label={"System ID (Username)"}
                         helperText={
-                            "Enter the unique user ID exactly as it appears in the organization."
+                            "User ID is managed via SSO and cannot be modified."
                         }
                         type={"text"}
                         fullWidth
-                        disabled={!!initialData}
+                        disabled
                         value={formData.username || ""}
                         onChange={(e) =>
                             setFormData({

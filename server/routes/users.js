@@ -38,17 +38,6 @@ router.use(protect);
  */
 router.get("/", usersController.getUsers);
 
-/**
- * POST /
- * 
- * Creates a new user (Pre-provisioning).
- * Synchronizes the new user's membership across the specified groups.
- * 
- * @name createUser
- * @route {POST} /
- * @authentication Requires valid JWT.
- */
-router.post("/", usersController.createUser);
 
 /**
  * PUT /reorder/group

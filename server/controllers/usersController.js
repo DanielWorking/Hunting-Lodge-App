@@ -39,53 +39,6 @@ exports.getUsers = async (req, res) => {
     }
 };
 
-exports.createUser = async (req, res) => {
-    try {
-        const { username, email, displayName, groups, isActive } = req.body;
-
-        // Check for existing user by username or email
-        const existingUser = await User.findOne({
-            $or: [{ username }, { email }],
-        });
-
-        if (existingUser) {
-            return res
-                .status(400)
-                .json({ message: "User already exists (username or email)" });
-        }
-
-        const newUser = new User({
-            username,
-            email,
-            displayName: displayName || username, // Default to username if not provided
-            groups: groups || [],
-            isActive: isActive !== undefined ? isActive : true,
-            vacationBalance: 18, // System default balance
-        });
-
-        const savedUser = await newUser.save();
-
-        // Group synchronization: Add user to the specified groups' member lists
-        if (groups && groups.length > 0) {
-            const groupIds = groups.map((g) => g.groupId);
-            // Update groups to include the new user's ObjectId
-            await Group.updateMany(
-                {
-                    $or: [
-                        { id: { $in: groupIds } },
-                        { _id: { $in: groupIds } }, // Support both ID types
-                    ],
-                },
-                { $addToSet: { members: savedUser._id } },
-            );
-        }
-
-        res.status(201).json(savedUser);
-    } catch (err) {
-        console.error("Create user error:", err);
-        res.status(400).json({ message: err.message });
-    }
-};
 
 exports.reorderUsers = async (req, res) => {
     try {

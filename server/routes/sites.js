@@ -8,53 +8,61 @@
 
 const router = require("express").Router();
 const sitesController = require("../controllers/sitesController");
-const { protect } = require("../middleware/authMiddleware");
+const { protect, requireGroupMember } = require("../middleware/authMiddleware");
+
+// Ensure all site routes are protected by authentication
+router.use(protect);
 
 /**
  * GET /
  * 
- * Retrieves all registered sites/resources.
+ * Retrieves sites/resources accessible to the user based on group membership.
  * 
  * @name getSites
  * @route {GET} /
  * @authentication Requires valid JWT.
  */
-router.get("/", protect, sitesController.getSites);
+router.get("/", sitesController.getSites);
 
 /**
  * POST /
  * 
  * Creates a new web resource entry for a specific group.
- * Validates that the URL is unique within the context of the target group.
+ * Authorization: User must be a member of the target group or an Administrator.
  * 
  * @name createSite
  * @route {POST} /
- * @authentication Requires valid JWT.
+ * @authentication Requires valid JWT and membership in req.body.groupId.
  */
-router.post("/", protect, sitesController.createSite);
+router.post(
+    "/",
+    requireGroupMember((req) => req.body.groupId),
+    sitesController.createSite,
+);
 
 /**
  * PUT /:id
  * 
  * Updates an existing resource entry.
- * If the URL is changed, it performs a duplicate check within the group scope.
+ * Authorization: User must be a member of the site's group or an Administrator.
  * 
  * @name updateSite
  * @route {PUT} /:id
- * @authentication Requires valid JWT.
+ * @authentication Requires valid JWT and membership in the site's group.
  */
-router.put("/:id", protect, sitesController.updateSite);
+router.put("/:id", sitesController.updateSite);
 
 /**
  * DELETE /:id
  * 
  * Deletes a resource from the repository.
+ * Authorization: User must be a member of the site's group or an Administrator.
  * 
  * @name deleteSite
  * @route {DELETE} /:id
- * @authentication Requires valid JWT.
+ * @authentication Requires valid JWT and membership in the site's group.
  */
-router.delete("/:id", protect, sitesController.deleteSite);
+router.delete("/:id", sitesController.deleteSite);
 
 /**
  * PUT /:id/favorite
@@ -63,8 +71,8 @@ router.delete("/:id", protect, sitesController.deleteSite);
  * 
  * @name toggleFavorite
  * @route {PUT} /:id/favorite
- * @authentication Requires valid JWT.
+ * @authentication Requires valid JWT and membership in the site's group.
  */
-router.put("/:id/favorite", protect, sitesController.toggleFavorite);
+router.put("/:id/favorite", sitesController.toggleFavorite);
 
 module.exports = router;

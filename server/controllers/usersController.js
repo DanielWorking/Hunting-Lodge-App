@@ -10,6 +10,7 @@ const User = require("../models/User");
 const Group = require("../models/Group");
 const config = require("../config");
 const { generateToken } = require("../utils/jwt");
+const { isAdmin, isSuperAdminUser, resolveGroup } = require("../utils/authHelpers");
 
 exports.login = async (req, res) => {
     try {
@@ -41,7 +42,6 @@ exports.getUsers = async (req, res) => {
     }
 };
 
-
 exports.reorderUsers = async (req, res) => {
     try {
         const { groupId, updates } = req.body;
@@ -49,11 +49,7 @@ exports.reorderUsers = async (req, res) => {
             return res.status(400).json({ message: "Invalid payload: groupId and updates array are required" });
         }
 
-        // Support matching group by both its ObjectId and custom string id
-        const groupQuery = mongoose.Types.ObjectId.isValid(groupId)
-            ? { $or: [{ _id: groupId }, { id: groupId }] }
-            : { id: groupId };
-        const group = await Group.findOne(groupQuery);
+        const group = await resolveGroup(groupId);
         const matchingGroupIds = group
             ? [group._id.toString(), group.id]
             : [groupId.toString()];
@@ -75,24 +71,36 @@ exports.reorderUsers = async (req, res) => {
 
 exports.updateUser = async (req, res) => {
     try {
-        // Fetch old user state to detect group membership changes
-        const oldUser = await User.findById(req.params.id);
-        if (!oldUser)
-            return res.status(404).json({ message: "User not found" });
+        const targetUserId = req.params.id;
+        const requestingUser = req.user;
 
-        // Update user fields
+        // 1. Authorization check: Restricted to Administrators
+        if (!isAdmin(requestingUser)) {
+            return res.status(403).json({
+                message: "Forbidden: Only Administrators can modify user accounts and profiles.",
+                code: "FORBIDDEN_ADMIN_REQUIRED",
+            });
+        }
+
+        // 2. Fetch target user
+        const oldUser = await User.findById(targetUserId);
+        if (!oldUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // 3. Update user
         const updatedUser = await User.findByIdAndUpdate(
-            req.params.id,
+            targetUserId,
             { $set: req.body },
             { new: true },
         );
 
-        // Group membership synchronization logic
+        // 4. Group membership synchronization logic
         if (req.body.groups) {
             const oldGroupIds = oldUser.groups.map((g) => g.groupId);
             const newGroupIds = updatedUser.groups.map((g) => g.groupId);
 
-            // 1. Remove user from groups they no longer belong to
+            // 4a. Remove user from groups they no longer belong to
             const groupsToRemove = oldGroupIds.filter(
                 (id) => !newGroupIds.includes(id),
             );
@@ -108,7 +116,7 @@ exports.updateUser = async (req, res) => {
                 );
             }
 
-            // 2. Add user to new groups they joined
+            // 4b. Add user to new groups they joined
             const groupsToAdd = newGroupIds.filter(
                 (id) => !oldGroupIds.includes(id),
             );
@@ -136,16 +144,11 @@ exports.deleteUser = async (req, res) => {
         const userToDelete = await User.findById(req.params.id);
         if (!userToDelete) return res.status(404).json({ message: "User not found" });
 
-        const isSuperAdminUser =
-            userToDelete.username === config.superAdmin.id ||
-            userToDelete.username === config.superAdmin.username ||
-            (config.superAdmin.email && userToDelete.email === config.superAdmin.email);
-
-        // Protection: System prevents deletion of the Super Admin account
-        if (isSuperAdminUser) {
-            return res
-                .status(403)
-                .json({ message: "Cannot delete Super Admin" });
+        // System protection: Permanently prevent deletion of the root Super Admin account
+        if (isSuperAdminUser(userToDelete)) {
+            return res.status(403).json({
+                message: "System Security: The root Super Admin account cannot be deleted.",
+            });
         }
 
         await User.findByIdAndDelete(req.params.id);
@@ -174,21 +177,16 @@ exports.managerUpdate = async (req, res) => {
 
         // 2. Perform Authorization check
         const requestingUser = req.user;
-        const isSuperAdmin =
-            requestingUser.username === config.superAdmin.id ||
-            requestingUser.username === config.superAdmin.username ||
-            (config.superAdmin.email && requestingUser.email === config.superAdmin.email);
-
-        let isAuthorized = isSuperAdmin;
+        let isAuthorized = isAdmin(requestingUser);
 
         if (!isAuthorized) {
             // Check if requester is a 'shift_manager' in any group the target user belongs to
             const managerGroupIds = requestingUser.groups
                 .filter((g) => g.role === "shift_manager")
-                .map((g) => g.groupId.toString());
+                .map((g) => g.groupId?.toString());
 
             const targetGroupIds = targetUser.groups.map((g) =>
-                g.groupId.toString(),
+                g.groupId?.toString(),
             );
 
             // Determine if there's an overlap between managed groups and target groups
@@ -202,18 +200,15 @@ exports.managerUpdate = async (req, res) => {
         }
 
         if (!isAuthorized) {
-            return res
-                .status(403)
-                .json({
-                    message:
-                        "Not authorized: You must be a Shift Manager of this user's group.",
-                });
+            return res.status(403).json({
+                message: "Not authorized: You must be an Administrator or Shift Manager of this user's group.",
+                code: "FORBIDDEN_MANAGER_REQUIRED",
+            });
         }
 
         // 3. Apply updates
         if (isActive !== undefined) targetUser.isActive = isActive;
-        if (vacationBalance !== undefined)
-            targetUser.vacationBalance = vacationBalance;
+        if (vacationBalance !== undefined) targetUser.vacationBalance = vacationBalance;
 
         const updatedUser = await targetUser.save();
         res.json(updatedUser);

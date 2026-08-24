@@ -4,51 +4,66 @@
  * Provides API endpoints for managing shift schedules.
  * Features include schedule retrieval, saving (with vacation balance management),
  * and publishing schedules to members.
+ * 
+ * Access Rules:
+ * - Group members can view published schedules.
+ * - ONLY the Shift Manager of a group can create, edit, save drafts, and publish schedules.
  */
 
 const express = require("express");
 const router = express.Router();
 const schedulesController = require("../controllers/schedulesController");
+const {
+    protect,
+    requireGroupMember,
+    requireShiftManager,
+} = require("../middleware/authMiddleware");
 
-const { protect } = require("../middleware/authMiddleware");
-
-// Use protect middleware for all routes in this file
-// (Alternatively, it can be added specifically to each route: router.get('/', protect, ...))
+// Ensure all routes are protected by authentication
 router.use(protect);
 
 /**
  * GET /
  * 
  * Retrieves a specific schedule for a group based on a start date.
- * Filters unpublished schedules for non-privileged users.
+ * Draft schedules are only visible to Shift Managers of the group.
  * 
  * @name getSchedule
  * @route {GET} /
- * @authentication Requires valid JWT.
+ * @authentication Requires valid JWT and group membership.
  */
-router.get("/", schedulesController.getSchedule);
+router.get(
+    "/",
+    requireGroupMember((req) => req.query.groupId),
+    schedulesController.getSchedule,
+);
 
 /**
  * PUT /
  * 
- * Saves or updates a shift schedule.
- * Handles vacation day refunds if a previously published vacation shift is changed.
+ * Saves or updates a shift schedule draft.
+ * Authorization: Strictly restricted to the Shift Manager of the group.
  * 
  * @name saveSchedule
  * @route {PUT} /
- * @authentication Requires valid JWT.
+ * @authentication Requires valid JWT and Shift Manager role in the target group.
  */
-router.put("/", schedulesController.saveSchedule);
+router.put(
+    "/",
+    requireShiftManager((req) => req.body.groupId),
+    schedulesController.saveSchedule,
+);
 
 /**
  * POST /publish
  * 
- * Publishes a schedule, making it visible to all group members.
- * Automatically deducts vacation days from users assigned to vacation shifts.
+ * Publishes a schedule, making it visible to all group members,
+ * and automatically deducts vacation days.
+ * Authorization: Strictly restricted to the Shift Manager of the group.
  * 
  * @name publishSchedule
  * @route {POST} /publish
- * @authentication Requires valid JWT.
+ * @authentication Requires valid JWT and Shift Manager role in the schedule's group.
  */
 router.post("/publish", schedulesController.publishSchedule);
 
@@ -56,12 +71,16 @@ router.post("/publish", schedulesController.publishSchedule);
  * GET /all
  * 
  * Retrieves all schedules for a specific group.
- * Filters unpublished schedules for non-privileged users.
+ * Filters unpublished schedules for non-shift-manager members.
  * 
  * @name getAllSchedules
  * @route {GET} /all
- * @authentication Requires valid JWT.
+ * @authentication Requires valid JWT and group membership.
  */
-router.get("/all", schedulesController.getAllSchedules);
+router.get(
+    "/all",
+    requireGroupMember((req) => req.query.groupId),
+    schedulesController.getAllSchedules,
+);
 
 module.exports = router;

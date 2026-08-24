@@ -7,32 +7,41 @@
 
 const router = require("express").Router();
 const groupsController = require("../controllers/groupsController");
-const { protect } = require("../middleware/authMiddleware");
+const {
+    protect,
+    requireAdmin,
+    requireGroupMember,
+    requireShiftManager,
+} = require("../middleware/authMiddleware");
+
+// Ensure all group routes require authentication
+router.use(protect);
 
 /**
  * GET /
  * 
- * Retrieves all groups with a real-time count of active members.
- * Uses a manual count from the User collection to ensure accuracy.
+ * Retrieves groups. Administrators receive all groups; regular users receive only their assigned groups.
  * 
  * @name getGroups
  * @route {GET} /
- * @authentication This route requires a valid JWT.
+ * @authentication Requires valid JWT.
  */
-router.get("/", protect, groupsController.getGroups);
+router.get("/", groupsController.getGroups);
 
 /**
  * POST /
  * 
  * Creates a new organizational group.
+ * Authorization: Restricted to Administrators.
  * 
  * @name createGroup
  * @route {POST} /
- * @authentication This route requires a valid JWT.
+ * @authentication Requires valid JWT with Administrator privileges.
  */
-router.post("/", protect, groupsController.createGroup);
+router.post("/", requireAdmin, groupsController.createGroup);
 
 // === TAG MANAGEMENT ROUTES ===
+// Only explicit members of that specific group can create, rename, and delete tags
 
 /**
  * POST /:id/tags
@@ -41,9 +50,13 @@ router.post("/", protect, groupsController.createGroup);
  * 
  * @name addTag
  * @route {POST} /:id/tags
- * @authentication This route requires a valid JWT.
+ * @authentication Requires explicit group membership.
  */
-router.post("/:id/tags", protect, groupsController.addTag);
+router.post(
+    "/:id/tags",
+    requireGroupMember((req) => req.params.id),
+    groupsController.addTag,
+);
 
 /**
  * PUT /:id/tags/:tagName
@@ -52,9 +65,13 @@ router.post("/:id/tags", protect, groupsController.addTag);
  * 
  * @name renameTag
  * @route {PUT} /:id/tags/:tagName
- * @authentication This route requires a valid JWT.
+ * @authentication Requires explicit group membership.
  */
-router.put("/:id/tags/:tagName", protect, groupsController.renameTag);
+router.put(
+    "/:id/tags/:tagName",
+    requireGroupMember((req) => req.params.id),
+    groupsController.renameTag,
+);
 
 /**
  * DELETE /:id/tags/:tagName
@@ -63,50 +80,58 @@ router.put("/:id/tags/:tagName", protect, groupsController.renameTag);
  * 
  * @name deleteTag
  * @route {DELETE} /:id/tags/:tagName
- * @authentication This route requires a valid JWT.
+ * @authentication Requires explicit group membership.
  */
-router.delete("/:id/tags/:tagName", protect, groupsController.deleteTag);
+router.delete(
+    "/:id/tags/:tagName",
+    requireGroupMember((req) => req.params.id),
+    groupsController.deleteTag,
+);
 
-// === SETTINGS UPDATE ROUTE (Specific) ===
+// === SETTINGS UPDATE ROUTE ===
 
 /**
  * PUT /:id/settings
  * 
- * Updates specific group settings like shift types and time slots.
- * Validates that no duplicate shift type names are provided.
+ * Updates group settings like shift types and time slots.
+ * Authorization: Strictly restricted to the Shift Manager of this group.
  * 
  * @name updateSettings
  * @route {PUT} /:id/settings
- * @authentication This route requires a valid JWT.
+ * @authentication Requires Shift Manager role in the target group.
  */
-router.put("/:id/settings", protect, groupsController.updateSettings);
+router.put(
+    "/:id/settings",
+    requireShiftManager((req) => req.params.id),
+    groupsController.updateSettings,
+);
 
-// === GENERAL GROUP UPDATE (with Member Synchronization) ===
+// === GENERAL GROUP UPDATE (Admin Only) ===
 
 /**
  * PUT /:id
  * 
  * Updates general group metadata.
- * Includes security checks to prevent modification of system-protected groups.
+ * Authorization: Restricted to Administrators.
  * 
  * @name updateGroup
  * @route {PUT} /:id
- * @authentication This route requires a valid JWT.
+ * @authentication Requires valid JWT with Administrator privileges.
  */
-router.put("/:id", protect, groupsController.updateGroup);
+router.put("/:id", requireAdmin, groupsController.updateGroup);
 
-// === DELETE GROUP (Protected) ===
+// === DELETE GROUP (Admin Only) ===
 
 /**
  * DELETE /:id
  * 
- * Deletes a group and cleans up all related resources (sites, user memberships).
- * Prevents deletion if the group still has active members.
+ * Deletes a group and cleans up all related resources.
+ * Authorization: Restricted to Administrators.
  * 
  * @name deleteGroup
  * @route {DELETE} /:id
- * @authentication This route requires a valid JWT.
+ * @authentication Requires valid JWT with Administrator privileges.
  */
-router.delete("/:id", protect, groupsController.deleteGroup);
+router.delete("/:id", requireAdmin, groupsController.deleteGroup);
 
 module.exports = router;

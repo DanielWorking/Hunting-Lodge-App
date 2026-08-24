@@ -8,7 +8,7 @@
 const express = require("express");
 const router = express.Router();
 const usersController = require("../controllers/usersController");
-const { protect } = require("../middleware/authMiddleware");
+const { protect, requireAdmin, requireShiftManager } = require("../middleware/authMiddleware");
 
 // --- Public Routes ---
 
@@ -16,8 +16,6 @@ const { protect } = require("../middleware/authMiddleware");
  * POST /login
  * 
  * Handles local user login.
- * Note: This is primarily for backward compatibility or local development;
- * the main authentication flow uses the OIDC /auth/login route.
  * 
  * @name login
  * @route {POST} /login
@@ -38,47 +36,52 @@ router.use(protect);
  */
 router.get("/", usersController.getUsers);
 
-
 /**
  * PUT /reorder/group
  * 
  * Updates the display order of users within a specific group.
+ * Authorization: Restricted to Shift Managers of the group.
  * 
  * @name reorderUsers
  * @route {PUT} /reorder/group
- * @authentication Requires valid JWT.
+ * @authentication Requires valid JWT and Shift Manager role in the target group.
  */
-router.put("/reorder/group", usersController.reorderUsers);
+router.put(
+    "/reorder/group",
+    requireShiftManager((req) => req.body.groupId),
+    usersController.reorderUsers,
+);
 
 /**
  * PUT /:id
  * 
  * Updates user profile and synchronizes group memberships.
- * Manages adding/removing the user from Group member lists based on changes.
+ * Authorization: Restricted to Administrators. Regular users cannot alter profile data.
  * 
  * @name updateUser
  * @route {PUT} /:id
- * @authentication Requires valid JWT.
+ * @authentication Requires valid JWT with Administrator privileges.
  */
-router.put("/:id", usersController.updateUser);
+router.put("/:id", requireAdmin, usersController.updateUser);
 
 /**
  * DELETE /:id
  * 
  * Deletes a user and removes them from all group memberships.
- * Includes protection against deleting the Super Admin.
+ * Authorization: Restricted to Administrators.
+ * System permanently blocks deletion of the root Super Admin account.
  * 
  * @name deleteUser
  * @route {DELETE} /:id
- * @authentication Requires valid JWT.
+ * @authentication Requires valid JWT with Administrator privileges.
  */
-router.delete("/:id", usersController.deleteUser);
+router.delete("/:id", requireAdmin, usersController.deleteUser);
 
 /**
  * PATCH /:id/manager-update
  * 
  * Performs administrative updates on a user (Status & Vacation Balance).
- * Authorization: Restricted to Super Admins or Shift Managers of the user's groups.
+ * Authorization: Restricted to Admins or Shift Managers of the user's groups.
  * 
  * @name managerUpdate
  * @route {PATCH} /:id/manager-update

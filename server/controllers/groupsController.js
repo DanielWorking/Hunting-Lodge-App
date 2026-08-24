@@ -9,24 +9,37 @@ const Group = require("../models/Group");
 const User = require("../models/User");
 const Site = require("../models/Site");
 const config = require("../config");
+const { resolveGroup, isAdmin } = require("../utils/authHelpers");
 
 exports.getGroups = async (req, res) => {
     try {
-        // Use lean() to get plain JavaScript objects for easier modification
-        const groups = await Group.find().lean();
+        let groups;
+
+        if (isAdmin(req.user)) {
+            // Administrators receive all groups in the system
+            groups = await Group.find().lean();
+        } else {
+            // Regular users receive only the groups they are assigned to
+            const userGroupIds = (req.user.groups || []).map((g) => g.groupId);
+            groups = await Group.find({
+                $or: [
+                    { _id: { $in: userGroupIds } },
+                    { id: { $in: userGroupIds } },
+                ],
+            }).lean();
+        }
 
         // Query the User collection for each group to get the actual member count
         const groupsWithCounts = await Promise.all(
             groups.map(async (group) => {
+                const groupIdentifiers = [group.id, group._id.toString()];
                 const realCount = await User.countDocuments({
-                    "groups.groupId": group.id,
+                    "groups.groupId": { $in: groupIdentifiers },
                 });
 
-                // Override or add the userCount field with the real-time data
                 return {
                     ...group,
                     userCount: realCount,
-                    // Note: Clients should rely on userCount rather than members.length
                 };
             }),
         );
@@ -65,7 +78,7 @@ exports.addTag = async (req, res) => {
     }
 
     try {
-        const group = await Group.findOne({ id: req.params.id });
+        const group = await resolveGroup(req.params.id);
         if (!group) return res.status(404).json({ message: "Group not found" });
 
         if (group.siteTags.includes(tagName.trim())) {
@@ -93,7 +106,7 @@ exports.renameTag = async (req, res) => {
     }
 
     try {
-        const group = await Group.findOne({ id: req.params.id });
+        const group = await resolveGroup(req.params.id);
         if (!group) return res.status(404).json({ message: "Group not found" });
 
         const tagIndex = group.siteTags.indexOf(tagName);
@@ -134,7 +147,7 @@ exports.deleteTag = async (req, res) => {
     }
 
     try {
-        const group = await Group.findOne({ id: req.params.id });
+        const group = await resolveGroup(req.params.id);
         if (!group) return res.status(404).json({ message: "Group not found" });
 
         group.siteTags = group.siteTags.filter((t) => t !== tagName);
@@ -159,14 +172,7 @@ exports.updateSettings = async (req, res) => {
     try {
         const { shiftTypes, timeSlots } = req.body;
 
-        let group;
-        // Check if the ID is a MongoDB ObjectId or a textual ID
-        if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-            group = await Group.findById(req.params.id);
-        } else {
-            group = await Group.findOne({ id: req.params.id });
-        }
-
+        const group = await resolveGroup(req.params.id);
         if (!group) return res.status(404).json({ message: "Group not found" });
 
         if (shiftTypes) {
@@ -206,24 +212,15 @@ exports.updateSettings = async (req, res) => {
 
 exports.updateGroup = async (req, res) => {
     const { name, settings, siteTags, reportEmails } = req.body;
-    let query;
-
-    // Determine if ID is a MongoDB ObjectId or a textual identifier
-    if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-        query = { _id: req.params.id };
-    } else {
-        query = { id: req.params.id };
-    }
 
     try {
-        const group = await Group.findOne(query);
+        const group = await resolveGroup(req.params.id);
 
         if (!group) {
             return res.status(404).json({ message: "Group not found" });
         }
 
         // === SECURITY LAYER: Protect the System Admin Group ===
-        // Prevents renaming or changing settings for the core administrative group
         if (group.id === config.superAdmin.groupName) {
             return res.status(403).json({
                 message: `System Security: The '${config.superAdmin.groupName}' group cannot be modified.`,
@@ -245,19 +242,19 @@ exports.updateGroup = async (req, res) => {
 
 exports.deleteGroup = async (req, res) => {
     try {
-        let query = {};
-        if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-            query = { _id: req.params.id };
-        } else {
-            query = { id: req.params.id };
-        }
-
-        const group = await Group.findOne(query);
+        const group = await resolveGroup(req.params.id);
         if (!group) return res.status(404).json({ message: "Group not found" });
+
+        // === SECURITY LAYER: Protect System Admin Group ===
+        if (group.id === config.superAdmin.groupName) {
+            return res.status(403).json({
+                message: `System Security: The '${config.superAdmin.groupName}' group cannot be deleted.`,
+            });
+        }
 
         // === VALIDATION & CLEANUP ===
 
-        // 1. Check if the group itself thinks it has members (primary source of truth)
+        // 1. Check if the group itself thinks it has members
         if (group.members && group.members.length > 0) {
             return res.status(400).json({
                 message:
@@ -265,7 +262,7 @@ exports.deleteGroup = async (req, res) => {
             });
         }
 
-        // 2. If we reached here, the group is empty. Clean up "orphan" references in User documents
+        // 2. Clean up "orphan" references in User documents
         const groupIdentifiers = [group.id, group._id.toString()].filter(
             Boolean,
         );
@@ -276,7 +273,7 @@ exports.deleteGroup = async (req, res) => {
         );
 
         // Safe to proceed with deletion
-        await Group.findOneAndDelete(query);
+        await Group.findByIdAndDelete(group._id);
 
         // Cleanup associated resources (sites, etc.)
         await Site.deleteMany({ groupId: group._id });

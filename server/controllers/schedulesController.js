@@ -4,37 +4,40 @@
  * Handlers for managing shift schedules.
  * Features include schedule retrieval, saving (with vacation balance management),
  * and publishing schedules to members.
+ * 
+ * Enforces strict role checks: only explicit Shift Managers of a group can
+ * view drafts, save schedules, and publish schedules.
  */
 
 const ShiftSchedule = require("../models/ShiftSchedule");
 const User = require("../models/User");
 const Group = require("../models/Group");
+const { isShiftManager, resolveGroup } = require("../utils/authHelpers");
 
 exports.getSchedule = async (req, res) => {
     try {
         const { groupId, date } = req.query;
-        if (!groupId || !date)
+        if (!groupId || !date) {
             return res.status(400).json({ message: "Missing groupId or date" });
-
-        const startDate = new Date(date);
-
-        // --- Permission check: Only shift managers can view unpublished draft schedules ---
-        let isPrivileged = false;
-
-        if (req.user && req.user.groups) {
-            isPrivileged = req.user.groups.some(
-                (g) =>
-                    g.groupId.toString() === groupId &&
-                    g.role === "shift_manager",
-            );
         }
 
+        const group = await resolveGroup(groupId);
+        if (!group) {
+            return res.status(404).json({ message: "Group not found" });
+        }
+
+        const startDate = new Date(date);
+        const groupIdentifiers = [group.id, group._id.toString()];
+
+        // Permission check: Only explicit shift managers of this group can view draft schedules
+        const canViewDrafts = await isShiftManager(req.user, group._id);
+
         let query = {
-            groupId,
+            groupId: { $in: groupIdentifiers },
             startDate: startDate.toISOString(),
         };
 
-        if (!isPrivileged) {
+        if (!canViewDrafts) {
             query.isPublished = true;
         }
 
@@ -52,24 +55,27 @@ exports.saveSchedule = async (req, res) => {
             return res.status(400).json({ message: "Missing groupId" });
         }
 
-        // Authorization check: Only a shift manager of this group can save schedules
-        const isShiftManager = req.user?.groups?.some(
-            (g) =>
-                g.groupId.toString() === groupId.toString() &&
-                g.role === "shift_manager",
-        );
+        const group = await resolveGroup(groupId);
+        if (!group) {
+            return res.status(404).json({ message: "Group not found" });
+        }
 
-        if (!isShiftManager) {
+        // Strict Authorization: Only an explicit shift manager of this group can save schedules
+        const userIsManager = await isShiftManager(req.user, group._id);
+        if (!userIsManager) {
             return res.status(403).json({
-                message:
-                    "Not authorized: You must be a Shift Manager of this group to save schedules.",
+                message: "Forbidden: You must be an explicit Shift Manager of this group to save schedules.",
+                code: "FORBIDDEN_SHIFT_MANAGER_REQUIRED",
             });
         }
 
-        const oldSchedule = await ShiftSchedule.findOne({ groupId, startDate });
+        const groupIdentifiers = [group.id, group._id.toString()];
+        const oldSchedule = await ShiftSchedule.findOne({
+            groupId: { $in: groupIdentifiers },
+            startDate,
+        });
 
         if (oldSchedule && oldSchedule.isPublished) {
-            const group = await Group.findById(groupId);
             const vacationTypeIds = group?.settings?.shiftTypes
                 ?.filter((t) => t.isVacation)
                 ?.map((t) => String(t._id)) || [];
@@ -77,7 +83,7 @@ exports.saveSchedule = async (req, res) => {
             if (vacationTypeIds.length > 0) {
                 for (const oldShift of oldSchedule.shifts) {
                     if (oldShift.vacationDeducted) {
-                        const stillExistsAsVacation = shifts.find(
+                        const stillExistsAsVacation = (shifts || []).find(
                             (newShift) =>
                                 newShift.userId === oldShift.userId &&
                                 new Date(newShift.date).toISOString() ===
@@ -99,7 +105,7 @@ exports.saveSchedule = async (req, res) => {
                 }
             }
 
-            shifts.forEach((newShift) => {
+            (shifts || []).forEach((newShift) => {
                 const matchingOldShift = oldSchedule.shifts.find(
                     (old) =>
                         old.userId === newShift.userId &&
@@ -115,8 +121,8 @@ exports.saveSchedule = async (req, res) => {
         }
 
         const schedule = await ShiftSchedule.findOneAndUpdate(
-            { groupId, startDate },
-            { groupId, startDate, endDate, shifts },
+            { groupId: { $in: groupIdentifiers }, startDate },
+            { groupId: group._id.toString(), startDate, endDate, shifts },
             { new: true, upsert: true },
         );
 
@@ -130,28 +136,30 @@ exports.saveSchedule = async (req, res) => {
 exports.publishSchedule = async (req, res) => {
     try {
         const { scheduleId } = req.body;
+        if (!scheduleId) {
+            return res.status(400).json({ message: "Missing scheduleId" });
+        }
+
         const schedule = await ShiftSchedule.findById(scheduleId);
-        if (!schedule)
+        if (!schedule) {
             return res.status(404).json({ message: "Schedule not found" });
+        }
 
-        // Authorization check: Only a shift manager of this group can publish schedules
-        const isShiftManager = req.user?.groups?.some(
-            (g) =>
-                g.groupId.toString() === schedule.groupId.toString() &&
-                g.role === "shift_manager",
-        );
+        const group = await resolveGroup(schedule.groupId);
+        if (!group) {
+            return res.status(404).json({ message: "Group not found for schedule" });
+        }
 
-        if (!isShiftManager) {
+        // Strict Authorization: Only an explicit shift manager of this group can publish schedules
+        const userIsManager = await isShiftManager(req.user, group._id);
+        if (!userIsManager) {
             return res.status(403).json({
-                message:
-                    "Not authorized: You must be a Shift Manager of this group to publish schedules.",
+                message: "Forbidden: You must be an explicit Shift Manager of this group to publish schedules.",
+                code: "FORBIDDEN_SHIFT_MANAGER_REQUIRED",
             });
         }
 
-        const group = await Group.findById(schedule.groupId);
-        if (!group) return res.status(404).json({ message: "Group not found" });
-
-        const vacationTypeIds = group.settings.shiftTypes
+        const vacationTypeIds = (group.settings?.shiftTypes || [])
             .filter((t) => t.isVacation)
             .map((t) => String(t._id));
 
@@ -181,6 +189,7 @@ exports.publishSchedule = async (req, res) => {
 
         res.json(schedule);
     } catch (err) {
+        console.error("Error publishing schedule:", err);
         res.status(500).json({ message: err.message });
     }
 };
@@ -188,19 +197,23 @@ exports.publishSchedule = async (req, res) => {
 exports.getAllSchedules = async (req, res) => {
     try {
         const { groupId } = req.query;
-        let query = { groupId };
-
-        // Permission check: Only shift managers can view unpublished draft schedules
-        let isPrivileged = false;
-        if (req.user && req.user.groups) {
-            isPrivileged = req.user.groups.some(
-                (g) =>
-                    g.groupId.toString() === groupId &&
-                    g.role === "shift_manager",
-            );
+        if (!groupId) {
+            return res.status(400).json({ message: "Missing groupId" });
         }
 
-        if (!isPrivileged) {
+        const group = await resolveGroup(groupId);
+        if (!group) {
+            return res.status(404).json({ message: "Group not found" });
+        }
+
+        const groupIdentifiers = [group.id, group._id.toString()];
+
+        // Permission check: Only explicit shift managers of this group can view draft schedules
+        const canViewDrafts = await isShiftManager(req.user, group._id);
+
+        let query = { groupId: { $in: groupIdentifiers } };
+
+        if (!canViewDrafts) {
             query.isPublished = true;
         }
 

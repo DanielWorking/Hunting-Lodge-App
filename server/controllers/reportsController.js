@@ -4,12 +4,17 @@
  * Handlers for managing shift reports.
  * Features include report retrieval with date filtering, automatic attendance 
  * detection based on shift schedules, and historical task tracking.
+ * 
+ * Enforces strict group boundaries:
+ * - Only explicit group members can view, create, and update reports.
+ * - Only explicit Shift Managers of the group can delete reports.
  */
 
 const ShiftReport = require("../models/ShiftReport");
 const ShiftSchedule = require("../models/ShiftSchedule");
 const Group = require("../models/Group");
 const User = require("../models/User");
+const { resolveGroup, isGroupMember, isShiftManager } = require("../utils/authHelpers");
 
 exports.getReports = async (req, res) => {
     try {
@@ -17,7 +22,21 @@ exports.getReports = async (req, res) => {
         if (!groupId)
             return res.status(400).json({ message: "Missing groupId" });
 
-        let query = { groupId };
+        const hasAccess = await isGroupMember(req.user, groupId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                message: "Forbidden: You are not a member of this group.",
+                code: "FORBIDDEN_GROUP_MEMBER_REQUIRED",
+            });
+        }
+
+        const group = await resolveGroup(groupId);
+        if (!group) {
+            return res.status(404).json({ message: "Group not found" });
+        }
+
+        const groupIdentifiers = [group.id, group._id.toString()];
+        let query = { groupId: { $in: groupIdentifiers } };
 
         // Handle temporal filtering logic
         if (year) {
@@ -44,10 +63,25 @@ exports.createReport = async (req, res) => {
     try {
         const { groupId, title, startTime, endTime } = req.body;
 
+        const hasAccess = await isGroupMember(req.user, groupId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                message: "Forbidden: You are not a member of this group.",
+                code: "FORBIDDEN_GROUP_MEMBER_REQUIRED",
+            });
+        }
+
+        const group = await resolveGroup(groupId);
+        if (!group) {
+            return res.status(404).json({ message: "Group not found" });
+        }
+
+        const groupIdentifiers = [group.id, group._id.toString()];
+
         // Inherit tasks from the most recent report of the same group
-        const lastReport = await ShiftReport.findOne({ groupId }).sort({
-            startTime: -1,
-        });
+        const lastReport = await ShiftReport.findOne({
+            groupId: { $in: groupIdentifiers },
+        }).sort({ startTime: -1 });
         const previousTasks = lastReport ? lastReport.currentTasks : "";
 
         let attendees = [];
@@ -55,14 +89,13 @@ exports.createReport = async (req, res) => {
 
         // Attempt to pull attendees automatically from the published schedule
         const schedule = await ShiftSchedule.findOne({
-            groupId,
+            groupId: { $in: groupIdentifiers },
             isPublished: true,
             startDate: { $lte: reportStart },
             endDate: { $gte: reportStart },
         });
 
-        if (schedule) {
-            const group = await Group.findById(groupId);
+        if (schedule && group.settings?.timeSlots) {
             const reportStartHour = reportStart.getHours();
             const reportStartMinute = reportStart.getMinutes();
             const reportTimeVal = reportStartHour * 60 + reportStartMinute;
@@ -102,7 +135,7 @@ exports.createReport = async (req, res) => {
         }
 
         const newReport = new ShiftReport({
-            groupId,
+            groupId: group._id.toString(),
             title,
             date: reportStart,
             startTime,
@@ -122,14 +155,25 @@ exports.createReport = async (req, res) => {
 
 exports.updateReport = async (req, res) => {
     try {
+        const report = await ShiftReport.findById(req.params.id);
+        if (!report) return res.status(404).json({ message: "Report not found" });
+
+        // Authorization: User must be an explicit member of the report's group
+        const hasAccess = await isGroupMember(req.user, report.groupId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                message: "Forbidden: You are not a member of this report's group.",
+                code: "FORBIDDEN_GROUP_MEMBER_REQUIRED",
+            });
+        }
+
         const { currentTasks, attendees, isLocked, previousTasks } = req.body;
 
         const updatedReport = await ShiftReport.findByIdAndUpdate(
             req.params.id,
             { currentTasks, attendees, isLocked, previousTasks },
-            { new: true }
+            { new: true },
         );
-        if (!updatedReport) return res.status(404).json({ message: "Report not found" });
 
         res.json(updatedReport);
     } catch (err) {
@@ -139,8 +183,20 @@ exports.updateReport = async (req, res) => {
 
 exports.deleteReport = async (req, res) => {
     try {
-        const deletedReport = await ShiftReport.findByIdAndDelete(req.params.id);
-        if (!deletedReport) return res.status(404).json({ message: "Report not found" });
+        const report = await ShiftReport.findById(req.params.id);
+        if (!report) return res.status(404).json({ message: "Report not found" });
+
+        // Authorization: Strictly Shift Manager of this group
+        const isMgr = await isShiftManager(req.user, report.groupId);
+
+        if (!isMgr) {
+            return res.status(403).json({
+                message: "Forbidden: Only an explicit Shift Manager of this group can delete reports.",
+                code: "FORBIDDEN_SHIFT_MANAGER_REQUIRED",
+            });
+        }
+
+        await ShiftReport.findByIdAndDelete(req.params.id);
         res.json({ message: "Report deleted" });
     } catch (err) {
         res.status(500).json({ message: err.message });

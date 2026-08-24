@@ -164,6 +164,11 @@ const config = Object.freeze({
     logging: {
         morganFormat: process.env.LOG_FORMAT || (isProd ? "combined" : "dev"),
     },
+
+    // Static Assets & Frontend Serving (for OpenShift & Unified Container Deployments)
+    staticFilesPath: process.env.STATIC_FILES_PATH
+        ? path.resolve(process.env.STATIC_FILES_PATH)
+        : path.resolve(__dirname, "../../client/dist"),
 });
 
 module.exports = config;

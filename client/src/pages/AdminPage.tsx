@@ -8,9 +8,11 @@
 
 import { useState } from "react";
 import { Container, Typography, Box } from "@mui/material";
+import { Navigate } from "react-router-dom";
 import { updateUser, deleteUser } from "../api/usersApi";
 import { createGroup, updateGroup, deleteGroup } from "../api/groupsApi";
 
+import { useUser } from "../context/UserContext";
 import { useData } from "../context/DataContext";
 import { useNotification } from "../context/NotificationContext";
 import type { User, Group } from "../types";
@@ -30,8 +32,17 @@ import ThinkingLoader from "../components/ThinkingLoader";
  * @returns {JSX.Element} The rendered AdminPage component.
  */
 export default function AdminPage() {
+    const { isAdmin, isRestoringSession } = useUser();
     const { users, groups, refreshData, loading } = useData();
     const { showNotification } = useNotification();
+
+    if (isRestoringSession) {
+        return <ThinkingLoader />;
+    }
+
+    if (!isAdmin) {
+        return <Navigate to="/" replace />;
+    }
 
     if (loading && users.length === 0 && groups.length === 0) {
         return <ThinkingLoader />;

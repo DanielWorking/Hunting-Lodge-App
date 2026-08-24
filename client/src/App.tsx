@@ -25,6 +25,36 @@ import ShiftReportPage from "./pages/ShiftReportPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
 /**
+ * A wrapper component for routes that require active Administrator privileges.
+ *
+ * It checks the current user's state:
+ * - Shows a loading indicator while the session is being restored.
+ * - Redirects to login if unauthenticated.
+ * - Redirects to home (/) if the user is not actively connected as an Administrator.
+ *
+ * @param {Object} props - The component props.
+ * @param {React.ReactNode} props.children - The child components to render if authorized.
+ * @returns {JSX.Element} The rendered children or redirect/loader.
+ */
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+    const { user, isAdmin, isRestoringSession } = useUser();
+
+    if (isRestoringSession) {
+        return <ThinkingLoader />;
+    }
+
+    if (!user) {
+        return <Navigate to="/login" replace />;
+    }
+
+    if (!isAdmin) {
+        return <Navigate to="/" replace />;
+    }
+
+    return <>{children}</>;
+};
+
+/**
  * A wrapper component for routes that require authentication and group membership.
  *
  * It checks the current user's state:
@@ -128,9 +158,9 @@ function App() {
                 <Route
                     path="/admin/users"
                     element={
-                        <ProtectedRoute>
+                        <AdminRoute>
                             <AdminPage />
-                        </ProtectedRoute>
+                        </AdminRoute>
                     }
                 />
 

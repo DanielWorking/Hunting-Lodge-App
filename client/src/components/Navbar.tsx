@@ -95,7 +95,8 @@ export default function Navbar() {
      * @param {string} groupId The ID of the group to switch to.
      */
     const handleGroupSwitch = (groupId: string) => {
-        switchGroup(groupId);
+        const targetGroup = groups.find((g) => (g._id || g.id) === groupId);
+        switchGroup(groupId, targetGroup);
         handleClose();
         navigate("/");
     };

@@ -177,24 +177,31 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [user, isRestoringSession, fetchData]);
 
-    // Dynamically update scoped users when the active group switches (for standard users)
+    // Dynamically update users when the active group or admin role switches
     useEffect(() => {
         const fetchScopedUsers = async () => {
-            if (!user || isAdmin || isRestoringSession || !currentGroup) return;
+            if (!user || isRestoringSession || !currentGroup) return;
 
             const activeGroupId = currentGroup._id || currentGroup.id;
             if (!activeGroupId) return;
 
             try {
-                const usersRes = await getUsers(activeGroupId);
-                setUsers(usersRes.data);
+                if (isAdmin) {
+                    // Full directory for administrators in the Admin group
+                    const usersRes = await getUsers();
+                    setUsers(usersRes.data);
+                } else {
+                    // Scoped member directory for standard users or admins operating in other groups
+                    const usersRes = await getUsers(activeGroupId);
+                    setUsers(usersRes.data);
+                }
             } catch (error) {
                 console.error("Error fetching scoped users for group:", error);
             }
         };
 
         fetchScopedUsers();
-    }, [currentGroup?._id, currentGroup?.id, user, isAdmin, isRestoringSession]);
+    }, [currentGroup?._id, currentGroup?.id, currentGroup?.name, user, isAdmin, isRestoringSession]);
 
     return (
         <DataContext.Provider

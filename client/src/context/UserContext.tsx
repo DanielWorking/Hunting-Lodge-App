@@ -46,8 +46,9 @@ interface UserContextType {
      * Changes the active group scope for the user.
      * 
      * @param {string} groupId - The ID of the group to switch to.
+     * @param {Group} [targetGroup] - Optional pre-resolved Group object.
      */
-    switchGroup: (groupId: string) => void;
+    switchGroup: (groupId: string, targetGroup?: Group) => void;
     /** Indicates if the system is still trying to recover a previous session from storage. */
     isRestoringSession: boolean;
 }
@@ -58,7 +59,7 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
  * Provider component that handles the authentication lifecycle.
  * 
  * Manages session persistence via localStorage and token verification,
- * and calculates permissions (isAdmin, isShiftManager) based on user roles.
+ * and calculates permissions (isAdmin, isShiftManager) based on active group context.
  *
  * @param {Object} props - Component properties.
  * @param {ReactNode} props.children - The child components that will consume the context.
@@ -70,14 +71,36 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const [isRestoringSession, setIsRestoringSession] = useState(true);
 
     /**
-     * Calculates if the user possesses administrator privileges.
-     * Matches either the active group name, user's group assignments, or root super admin identity.
+     * Determines whether the user account possesses global administrative eligibility.
+     * True if the user is the designated root Super Admin or is assigned to the administrator group.
      */
-    const isAdmin = Boolean(
-        currentGroup?.name === envConfig.superAdmin.groupName ||
+    const isUserAdminEligible = Boolean(
+        user?.username === envConfig.superAdmin.id ||
         user?.groups?.some((g) => g.groupId === envConfig.superAdmin.groupName) ||
-        user?.username === envConfig.superAdmin.id,
+        (currentGroup &&
+            (currentGroup.name === envConfig.superAdmin.groupName ||
+                currentGroup.id === envConfig.superAdmin.groupName) &&
+            user?.groups?.some(
+                (g) => g.groupId === (currentGroup._id || currentGroup.id),
+            )),
     );
+
+    /**
+     * Determines if the active group is the system administrator group.
+     */
+    const isActiveAdminGroup = Boolean(
+        currentGroup
+            ? currentGroup.name === envConfig.superAdmin.groupName ||
+              currentGroup.id === envConfig.superAdmin.groupName
+            : localStorage.getItem("hunting_groupId") ===
+              envConfig.superAdmin.groupName,
+    );
+
+    /**
+     * User has administrator privileges ONLY when actively connected to the administrator group.
+     * When switching to any other group, permissions downgrade to that group's assigned role.
+     */
+    const isAdmin = Boolean(isUserAdminEligible && isActiveAdminGroup);
 
     /** 
      * Checks if the user has managerial privileges within the active group context.
@@ -190,20 +213,25 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      * Switches the current active group scope if the user has permission.
      *
      * @param {string} groupId - The target group identifier.
+     * @param {Group} [targetGroup] - Optional pre-resolved group object.
      */
-    const switchGroup = (groupId: string) => {
+    const switchGroup = (groupId: string, targetGroup?: Group) => {
         const membership = user?.groups?.find((g) => g.groupId === groupId);
-        if (membership || isAdmin) {
+        if (membership || isUserAdminEligible) {
             localStorage.setItem("hunting_groupId", groupId);
-            setCurrentGroup((prev) => {
-                if (prev && (prev._id === groupId || prev.id === groupId)) return prev;
-                return {
-                    id: groupId,
-                    name: prev?.name || groupId,
-                    members: [],
-                    createdAt: new Date().toISOString(),
-                } as Group;
-            });
+            if (targetGroup) {
+                setCurrentGroup(targetGroup);
+            } else {
+                setCurrentGroup((prev) => {
+                    if (prev && (prev._id === groupId || prev.id === groupId)) return prev;
+                    return {
+                        id: groupId,
+                        name: groupId,
+                        members: [],
+                        createdAt: new Date().toISOString(),
+                    } as Group;
+                });
+            }
         }
     };
 

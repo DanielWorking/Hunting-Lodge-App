@@ -22,6 +22,7 @@ import AdminPage from "./pages/AdminPage";
 import GroupSettingsPage from "./pages/GroupSettingsPage";
 import ShiftSchedulePage from "./pages/ShiftSchedulePage";
 import ShiftReportPage from "./pages/ShiftReportPage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 /**
  * A wrapper component for routes that require authentication and group membership.
@@ -132,6 +133,9 @@ function App() {
                         </ProtectedRoute>
                     }
                 />
+
+                {/* Catch-all route for unmatched paths */}
+                <Route path="*" element={<NotFoundPage />} />
             </Routes>
         </>
     );

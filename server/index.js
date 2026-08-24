@@ -14,6 +14,7 @@ const morgan = require("morgan");
 const mongoose = require("mongoose");
 const config = require("./config");
 const authRoutes = require("./routes/auth");
+const { notFoundHandler, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
 
@@ -88,6 +89,10 @@ app.use("/api/auth", authRoutes);
 app.get("/", (req, res) => {
     res.send("Hunting Lodge API is running...");
 });
+
+// === Centralized Error Handling & Fallback 404 Middleware ===
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // Start listening for incoming requests
 app.listen(config.port, () => {

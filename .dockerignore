@@ -1,0 +1,37 @@
+# ==============================================================================
+# Docker Build Context Ignore List
+# ==============================================================================
+
+# Node dependencies and package caches
+node_modules
+**/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+
+# Frontend compiled artifacts (built dynamically in Stage 1)
+client/dist
+dist
+
+# Environment variable files and local secrets (must never be baked into images)
+.env
+.env.*
+!.env.*.example
+**/.env
+**/.env.*
+!**/.env.*.example
+
+# Version control and IDE metadata
+.git
+.gitignore
+.vscode
+.idea
+.agents
+
+# OS generated system files
+.DS_Store
+Thumbs.db
+
+# Documentation and design assets
+design-system

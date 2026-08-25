@@ -121,17 +121,18 @@ Database schema evolutions, index lifecycle, and data transformations are manage
 
 ---
 
-## 🚢 Deploying to Production (3 Simple Steps)
+## 🚢 Deploying to Production
 
+### Option A: Standard Node.js Host
 1. **Configure Server Environment:**
-   * Copy `server/.env.production.example` to `server/.env.production` (or `server/.env`) on the server:
+   * Copy `server/.env.production.example` to `server/.env.production` (or `server/.env`):
      ```bash
      cp server/.env.production.example server/.env.production
      ```
    * Fill in your production values (`MONGO_URI`, `SSO_*`, `SUPER_ADMIN_*`).
 
 2. **Configure Client Environment:**
-   * Copy `client/.env.production.example` to `client/.env.production` (or `client/.env`) on the build machine:
+   * Copy `client/.env.production.example` to `client/.env.production` (or `client/.env`):
      ```bash
      cp client/.env.production.example client/.env.production
      ```
@@ -146,5 +147,43 @@ Database schema evolutions, index lifecycle, and data transformations are manage
 
 ---
 
+### Option B: Containerized Deployment (Docker & OpenShift / Kubernetes v1.33+)
+
+The repository provides an enterprise-ready, multi-stage [`Dockerfile`](file:///Dockerfile) that compiles the React SPA and packages it alongside the Express backend into a single non-root container compliant with **OpenShift `restricted-v2` Security Context Constraints (SCC)**.
+
+#### 1. Build Container Image
+```bash
+docker build -t hunting-lodge-app:latest .
+```
+
+*Optional build arguments for frontend customization:*
+```bash
+docker build \
+  --build-arg VITE_API_URL=/api \
+  --build-arg VITE_SUPER_ADMIN_ID=10001 \
+  --build-arg VITE_SUPER_ADMIN_GROUP_NAME=ADMINISTRATORS \
+  --build-arg VITE_ENABLE_EMAIL_REPORTS=false \
+  -t hunting-lodge-app:latest .
+```
+
+#### 2. Run Container Locally (Testing)
+```bash
+docker run -d \
+  -p 5000:5000 \
+  --env-file server/.env.production \
+  --name hunting-lodge \
+  hunting-lodge-app:latest
+```
+
+#### 3. OpenShift / Kubernetes Deployment Specifications
+* **Container Port**: `5000` (Unprivileged, non-root `USER 1001`, GID `0` permissions).
+* **Liveness Probe**: HTTP GET `/healthz` on port `5000` (Checks process uptime & readiness).
+* **Readiness Probe**: HTTP GET `/api/health` on port `5000` (Checks active MongoDB connection).
+* **OpenShift Routing**: Single `Route` with Edge TLS termination targeting Service port `5000`. Both UI and `/api` are served on the same domain with zero CORS overhead.
+* **Environment Injection**: Inject production variables (`MONGO_URI`, `JWT_SECRET`, `SSO_*`, `SUPER_ADMIN_*`) via OpenShift `Secret` and `ConfigMap` resources.
+
+---
+
 ## 📜 License
 This project is licensed under the ISC License.
+

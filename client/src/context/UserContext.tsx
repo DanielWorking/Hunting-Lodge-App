@@ -10,9 +10,11 @@ import {
     createContext,
     useContext,
     useState,
+    useCallback,
     type ReactNode,
     useEffect,
 } from "react";
+import axios from "axios";
 import { getMe } from "../api/authApi";
 import { loginUser } from "../api/usersApi";
 import type { User, Group } from "../types";
@@ -111,10 +113,25 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     );
 
     /**
+     * Terminates the session and cleans up sensitive items from localStorage.
+     */
+    const logout = useCallback(() => {
+        setUser(null);
+        setCurrentGroup(null);
+        localStorage.removeItem("hunting_token");
+        localStorage.removeItem("hunting_userId");
+        localStorage.removeItem("hunting_groupId");
+    }, []);
+
+    /**
      * Session Restoration logic.
      * 
      * Runs on initial mount. Validates stored JWT against the `/api/auth/me` endpoint
      * to safely reconstruct the user session without querying the global user directory.
+     * 
+     * Only invokes logout() if the server explicitly responds with HTTP 401 Unauthorized
+     * (indicating an invalid or expired token). Transient network disruptions, timeouts,
+     * or 5xx server errors preserve stored credentials to allow recovery upon reconnection.
      */
     useEffect(() => {
         const restoreSession = async () => {
@@ -130,7 +147,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 const response = await getMe();
                 const foundUser = response.data;
 
-                if (foundUser && foundUser.isActive !== false) {
+                if (foundUser) {
                     const safeUser: User = {
                         ...foundUser,
                         groups: foundUser.groups || [],
@@ -141,14 +158,17 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 }
             } catch (error) {
                 console.error("Session restoration failed:", error);
-                logout();
+                // Only clear the stored session if the backend explicitly rejected the token (401)
+                if (axios.isAxiosError(error) && error.response?.status === 401) {
+                    logout();
+                }
             } finally {
                 setIsRestoringSession(false);
             }
         };
 
         restoreSession();
-    }, []);
+    }, [logout]);
 
     /**
      * Authenticates the user and initializes the session.
@@ -188,17 +208,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             console.error("Login failed:", error);
             return false;
         }
-    };
-
-    /**
-     * Terminates the session and cleans up sensitive items from localStorage.
-     */
-    const logout = () => {
-        setUser(null);
-        setCurrentGroup(null);
-        localStorage.removeItem("hunting_token");
-        localStorage.removeItem("hunting_userId");
-        localStorage.removeItem("hunting_groupId");
     };
 
     /**

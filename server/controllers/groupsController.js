@@ -211,7 +211,7 @@ exports.updateSettings = async (req, res) => {
 };
 
 exports.updateGroup = async (req, res) => {
-    const { name, settings, siteTags, reportEmails } = req.body;
+    const { name, settings, siteTags } = req.body;
 
     try {
         const group = await resolveGroup(req.params.id);
@@ -231,7 +231,6 @@ exports.updateGroup = async (req, res) => {
         if (name) group.name = name;
         if (settings) group.settings = settings;
         if (siteTags) group.siteTags = siteTags;
-        if (reportEmails) group.reportEmails = reportEmails;
 
         const updatedGroup = await group.save();
         res.json(updatedGroup);

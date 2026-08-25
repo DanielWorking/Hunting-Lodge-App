@@ -202,7 +202,6 @@ const importData = async () => {
                 name: config.superAdmin.groupName,
                 members: [],
                 settings: { shiftTypes: [], timeSlots: [] },
-                reportEmails: [],
                 siteTags: ["General"],
             },
             {
@@ -212,7 +211,6 @@ const importData = async () => {
                     shiftTypes: NOC_SHIFT_TYPES,
                     timeSlots: NOC_TIME_SLOTS,
                 },
-                reportEmails: ["noc-reports@corp.local"],
                 siteTags: ["General", "Tacti"],
             },
         ]);

@@ -1,9 +1,9 @@
 /**
  * @module MembersTab
  *
- * Provides a management interface for group members and report recipients.
- * Allows administrators to reorder members, toggle active status, adjust
- * vacation balances, and manage the list of email recipients for reports.
+ * Provides a management interface for group members.
+ * Allows administrators to reorder members, toggle active status,
+ * and adjust vacation balances.
  */
 
 import { useState, useEffect } from "react";
@@ -20,21 +20,14 @@ import {
     TextField,
     Tooltip,
     Switch,
-    Button,
     Typography,
-    List,
-    ListItem,
-    ListItemText,
 } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
-import DeleteIcon from "@mui/icons-material/Delete";
-import AddIcon from "@mui/icons-material/Add";
 import { useUser } from "../../context/UserContext";
 import { useData } from "../../context/DataContext";
 import { useNotification } from "../../context/NotificationContext";
-import { updateGroup } from "../../api/groupsApi";
 import { managerUpdateUser, reorderUsers } from "../../api/usersApi";
 import envConfig from "../../config/env";
 
@@ -49,16 +42,8 @@ import envConfig from "../../config/env";
  */
 export default function MembersTab() {
     const { currentGroup } = useUser();
-    const { users, setUsers, refreshData, groups } = useData();
+    const { users, setUsers, refreshData } = useData();
     const { showNotification } = useNotification();
-
-    // Match the current group context with the detailed group data from the global store
-    const activeGroupData = groups.find(
-        (g) => g._id === currentGroup?._id,
-    );
-
-    const [emails, setEmails] = useState<string[]>([]);
-    const [newEmail, setNewEmail] = useState("");
 
     /** @type {Object} Tracking local edits to member properties before they are persisted. */
     const [editedValues, setEditedValues] = useState<{
@@ -87,53 +72,6 @@ export default function MembersTab() {
         );
         setSortedMembers(members);
     }, [users, currentGroup]);
-
-    // Load initial report emails from group data
-    useEffect(() => {
-        if (activeGroupData) {
-            // Ensure backwards compatibility by forcing array type if legacy string format exists
-            const existing = activeGroupData.reportEmails || [];
-            setEmails(Array.isArray(existing) ? existing : []);
-        }
-    }, [activeGroupData]);
-
-    /**
-     * Adds the current value of newEmail to the recipients list.
-     * Prevents duplicates and empty strings.
-     */
-    const handleAddEmail = () => {
-        if (newEmail && !emails.includes(newEmail)) {
-            setEmails([...emails, newEmail]);
-            setNewEmail("");
-        }
-    };
-
-    /**
-     * Removes a specific email from the recipients list.
-     *
-     * @param {string} emailToDelete  The email address to remove from the list.
-     */
-    const handleDeleteEmail = (emailToDelete: string) => {
-        setEmails(emails.filter((e) => e !== emailToDelete));
-    };
-
-    /**
-     * Persists the updated report email list to the server.
-     *
-     * @returns {Promise<void>}
-     */
-    const handleSaveEmails = async () => {
-        if (!currentGroup) return;
-        try {
-            await updateGroup(currentGroup._id, {
-                reportEmails: emails,
-            });
-            showNotification("Emails updated", "success");
-            refreshData();
-        } catch (e) {
-            showNotification("Error", "error");
-        }
-    };
 
     /**
      * Updates local state when a member's property is edited.
@@ -248,63 +186,6 @@ export default function MembersTab() {
 
     return (
         <Box p={3}>
-            {/* --- Report Emails Section (Feature Flagged: requires internal network SMTP configuration) --- */}
-            {envConfig.features.enableEmailReports && (
-                <Box mb={4} p={2} bgcolor="action.hover" borderRadius={1}>
-                    <Typography variant="subtitle2" gutterBottom>
-                        Report Recipients
-                    </Typography>
-
-                    <Box display="flex" gap={1} mb={2}>
-                        <TextField
-                            label="Add Email"
-                            size="small"
-                            fullWidth
-                            value={newEmail}
-                            onChange={(e) => setNewEmail(e.target.value)}
-                        />
-                        <Button
-                            variant="contained"
-                            onClick={handleAddEmail}
-                            startIcon={<AddIcon />}
-                        >
-                            Add
-                        </Button>
-                    </Box>
-
-                    <List dense>
-                        {emails.map((email) => (
-                            <ListItem
-                                key={email}
-                                secondaryAction={
-                                    <IconButton
-                                        edge="end"
-                                        onClick={() => handleDeleteEmail(email)}
-                                    >
-                                        <DeleteIcon />
-                                    </IconButton>
-                                }
-                            >
-                                <ListItemText primary={email} />
-                            </ListItem>
-                        ))}
-                        {emails.length === 0 && (
-                            <Typography variant="caption" color="text.secondary">
-                                No emails defined
-                            </Typography>
-                        )}
-                    </List>
-
-                    <Button
-                        variant="outlined"
-                        fullWidth
-                        onClick={handleSaveEmails}
-                        sx={{ mt: 1 }}
-                    >
-                        Save Email List
-                    </Button>
-                </Box>
-            )}
 
             {/* --- Members Table Section --- */}
             <Typography variant="h6" gutterBottom>

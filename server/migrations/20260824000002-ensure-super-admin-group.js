@@ -18,7 +18,6 @@ module.exports = {
                     shiftTypes: [],
                     timeSlots: [],
                 },
-                reportEmails: [],
                 siteTags: ["General"],
                 createdAt: new Date(),
             });

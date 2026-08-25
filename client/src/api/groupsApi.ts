@@ -32,11 +32,11 @@ export const createGroup = (groupData: any) => apiClient.post("/groups", groupDa
 /**
  * Updates general metadata and properties for an existing group.
  *
- * Updates fields such as group name, settings, site tags, or report recipient email addresses.
+ * Updates fields such as group name, settings, or site tags.
  * Protected system administrator groups cannot be modified. Restricted to system administrators.
  *
  * @param  {string}                          id         The unique identifier of the group to update.
- * @param  {Partial<import("../types").Group>} groupData  The updated group fields (e.g., name, settings, siteTags, reportEmails).
+ * @param  {Partial<import("../types").Group>} groupData  The updated group fields (e.g., name, settings, siteTags).
  * @returns {Promise<import("axios").AxiosResponse<import("../types").Group>>} Axios promise resolving to the updated group record.
  */
 export const updateGroup = (id: string, groupData: any) => apiClient.put(`/groups/${id}`, groupData);
@@ -105,15 +105,4 @@ export const deleteGroupTag = (groupId: string, tag: string) => apiClient.delete
  */
 export const updateGroupSettings = (groupId: string, settings: any) => apiClient.put(`/groups/${groupId}/settings`, settings);
 
-/**
- * Dispatches a compiled shift statistics report to configured group email recipients.
- *
- * Sends aggregated yearly shift metrics and breakdown data for the specified group
- * to trigger email distribution to report recipients defined in the group settings.
- *
- * @param  {string} groupId  The unique identifier of the group generating the report.
- * @param  {Object} data     The report payload containing aggregated statistics or shift metrics.
- * @returns {Promise<import("axios").AxiosResponse<{ message?: string }>>} Axios promise resolving to the report delivery response.
- */
-export const sendGroupReport = (groupId: string, data: any) => apiClient.post(`/groups/${groupId}/send-report`, data);
 

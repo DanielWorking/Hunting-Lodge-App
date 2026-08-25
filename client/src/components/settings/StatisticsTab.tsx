@@ -2,8 +2,8 @@
  * @module StatisticsTab
  *
  * Provides a reporting interface for shift statistics within a group.
- * Aggregates published shift data to show per-member breakdown of shift types,
- * displays current vacation balances, and enables sending detailed reports via email.
+ * Aggregates published shift data to show per-member breakdown of shift types
+ * and displays current vacation balances.
  */
 
 import { useState, useEffect } from "react";
@@ -17,36 +17,28 @@ import {
     TableRow,
     Paper,
     CircularProgress,
-    Button,
     Chip,
 } from "@mui/material";
-import EmailIcon from "@mui/icons-material/Email";
 import { useUser } from "../../context/UserContext";
 import { useData } from "../../context/DataContext";
-import { useNotification } from "../../context/NotificationContext";
 import ShiftDatesDialog from "../ShiftDatesDialog";
 import { getAllSchedules } from "../../api/schedulesApi";
-import { sendGroupReport } from "../../api/groupsApi";
-import envConfig from "../../config/env";
 
 /**
  * Renders the statistics and reporting tab for group administrators.
  *
  * Calculates yearly shift counts from published schedules and allows users
- * to view specific dates for each shift type. Supports manual triggering
- * of email reports to defined recipients.
+ * to view specific dates for each shift type.
  *
  * @returns {JSX.Element} The rendered StatisticsTab component.
  */
 export default function StatisticsTab() {
     const { currentGroup } = useUser();
     const { users, groups } = useData();
-    const { showNotification } = useNotification();
 
     /** @type {Object} Aggregated shift data mapped by user ID and shift type. */
     const [stats, setStats] = useState<any>({});
     const [loading, setLoading] = useState(false);
-    const [sendingEmail, setSendingEmail] = useState(false);
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selectedShiftName, setSelectedShiftName] = useState("");
@@ -122,23 +114,6 @@ export default function StatisticsTab() {
     };
 
     /**
-     * Sends the current statistical data to the server to trigger an email report.
-     *
-     * @returns {Promise<void>}
-     */
-    const handleSendReport = async () => {
-        setSendingEmail(true);
-        try {
-            await sendGroupReport((currentGroup?._id) as string, { stats });
-            showNotification(`Report sent successfully`, "success");
-        } catch (e) {
-            showNotification("Report sent (simulation)", "success");
-        } finally {
-            setSendingEmail(false);
-        }
-    };
-
-    /**
      * Opens a dialog showing the specific dates a user worked a particular shift type.
      *
      * @param {string}   name   The human-readable name of the shift type.
@@ -180,23 +155,6 @@ export default function StatisticsTab() {
                 mb={2}
             >
                 <h3>Yearly Statistics (Published Shifts)</h3>
-                {/* Email Report Button (Feature Flagged: requires internal network SMTP configuration) */}
-                {envConfig.features.enableEmailReports && (
-                    <Button
-                        variant="outlined"
-                        startIcon={
-                            sendingEmail ? (
-                                <CircularProgress size={20} />
-                            ) : (
-                                <EmailIcon />
-                            )
-                        }
-                        onClick={handleSendReport}
-                        disabled={sendingEmail}
-                    >
-                        Email Report Now
-                    </Button>
-                )}
             </Box>
 
             {loading ? (

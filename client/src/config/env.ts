@@ -22,14 +22,6 @@ export interface ClientConfig {
         /** The designated name of the Super Admin group. */
         groupName: string;
     };
-    /** Optional feature toggles for work-in-progress or network-dependent modules. */
-    features: {
-        /**
-         * Whether email report generation and recipient management are enabled.
-         * Set to true via VITE_ENABLE_EMAIL_REPORTS when running inside networks with SMTP/relay connectivity.
-         */
-        enableEmailReports: boolean;
-    };
 }
 
 const isProd = import.meta.env.PROD;
@@ -39,7 +31,6 @@ const mode = import.meta.env.MODE;
 const superAdminId = (import.meta.env.VITE_SUPER_ADMIN_ID as string) || "10001";
 const superAdminGroupName = (import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME as string) || "ADMINISTRATORS";
 const apiUrl = (import.meta.env.VITE_API_URL as string) || "/api";
-const enableEmailReports = import.meta.env.VITE_ENABLE_EMAIL_REPORTS === "true";
 
 if (isDev) {
     if (!import.meta.env.VITE_SUPER_ADMIN_ID) {
@@ -62,9 +53,6 @@ export const envConfig: ClientConfig = Object.freeze({
     superAdmin: {
         id: superAdminId,
         groupName: superAdminGroupName,
-    },
-    features: {
-        enableEmailReports,
     },
 });
 

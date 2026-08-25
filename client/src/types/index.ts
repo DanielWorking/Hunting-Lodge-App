@@ -107,8 +107,6 @@ export interface Group {
     createdAt: string;
     /** Group-specific configuration for shifts and slots. */
     settings?: GroupSettings;
-    /** Email addresses that receive group reports. */
-    reportEmails?: string[];
     /** Array of tags used for categorizing group-specific content. */
     siteTags?: string[];
 }

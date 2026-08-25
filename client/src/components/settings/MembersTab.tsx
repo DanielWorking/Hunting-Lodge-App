@@ -49,7 +49,7 @@ import envConfig from "../../config/env";
  */
 export default function MembersTab() {
     const { currentGroup } = useUser();
-    const { users, refreshData, groups } = useData();
+    const { users, setUsers, refreshData, groups } = useData();
     const { showNotification } = useNotification();
 
     // Match the current group context with the detailed group data from the global store
@@ -216,12 +216,30 @@ export default function MembersTab() {
 
         setSortedMembers(newSorted);
 
+        // Optimistically update global DataContext users state
+        const targetGroupId = currentGroup?._id;
+        if (targetGroupId) {
+            setUsers((prevUsers) =>
+                prevUsers.map((u) => {
+                    const update = updates.find((up) => up.userId === u._id);
+                    if (!update) return u;
+                    return {
+                        ...u,
+                        groups: u.groups?.map((g) =>
+                            g.groupId === targetGroupId
+                                ? { ...g, order: update.order }
+                                : g,
+                        ),
+                    };
+                }),
+            );
+        }
+
         try {
             await reorderUsers({
                 groupId: currentGroup?._id,
                 updates,
             });
-            refreshData();
         } catch (error) {
             showNotification("Error reordering", "error");
             refreshData();

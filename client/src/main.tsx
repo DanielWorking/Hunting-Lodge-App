@@ -2,9 +2,9 @@
  * @module main
  *
  * The main entry point for the React client application.
- * This file initializes the React root, configures global axios interceptors,
- * and wraps the application in necessary providers including Routing, Theme,
- * and Data contexts.
+ * This file initializes the React root, wraps the application in a global ErrorBoundary,
+ * and sets up essential providers including Routing, User, Data, Notification,
+ * and Theme contexts.
  */
 
 import React from "react";
@@ -17,31 +17,35 @@ import { BrowserRouter } from "react-router-dom";
 
 import { CssBaseline } from "@mui/material";
 import { ColorModeProvider } from "./context/ThemeContext.tsx";
-
+import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 
 /**
  * Initializes and renders the React application root.
- * The app is wrapped in StrictMode and several context providers:
+ * The app is wrapped in StrictMode, a global ErrorBoundary, and several context providers:
+ * - ErrorBoundary: Catches unhandled runtime rendering errors and displays a recovery UI.
  * - BrowserRouter: Handles client-side routing.
- * - DataProvider: Manages global application data.
  * - UserProvider: Manages user authentication and profile state.
+ * - DataProvider: Manages global application data.
  * - NotificationProvider: Handles global toast notifications.
  * - ColorModeProvider: Manages the theme (light/dark mode).
  */
 ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-        <BrowserRouter>
-            <UserProvider>
-                <DataProvider>
-                    <NotificationProvider>
-                        <ColorModeProvider>
-                            {/* CssBaseline resets CSS to a consistent baseline and applies theme-specific background colors (light/dark) */}
-                            <CssBaseline />
-                            <App />
-                        </ColorModeProvider>
-                    </NotificationProvider>
-                </DataProvider>
-            </UserProvider>
-        </BrowserRouter>
+        <ErrorBoundary>
+            <BrowserRouter>
+                <UserProvider>
+                    <DataProvider>
+                        <NotificationProvider>
+                            <ColorModeProvider>
+                                {/* CssBaseline resets CSS to a consistent baseline and applies theme-specific background colors (light/dark) */}
+                                <CssBaseline />
+                                <App />
+                            </ColorModeProvider>
+                        </NotificationProvider>
+                    </DataProvider>
+                </UserProvider>
+            </BrowserRouter>
+        </ErrorBoundary>
     </React.StrictMode>,
 );
+

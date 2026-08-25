@@ -182,6 +182,34 @@ docker run -d \
 
 ---
 
+## 📮 API Documentation & Postman
+
+The backend REST API can be tested and explored using Postman or any standard HTTP client.
+
+### 🔗 Postman Collection & Documentation
+* **Published Postman Docs:** [View API Documentation](https://documenter.getpostman.com/view/YOUR_COLLECTION_ID) *(Insert your published documentation URL here)*
+* **Collection Export:** `docs/postman_collection.json` *(or import the exported collection into your Postman workspace)*
+
+### 🔑 Environment Setup
+Configure the following variables in your Postman environment:
+
+| Variable | Example / Default | Description |
+| :--- | :--- | :--- |
+| `baseUrl` | `http://localhost:5000/api` | Base endpoint URL for all API requests |
+| `authToken` | `your_bearer_token` | JWT authentication token obtained after SSO login |
+
+### 📂 API Endpoints Overview
+* **Authentication (`/api/auth`)**: SSO callback, session verification (`/api/auth/me`), and logout.
+* **Users (`/api/users`)**: User listings, role updates, group assignments, and admin management.
+* **Groups (`/api/groups`)**: Operational groups, shift types, time slots, and notification recipients.
+* **Schedules (`/api/schedules`)**: Monthly/weekly shift schedule retrieval, editing, and publishing.
+* **Reports (`/api/reports`)**: Shift report submission, incident logging, and querying.
+* **Sites (`/api/sites`)**: Operational sites, descriptions, and resource links.
+* **Phones (`/api/phones`)**: Emergency and organizational phone directory entries.
+
+---
+
 ## 📜 License
 This project is licensed under the ISC License.
+
 

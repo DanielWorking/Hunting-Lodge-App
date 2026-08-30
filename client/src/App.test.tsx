@@ -1,10 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import App from "./App";
 import * as UserContextModule from "./context/UserContext";
 import * as DataContextModule from "./context/DataContext";
 import * as NotificationContextModule from "./context/NotificationContext";
+import type { Group } from "./types";
+
+const LocationDisplay = () => {
+    const location = useLocation();
+    return <div data-testid="location-display">{location.pathname}</div>;
+};
 
 // Mock API and dialog components to keep route rendering isolated and lightweight
 vi.mock("./api/usersApi", () => ({
@@ -42,7 +48,7 @@ vi.mock("@tiptap/react", () => ({
 }));
 
 describe("App Routing - Access Control & Secure Redirects", () => {
-    const mockSampleGroup = {
+    const mockSampleGroup: Group = {
         _id: "group-1",
         name: "Test Group",
         members: ["user-1"],
@@ -67,7 +73,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             setPhones: vi.fn(),
             users: [],
             setUsers: vi.fn(),
-            groups: [mockSampleGroup as any],
+            groups: [mockSampleGroup],
             setGroups: vi.fn(),
             loading: false,
             refreshData: vi.fn(),
@@ -85,7 +91,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                     vacationBalance: 10,
                     groups: [{ groupId: "group-1", role: "member" }],
                 },
-                currentGroup: mockSampleGroup as any,
+                currentGroup: mockSampleGroup,
                 setCurrentGroup: vi.fn(),
                 isAdmin: false,
                 isShiftManager: false,
@@ -145,7 +151,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                     vacationBalance: 15,
                     groups: [{ groupId: "group-1", role: "shift_manager" }],
                 },
-                currentGroup: mockSampleGroup as any,
+                currentGroup: mockSampleGroup,
                 setCurrentGroup: vi.fn(),
                 isAdmin: true,
                 isShiftManager: true,
@@ -164,6 +170,56 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             expect(screen.getByText("Admin Dashboard")).toBeInTheDocument();
             expect(screen.getByText("Manage users and groups.")).toBeInTheDocument();
         });
+
+        it("renders loading indicator and does not redirect to '/' while data context is loading during session restoration", () => {
+            vi.spyOn(UserContextModule, "useUser").mockReturnValue({
+                user: {
+                    _id: "admin-1",
+                    username: "admin_user",
+                    displayName: "Admin User",
+                    isActive: true,
+                    vacationBalance: 15,
+                    groups: [{ groupId: "admin-group-id", role: "shift_manager" }],
+                },
+                currentGroup: null, // Pending group resolution from DataContext
+                setCurrentGroup: vi.fn(),
+                isAdmin: false, // Evaluates to false while currentGroup is null
+                isShiftManager: false,
+                login: vi.fn(),
+                logout: vi.fn(),
+                switchGroup: vi.fn(),
+                isRestoringSession: false,
+            });
+
+            vi.spyOn(DataContextModule, "useData").mockReturnValue({
+                sites: [],
+                setSites: vi.fn(),
+                phones: [],
+                setPhones: vi.fn(),
+                users: [],
+                setUsers: vi.fn(),
+                groups: [],
+                setGroups: vi.fn(),
+                loading: true, // DataContext is actively fetching groups
+                refreshData: vi.fn(),
+            });
+
+            render(
+                <MemoryRouter initialEntries={["/admin/users"]}>
+                    <LocationDisplay />
+                    <App />
+                </MemoryRouter>,
+            );
+
+            // Must NOT redirect to '/' (Sites page) or render Admin dashboard while loading
+            expect(screen.getByTestId("location-display")).toHaveTextContent("/admin/users");
+            expect(screen.queryByRole("button", { name: "All Tags" })).not.toBeInTheDocument();
+            expect(screen.queryByText("Admin Dashboard")).not.toBeInTheDocument();
+
+            // Must render the fallback loading component
+            expect(screen.getByRole("status", { name: "Loading..." })).toBeInTheDocument();
+            expect(screen.getByText("Thinking...")).toBeInTheDocument();
+        });
     });
 
     describe("/group-settings Route Protection", () => {
@@ -177,7 +233,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                     vacationBalance: 10,
                     groups: [{ groupId: "group-1", role: "member" }],
                 },
-                currentGroup: mockSampleGroup as any,
+                currentGroup: mockSampleGroup,
                 setCurrentGroup: vi.fn(),
                 isAdmin: false,
                 isShiftManager: false,
@@ -212,7 +268,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                     vacationBalance: 15,
                     groups: [{ groupId: "group-1", role: "shift_manager" }],
                 },
-                currentGroup: mockSampleGroup as any,
+                currentGroup: mockSampleGroup,
                 setCurrentGroup: vi.fn(),
                 isAdmin: false,
                 isShiftManager: true,
@@ -229,6 +285,214 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             );
 
             expect(screen.getByText("Test Group Settings")).toBeInTheDocument();
+        });
+
+        it("renders loading indicator and does not redirect to '/' while data context is loading", () => {
+            vi.spyOn(UserContextModule, "useUser").mockReturnValue({
+                user: {
+                    _id: "user-mgr-1",
+                    username: "manager_user",
+                    displayName: "Shift Manager",
+                    isActive: true,
+                    vacationBalance: 15,
+                    groups: [{ groupId: "group-1", role: "shift_manager" }],
+                },
+                currentGroup: null,
+                setCurrentGroup: vi.fn(),
+                isAdmin: false,
+                isShiftManager: false,
+                login: vi.fn(),
+                logout: vi.fn(),
+                switchGroup: vi.fn(),
+                isRestoringSession: false,
+            });
+
+            vi.spyOn(DataContextModule, "useData").mockReturnValue({
+                sites: [],
+                setSites: vi.fn(),
+                phones: [],
+                setPhones: vi.fn(),
+                users: [],
+                setUsers: vi.fn(),
+                groups: [],
+                setGroups: vi.fn(),
+                loading: true,
+                refreshData: vi.fn(),
+            });
+
+            render(
+                <MemoryRouter initialEntries={["/group-settings"]}>
+                    <LocationDisplay />
+                    <App />
+                </MemoryRouter>,
+            );
+
+            // Must NOT redirect to '/' (Sites page) or render group settings while loading
+            expect(screen.getByTestId("location-display")).toHaveTextContent("/group-settings");
+            expect(screen.queryByRole("button", { name: "All Tags" })).not.toBeInTheDocument();
+            expect(screen.queryByText("Test Group Settings")).not.toBeInTheDocument();
+
+            // Must render the fallback loading component
+            expect(screen.getByRole("status", { name: "Loading..." })).toBeInTheDocument();
+            expect(screen.getByText("Thinking...")).toBeInTheDocument();
+        });
+    });
+
+    describe("ProtectedRoute Route Protection", () => {
+        it("redirects unauthenticated users to '/login'", () => {
+            vi.spyOn(UserContextModule, "useUser").mockReturnValue({
+                user: null,
+                currentGroup: null,
+                setCurrentGroup: vi.fn(),
+                isAdmin: false,
+                isShiftManager: false,
+                login: vi.fn(),
+                logout: vi.fn(),
+                switchGroup: vi.fn(),
+                isRestoringSession: false,
+            });
+
+            render(
+                <MemoryRouter initialEntries={["/phones"]}>
+                    <LocationDisplay />
+                    <App />
+                </MemoryRouter>,
+            );
+
+            expect(screen.getByTestId("location-display")).toHaveTextContent("/login");
+            expect(screen.getByRole("button", { name: /login/i })).toBeInTheDocument();
+        });
+
+        it("renders loading indicator and stays on protected route while loading", () => {
+            vi.spyOn(UserContextModule, "useUser").mockReturnValue({
+                user: {
+                    _id: "user-1",
+                    username: "member_user",
+                    displayName: "Member User",
+                    isActive: true,
+                    vacationBalance: 10,
+                    groups: [{ groupId: "group-1", role: "member" }],
+                },
+                currentGroup: null,
+                setCurrentGroup: vi.fn(),
+                isAdmin: false,
+                isShiftManager: false,
+                login: vi.fn(),
+                logout: vi.fn(),
+                switchGroup: vi.fn(),
+                isRestoringSession: false,
+            });
+
+            vi.spyOn(DataContextModule, "useData").mockReturnValue({
+                sites: [],
+                setSites: vi.fn(),
+                phones: [],
+                setPhones: vi.fn(),
+                users: [],
+                setUsers: vi.fn(),
+                groups: [],
+                setGroups: vi.fn(),
+                loading: true,
+                refreshData: vi.fn(),
+            });
+
+            render(
+                <MemoryRouter initialEntries={["/phones"]}>
+                    <LocationDisplay />
+                    <App />
+                </MemoryRouter>,
+            );
+
+            expect(screen.getByTestId("location-display")).toHaveTextContent("/phones");
+            expect(screen.getByRole("status", { name: "Loading..." })).toBeInTheDocument();
+            expect(screen.getByText("Thinking...")).toBeInTheDocument();
+        });
+
+        it("redirects authenticated users with no groups to '/guest'", () => {
+            vi.spyOn(UserContextModule, "useUser").mockReturnValue({
+                user: {
+                    _id: "guest-user",
+                    username: "guest_user",
+                    displayName: "Guest User",
+                    isActive: true,
+                    vacationBalance: 0,
+                    groups: [],
+                },
+                currentGroup: null,
+                setCurrentGroup: vi.fn(),
+                isAdmin: false,
+                isShiftManager: false,
+                login: vi.fn(),
+                logout: vi.fn(),
+                switchGroup: vi.fn(),
+                isRestoringSession: false,
+            });
+
+            render(
+                <MemoryRouter initialEntries={["/phones"]}>
+                    <LocationDisplay />
+                    <App />
+                </MemoryRouter>,
+            );
+
+            expect(screen.getByTestId("location-display")).toHaveTextContent("/guest");
+        });
+    });
+
+    describe("/guest Route Protection", () => {
+        it("renders loading indicator while restoring session without redirecting", () => {
+            vi.spyOn(UserContextModule, "useUser").mockReturnValue({
+                user: null,
+                currentGroup: null,
+                setCurrentGroup: vi.fn(),
+                isAdmin: false,
+                isShiftManager: false,
+                login: vi.fn(),
+                logout: vi.fn(),
+                switchGroup: vi.fn(),
+                isRestoringSession: true,
+            });
+
+            render(
+                <MemoryRouter initialEntries={["/guest"]}>
+                    <LocationDisplay />
+                    <App />
+                </MemoryRouter>,
+            );
+
+            expect(screen.getByTestId("location-display")).toHaveTextContent("/guest");
+            expect(screen.getByRole("status", { name: "Loading..." })).toBeInTheDocument();
+            expect(screen.getByText("Thinking...")).toBeInTheDocument();
+        });
+
+        it("redirects users with groups from '/guest' to '/'", () => {
+            vi.spyOn(UserContextModule, "useUser").mockReturnValue({
+                user: {
+                    _id: "user-1",
+                    username: "member_user",
+                    displayName: "Member User",
+                    isActive: true,
+                    vacationBalance: 10,
+                    groups: [{ groupId: "group-1", role: "member" }],
+                },
+                currentGroup: mockSampleGroup,
+                setCurrentGroup: vi.fn(),
+                isAdmin: false,
+                isShiftManager: false,
+                login: vi.fn(),
+                logout: vi.fn(),
+                switchGroup: vi.fn(),
+                isRestoringSession: false,
+            });
+
+            render(
+                <MemoryRouter initialEntries={["/guest"]}>
+                    <LocationDisplay />
+                    <App />
+                </MemoryRouter>,
+            );
+
+            expect(screen.getByTestId("location-display")).toHaveTextContent("/");
         });
     });
 });

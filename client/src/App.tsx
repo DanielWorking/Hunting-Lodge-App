@@ -13,6 +13,7 @@ import LoginPage from "./pages/LoginPage";
 import SSOCallback from "./pages/SSOCallback";
 import GuestPage from "./pages/GuestPage";
 import { useUser } from "./context/UserContext";
+import { useData } from "./context/DataContext";
 import ThinkingLoader from "./components/ThinkingLoader";
 
 // Page imports
@@ -28,7 +29,7 @@ import NotFoundPage from "./pages/NotFoundPage";
  * A wrapper component for routes that require active Administrator privileges.
  *
  * It checks the current user's state:
- * - Shows a loading indicator while the session is being restored.
+ * - Shows a loading indicator while the session is being restored or data is initializing.
  * - Redirects to login if unauthenticated.
  * - Redirects to home (/) if the user is not actively connected as an Administrator.
  *
@@ -38,6 +39,7 @@ import NotFoundPage from "./pages/NotFoundPage";
  */
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
     const { user, isAdmin, isRestoringSession } = useUser();
+    const { loading } = useData();
 
     if (isRestoringSession) {
         return <ThinkingLoader />;
@@ -45,6 +47,10 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
     if (!user) {
         return <Navigate to="/login" replace />;
+    }
+
+    if (loading) {
+        return <ThinkingLoader />;
     }
 
     if (!isAdmin) {
@@ -58,7 +64,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
  * A wrapper component for routes that require active Shift Manager privileges within the current group.
  *
  * It checks the current user's state:
- * - Shows a loading indicator while the session is being restored.
+ * - Shows a loading indicator while the session is being restored or data is initializing.
  * - Redirects to login if unauthenticated.
  * - Redirects to home (/) if the user is not an active shift manager of the selected group.
  *
@@ -68,6 +74,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
  */
 const ShiftManagerRoute = ({ children }: { children: React.ReactNode }) => {
     const { user, currentGroup, isShiftManager, isRestoringSession } = useUser();
+    const { loading } = useData();
 
     if (isRestoringSession) {
         return <ThinkingLoader />;
@@ -75,6 +82,10 @@ const ShiftManagerRoute = ({ children }: { children: React.ReactNode }) => {
 
     if (!user) {
         return <Navigate to="/login" replace />;
+    }
+
+    if (loading) {
+        return <ThinkingLoader />;
     }
 
     if (!currentGroup || !isShiftManager) {
@@ -88,7 +99,7 @@ const ShiftManagerRoute = ({ children }: { children: React.ReactNode }) => {
  * A wrapper component for routes that require authentication and group membership.
  *
  * It checks the current user's state:
- * - Shows a loading indicator while the session is being restored.
+ * - Shows a loading indicator while the session is being restored or data is initializing.
  * - Redirects to the login page if the user is not authenticated.
  * - Redirects to the guest page if the user is authenticated but not part of any group.
  *
@@ -98,6 +109,7 @@ const ShiftManagerRoute = ({ children }: { children: React.ReactNode }) => {
  */
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const { user, isRestoringSession } = useUser();
+    const { loading } = useData();
 
     if (isRestoringSession) {
         return <ThinkingLoader />;
@@ -105,6 +117,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
     if (!user) {
         return <Navigate to="/login" replace />;
+    }
+
+    if (loading) {
+        return <ThinkingLoader />;
     }
 
     if (user.groups.length === 0) {
@@ -123,7 +139,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
  * @returns {JSX.Element} The rendered application layout and routes.
  */
 function App() {
-    const { user } = useUser();
+    const { user, isRestoringSession } = useUser();
 
     const showNavbar = user && user.groups.length > 0;
 
@@ -136,7 +152,9 @@ function App() {
                 <Route
                     path="/guest"
                     element={
-                        user && user.groups.length === 0 ? (
+                        isRestoringSession ? (
+                            <ThinkingLoader />
+                        ) : user && user.groups.length === 0 ? (
                             <GuestPage />
                         ) : (
                             <Navigate to="/" replace />

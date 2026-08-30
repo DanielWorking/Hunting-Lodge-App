@@ -11,7 +11,7 @@ const Group = require("../models/Group");
 const Site = require("../models/Site");
 const config = require("../config");
 const { generateToken } = require("../utils/jwt");
-const { isAdmin, isSuperAdminUser, resolveGroup, isGroupMember, isShiftManager } = require("../utils/authHelpers");
+const { isAdmin, isSuperAdminUser, resolveGroup, isGroupMember, isShiftManager, isShiftManagerForTargetUser } = require("../utils/authHelpers");
 
 exports.login = async (req, res) => {
     try {
@@ -33,7 +33,8 @@ exports.login = async (req, res) => {
         const token = generateToken(updatedUser);
         res.json({ user: updatedUser, token });
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        console.error("Login error:", err);
+        res.status(500).json({ message: "Login failed" });
     }
 };
 
@@ -94,15 +95,23 @@ exports.getUsers = async (req, res) => {
         return res.json(users);
     } catch (err) {
         console.error("Get users error:", err);
-        return res.status(500).json({ message: err.message });
+        return res.status(500).json({ message: "Failed to retrieve users" });
     }
 };
 
 exports.reorderUsers = async (req, res) => {
     try {
         const { groupId, updates } = req.body;
-        if (!groupId || !updates || !Array.isArray(updates)) {
-            return res.status(400).json({ message: "Invalid payload: groupId and updates array are required" });
+        if (!groupId || !updates || !Array.isArray(updates) || updates.length === 0 || updates.length > 200) {
+            return res.status(400).json({ message: "Invalid payload: groupId and updates array (max 200 items) are required" });
+        }
+
+        // Validate structure and prevent NoSQL injection by ensuring userId is a valid string
+        const hasInvalidItem = updates.some(
+            (u) => !u || typeof u.userId !== "string" || !mongoose.Types.ObjectId.isValid(u.userId.trim()) || typeof u.order !== "number"
+        );
+        if (hasInvalidItem) {
+            return res.status(400).json({ message: "Invalid update item format: userId must be a valid ID and order must be numeric" });
         }
 
         const group = await resolveGroup(groupId);
@@ -119,8 +128,9 @@ exports.reorderUsers = async (req, res) => {
         }
 
         const promises = updates.map((update) => {
+            const sanitizedUserId = update.userId.trim();
             return User.updateOne(
-                { _id: update.userId, "groups.groupId": group._id },
+                { _id: sanitizedUserId, "groups.groupId": group._id },
                 { $set: { "groups.$.order": update.order } },
             );
         });
@@ -129,7 +139,7 @@ exports.reorderUsers = async (req, res) => {
         res.json({ message: "Order updated" });
     } catch (err) {
         console.error("Reorder users error:", err);
-        res.status(500).json({ message: err.message });
+        res.status(500).json({ message: "Failed to update user ordering" });
     }
 };
 
@@ -152,13 +162,11 @@ exports.updateUser = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
-        // 3. Whitelist allowed update fields
-        const { displayName, email, isActive, vacationBalance, groups, favoritePhones } = req.body;
+        // 3. Whitelist allowed update fields (displayName and vacationBalance are strictly barred/ignored from DB updates)
+        const { email, isActive, groups, favoritePhones } = req.body;
         const updateFields = {};
-        if (displayName !== undefined) updateFields.displayName = typeof displayName === "string" ? displayName.trim() : displayName;
         if (email !== undefined) updateFields.email = typeof email === "string" ? email.trim().toLowerCase() : email;
         if (isActive !== undefined) updateFields.isActive = Boolean(isActive);
-        if (vacationBalance !== undefined) updateFields.vacationBalance = Number(vacationBalance);
         if (groups !== undefined && Array.isArray(groups)) updateFields.groups = groups;
         if (favoritePhones !== undefined && Array.isArray(favoritePhones)) updateFields.favoritePhones = favoritePhones;
 
@@ -169,41 +177,48 @@ exports.updateUser = async (req, res) => {
             { new: true, runValidators: true },
         );
 
-        // 4. Group membership synchronization logic
+        // 6. Group membership synchronization logic
         if (req.body.groups) {
-            const oldGroupIds = (oldUser.groups || []).map((g) =>
-                (g.groupId?._id || g.groupId).toString(),
-            );
-            const newGroupIds = (updatedUser.groups || []).map((g) =>
-                (g.groupId?._id || g.groupId).toString(),
-            );
+            const oldGroupIds = (oldUser.groups || [])
+                .map((g) => (g.groupId?._id || g.groupId)?.toString())
+                .filter(Boolean);
+            const newGroupIds = (updatedUser.groups || [])
+                .map((g) => (g.groupId?._id || g.groupId)?.toString())
+                .filter(Boolean);
 
-            // 4a. Remove user from groups they no longer belong to
             const groupsToRemove = oldGroupIds.filter(
                 (id) => !newGroupIds.includes(id),
             );
-            if (groupsToRemove.length > 0) {
-                await Group.updateMany(
-                    { _id: { $in: groupsToRemove } },
-                    { $pull: { members: updatedUser._id } },
-                );
-            }
-
-            // 4b. Add user to new groups they joined
             const groupsToAdd = newGroupIds.filter(
                 (id) => !oldGroupIds.includes(id),
             );
-            if (groupsToAdd.length > 0) {
-                await Group.updateMany(
-                    { _id: { $in: groupsToAdd } },
-                    { $addToSet: { members: updatedUser._id } },
+
+            const syncPromises = [];
+            if (groupsToRemove.length > 0) {
+                syncPromises.push(
+                    Group.updateMany(
+                        { _id: { $in: groupsToRemove } },
+                        { $pull: { members: updatedUser._id } },
+                    )
                 );
+            }
+            if (groupsToAdd.length > 0) {
+                syncPromises.push(
+                    Group.updateMany(
+                        { _id: { $in: groupsToAdd } },
+                        { $addToSet: { members: updatedUser._id } },
+                    )
+                );
+            }
+            if (syncPromises.length > 0) {
+                await Promise.all(syncPromises);
             }
         }
 
         res.json(updatedUser);
     } catch (err) {
-        res.status(400).json({ message: err.message });
+        console.error("Update user error:", err);
+        res.status(400).json({ message: "Invalid user update request" });
     }
 };
 
@@ -228,27 +243,29 @@ exports.deleteUser = async (req, res) => {
 
         await User.findByIdAndDelete(req.params.id);
 
-        // Clean up: Remove user from all groups they were members of
-        await Group.updateMany(
-            { members: req.params.id },
-            { $pull: { members: req.params.id } },
-        );
-
-        // Clean up: Remove user from Site favoritedBy lists
-        await Site.updateMany(
-            { favoritedBy: req.params.id },
-            { $pull: { favoritedBy: req.params.id } },
-        );
+        // Clean up group memberships and site favorites concurrently
+        await Promise.all([
+            Group.updateMany(
+                { members: req.params.id },
+                { $pull: { members: req.params.id } },
+            ),
+            Site.updateMany(
+                { favoritedBy: req.params.id },
+                { $pull: { favoritedBy: req.params.id } },
+            ),
+        ]);
 
         res.json({ message: "User deleted" });
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        console.error("Delete user error:", err);
+        res.status(500).json({ message: "Failed to delete user" });
     }
 };
 
 exports.managerUpdate = async (req, res) => {
     try {
-        const { isActive, vacationBalance } = req.body;
+        const { isActive, vacationBalance, vacationDays } = req.body;
+        const requestingUser = req.user;
 
         // 1. Fetch the target user being modified
         const targetUser = await User.findById(req.params.id);
@@ -256,45 +273,60 @@ exports.managerUpdate = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
-        // 2. Perform Authorization check
-        const requestingUser = req.user;
-        let isAuthorized = isAdmin(requestingUser);
+        const requestedVacation = vacationBalance !== undefined ? vacationBalance : vacationDays;
+        const isModifyingVacation = requestedVacation !== undefined;
+        const isModifyingActive = isActive !== undefined;
 
-        if (!isAuthorized) {
-            // Check if requester is a 'shift_manager' in any group the target user belongs to
-            const managerGroupIds = requestingUser.groups
-                .filter((g) => g.role === "shift_manager")
-                .map((g) => (g.groupId?._id || g.groupId)?.toString());
-
-            const targetGroupIds = targetUser.groups.map((g) =>
-                (g.groupId?._id || g.groupId)?.toString(),
-            );
-
-            // Determine if there's an overlap between managed groups and target groups
-            const hasCommonGroup = managerGroupIds.some((id) =>
-                targetGroupIds.includes(id),
-            );
-
-            if (hasCommonGroup) {
-                isAuthorized = true;
+        // 2. Perform Group Tenancy & Role Authorization Checks
+        // Security Constraint: ONLY a Shift Manager of the target user's same operational group can alter vacation days.
+        if (isModifyingVacation) {
+            const hasShiftManagerTenancy = isShiftManagerForTargetUser(requestingUser, targetUser);
+            if (!hasShiftManagerTenancy) {
+                return res.status(403).json({
+                    message: "Forbidden: Only a Shift Manager of this user's group can modify vacation balance.",
+                    code: "FORBIDDEN_MANAGER_REQUIRED",
+                });
             }
         }
 
-        if (!isAuthorized) {
-            return res.status(403).json({
-                message: "Not authorized: You must be an Administrator or Shift Manager of this user's group.",
-                code: "FORBIDDEN_MANAGER_REQUIRED",
-            });
+        // Status (isActive) changes can be performed by Admins or group Shift Managers
+        if (isModifyingActive && !isModifyingVacation) {
+            const isAuthorizedForStatus = isAdmin(requestingUser) || isShiftManagerForTargetUser(requestingUser, targetUser);
+            if (!isAuthorizedForStatus) {
+                return res.status(403).json({
+                    message: "Forbidden: Administrator or group Shift Manager permissions required.",
+                    code: "FORBIDDEN_MANAGER_REQUIRED",
+                });
+            }
         }
 
-        // 3. Apply updates
-        if (isActive !== undefined) targetUser.isActive = isActive;
-        if (vacationBalance !== undefined) targetUser.vacationBalance = vacationBalance;
+        if (!isModifyingVacation && !isModifyingActive) {
+            const isAuthorized = isAdmin(requestingUser) || isShiftManagerForTargetUser(requestingUser, targetUser);
+            if (!isAuthorized) {
+                return res.status(403).json({
+                    message: "Forbidden: Administrator or group Shift Manager permissions required.",
+                    code: "FORBIDDEN_MANAGER_REQUIRED",
+                });
+            }
+        }
+
+        // 3. Apply updates (displayName is strictly omitted to preserve SSO immutability)
+        if (isModifyingActive) {
+            targetUser.isActive = Boolean(isActive);
+        }
+
+        if (isModifyingVacation) {
+            const numVacation = Number(requestedVacation);
+            if (isNaN(numVacation) || numVacation < 0) {
+                return res.status(400).json({ message: "Vacation balance must be a non-negative number" });
+            }
+            targetUser.vacationBalance = numVacation;
+        }
 
         const updatedUser = await targetUser.save();
         res.json(updatedUser);
     } catch (err) {
         console.error("Manager Update Error:", err);
-        res.status(500).json({ message: err.message });
+        res.status(500).json({ message: "Failed to update user settings" });
     }
 };

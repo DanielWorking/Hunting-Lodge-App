@@ -207,6 +207,7 @@ describe("Controller Cascading & Validation Rules", () => {
             User.findById = async (id) => ({
                 _id: id,
                 username: "johndoe",
+                email: "johndoe@example.com",
                 groups: [],
             });
 
@@ -216,7 +217,7 @@ describe("Controller Cascading & Validation Rules", () => {
                 return {
                     _id: id,
                     username: "johndoe",
-                    displayName: "John Doe",
+                    email: "updated@example.com",
                     groups: [],
                 };
             };
@@ -225,6 +226,7 @@ describe("Controller Cascading & Validation Rules", () => {
                 user: { username: "ADMINISTRATORS", groups: [{ groupId: "ADMINISTRATORS" }] },
                 params: { id: new mongoose.Types.ObjectId().toString() },
                 body: {
+                    email: "updated@example.com",
                     displayName: "John Doe",
                     injectedEvilField: "malicious",
                     $set: { hacked: true },
@@ -242,7 +244,8 @@ describe("Controller Cascading & Validation Rules", () => {
             try {
                 await usersController.updateUser(req, res);
                 assert.ok(capturedOptions?.runValidators, "runValidators must be enabled");
-                assert.equal(capturedUpdate.$set.displayName, "John Doe");
+                assert.equal(capturedUpdate.$set.email, "updated@example.com");
+                assert.equal(capturedUpdate.$set.displayName, undefined, "Immutable displayName must not be updated");
                 assert.equal(capturedUpdate.$set.injectedEvilField, undefined, "Unwhitelisted field must not be updated");
                 assert.equal(capturedUpdate.$set.$set, undefined);
             } finally {

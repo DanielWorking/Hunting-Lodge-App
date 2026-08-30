@@ -18,6 +18,7 @@ const mongoose = require("mongoose");
 const config = require("./config");
 const authRoutes = require("./routes/auth");
 const { notFoundHandler, errorHandler } = require("./middleware/errorMiddleware");
+const { stripImmutableFields } = require("./middleware/sanitizationMiddleware");
 
 const app = express();
 
@@ -55,6 +56,7 @@ if (config.security.corsOrigin === true) {
 }
 
 app.use(express.json());
+app.use(stripImmutableFields);
 
 // Apply rate limiting to all requests based on environment configuration
 const limiter = rateLimit({
@@ -110,7 +112,7 @@ const connectDB = async () => {
 };
 
 // Initialize database connection
-connectDB();
+connectDB().catch(console.error);
 
 // Initialize background tasks (Cron Jobs)
 require("./services/cronJobs");

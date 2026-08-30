@@ -133,10 +133,42 @@ async function isShiftManager(user, groupId) {
     });
 }
 
+/**
+ * Checks if the requesting user is an active Shift Manager in any group
+ * to which the target user belongs.
+ * Enforces operational group tenancy: only a Shift Manager of the target user's
+ * specific group can manage group-scoped properties (such as vacation balance).
+ *
+ * @function isShiftManagerForTargetUser
+ * @param {Object} requestingUser - User document or object of the requester.
+ * @param {Object} targetUser - User document or object of the target.
+ * @returns {boolean} True if requester is a shift_manager in at least one shared group.
+ */
+function isShiftManagerForTargetUser(requestingUser, targetUser) {
+    if (!requestingUser || !targetUser) return false;
+
+    const requesterManagedGroupIds = (requestingUser.groups || [])
+        .filter((g) => g && g.role === "shift_manager")
+        .map((g) => (g.groupId?._id || g.groupId)?.toString())
+        .filter(Boolean);
+
+    if (requesterManagedGroupIds.length === 0) return false;
+
+    const targetGroupIds = (targetUser.groups || [])
+        .map((g) => (g && (g.groupId?._id || g.groupId))?.toString())
+        .filter(Boolean);
+
+    if (targetGroupIds.length === 0) return false;
+
+    return requesterManagedGroupIds.some((managedId) => targetGroupIds.includes(managedId));
+}
+
 module.exports = {
     resolveGroup,
     isSuperAdminUser,
     isAdmin,
     isGroupMember,
     isShiftManager,
+    isShiftManagerForTargetUser,
 };
+

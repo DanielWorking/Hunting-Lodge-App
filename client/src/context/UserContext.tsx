@@ -103,11 +103,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      * Checks if the user has managerial privileges within the active group context.
      * Uses optional chaining to prevent runtime errors during session transitions.
      */
+    const activeGroupId = currentGroup?._id || localStorage.getItem("hunting_groupId");
     const isShiftManagerBool = Boolean(
         user?.groups?.some(
             (g) =>
-                (g.groupId === currentGroup?._id ||
-                 g.groupId === localStorage.getItem("hunting_groupId")) &&
+                g.groupId === activeGroupId &&
                 g.role === "shift_manager",
         ),
     );

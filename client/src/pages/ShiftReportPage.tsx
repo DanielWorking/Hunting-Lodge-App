@@ -435,7 +435,7 @@ const TiptapEditor = ({
  * @returns {JSX.Element} The rendered ShiftReportPage component.
  */
 export default function ShiftReportPage() {
-    const { currentGroup } = useUser();
+    const { currentGroup, isShiftManager } = useUser();
     const { showNotification } = useNotification();
     const { users, groups } = useData();
 
@@ -636,7 +636,7 @@ export default function ShiftReportPage() {
      * Deletes the selected shift report after confirmation.
      */
     const handleDeleteReport = async () => {
-        if (!deleteReportId) return;
+        if (!deleteReportId || !isShiftManager) return;
         try {
             await deleteReport(deleteReportId);
             setReports((prev) => prev.filter((r) => r._id !== deleteReportId));
@@ -909,27 +909,30 @@ export default function ShiftReportPage() {
                                                                                                                 rep.title
                                                                                                             }
                                                                                                         />
-                                                                                                        <IconButton
-                                                                                                            size="small"
-                                                                                                            onClick={(
-                                                                                                                e,
-                                                                                                            ) => {
-                                                                                                                e.stopPropagation();
-                                                                                                                setDeleteReportId(
-                                                                                                                    rep._id,
-                                                                                                                );
-                                                                                                            }}
-                                                                                                            sx={{
-                                                                                                                opacity: 0.6,
-                                                                                                                "&:hover":
-                                                                                                                    {
-                                                                                                                        opacity: 1,
-                                                                                                                        color: "error.main",
-                                                                                                                    },
-                                                                                                            }}
-                                                                                                        >
-                                                                                                            <DeleteIcon fontSize="small" />
-                                                                                                        </IconButton>
+                                                                                                        {isShiftManager && (
+                                                                                                            <IconButton
+                                                                                                                size="small"
+                                                                                                                aria-label="delete report"
+                                                                                                                onClick={(
+                                                                                                                    e,
+                                                                                                                ) => {
+                                                                                                                    e.stopPropagation();
+                                                                                                                    setDeleteReportId(
+                                                                                                                        rep._id,
+                                                                                                                    );
+                                                                                                                }}
+                                                                                                                sx={{
+                                                                                                                    opacity: 0.6,
+                                                                                                                    "&:hover":
+                                                                                                                        {
+                                                                                                                            opacity: 1,
+                                                                                                                            color: "error.main",
+                                                                                                                        },
+                                                                                                                }}
+                                                                                                            >
+                                                                                                                <DeleteIcon fontSize="small" />
+                                                                                                            </IconButton>
+                                                                                                        )}
                                                                                                     </ListItemButton>
                                                                                                 ),
                                                                                             )}

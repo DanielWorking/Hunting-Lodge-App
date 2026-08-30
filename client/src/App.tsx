@@ -55,6 +55,36 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 /**
+ * A wrapper component for routes that require active Shift Manager privileges within the current group.
+ *
+ * It checks the current user's state:
+ * - Shows a loading indicator while the session is being restored.
+ * - Redirects to login if unauthenticated.
+ * - Redirects to home (/) if the user is not an active shift manager of the selected group.
+ *
+ * @param {Object} props - The component props.
+ * @param {React.ReactNode} props.children - The child components to render if authorized.
+ * @returns {JSX.Element} The rendered children or redirect/loader.
+ */
+const ShiftManagerRoute = ({ children }: { children: React.ReactNode }) => {
+    const { user, currentGroup, isShiftManager, isRestoringSession } = useUser();
+
+    if (isRestoringSession) {
+        return <ThinkingLoader />;
+    }
+
+    if (!user) {
+        return <Navigate to="/login" replace />;
+    }
+
+    if (!currentGroup || !isShiftManager) {
+        return <Navigate to="/" replace />;
+    }
+
+    return <>{children}</>;
+};
+
+/**
  * A wrapper component for routes that require authentication and group membership.
  *
  * It checks the current user's state:
@@ -134,9 +164,9 @@ function App() {
                 <Route
                     path="/group-settings"
                     element={
-                        <ProtectedRoute>
+                        <ShiftManagerRoute>
                             <GroupSettingsPage />
-                        </ProtectedRoute>
+                        </ShiftManagerRoute>
                     }
                 />
                 <Route

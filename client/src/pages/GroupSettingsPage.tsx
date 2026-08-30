@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { Container, Typography, Box, Tabs, Tab, Paper } from "@mui/material";
+import { Navigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import ViewListIcon from "@mui/icons-material/ViewList";
@@ -28,7 +29,7 @@ import ThinkingLoader from "../components/ThinkingLoader";
  * parameters. Implements an access control check to ensure only shift
  * managers of the current group can access the settings.
  *
- * @returns {JSX.Element} The rendered GroupSettingsPage component or an access denied message.
+ * @returns {JSX.Element} The rendered GroupSettingsPage component or a redirect to home.
  */
 export default function GroupSettingsPage() {
     const { currentGroup, isShiftManager, isRestoringSession } = useUser();
@@ -40,14 +41,7 @@ export default function GroupSettingsPage() {
 
     // Access Control: Block access if the user is not a shift manager of the selected group.
     if (!currentGroup || !isShiftManager) {
-        return (
-            <Container sx={{ mt: 4, textAlign: "center" }}>
-                <Typography variant="h5" color="error">
-                    Access Denied. You must be a Shift Manager of this group to
-                    view this page.
-                </Typography>
-            </Container>
-        );
+        return <Navigate to="/" replace />;
     }
 
     /**

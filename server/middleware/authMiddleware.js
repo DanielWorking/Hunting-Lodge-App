@@ -61,7 +61,7 @@ const protect = async (req, res, next) => {
         }
 
         // Verify the user exists and is active in the database
-        const user = await User.findById(decoded.userId);
+        const user = await User.findById(decoded.userId).populate("groups.groupId");
         if (!user || user.isActive === false) {
             return res.status(401).json({
                 message: "Unauthorized: User not found or inactive",

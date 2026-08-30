@@ -117,9 +117,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             }
 
             if (!targetGroup && user.groups && user.groups.length > 0) {
-                const firstGid = user.groups[0].groupId;
+                const rawGid = user.groups[0].groupId;
+                const firstGid = typeof rawGid === "object" && rawGid !== null
+                    ? (rawGid as { _id?: string; name?: string })._id || (rawGid as { _id?: string; name?: string }).name
+                    : String(rawGid);
                 targetGroup = fetchedGroups.find(
-                    (g) => g._id === firstGid,
+                    (g) => g._id === firstGid || g.name === firstGid,
                 );
             }
 
@@ -133,10 +136,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 const usersRes = await getUsers();
                 setUsers(usersRes.data);
             } else {
+                const firstRawGid = user.groups[0]?.groupId;
+                const fallbackGid = typeof firstRawGid === "object" && firstRawGid !== null
+                    ? (firstRawGid as { _id?: string; name?: string })._id || (firstRawGid as { _id?: string; name?: string }).name
+                    : firstRawGid ? String(firstRawGid) : undefined;
                 const activeGroupId =
                     targetGroup?._id ||
                     storedGroupId ||
-                    user.groups[0]?.groupId;
+                    fallbackGid;
 
                 if (activeGroupId) {
                     const usersRes = await getUsers(activeGroupId);

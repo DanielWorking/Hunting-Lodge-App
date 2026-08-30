@@ -78,8 +78,10 @@ function isAdmin(user) {
     const adminGroupName = config.superAdmin.groupName;
     const userGroups = user.groups || [];
     return userGroups.some((g) => {
+        if (!g) return false;
         const gid = (g.groupId?._id || g.groupId)?.toString();
-        return gid === adminGroupName;
+        const gName = g.groupId?.name || g.name || g.groupName;
+        return gid === adminGroupName || gName === adminGroupName;
     });
 }
 
@@ -103,8 +105,10 @@ async function isGroupMember(user, groupId) {
     const userGroups = user.groups || [];
 
     return userGroups.some((g) => {
+        if (!g) return false;
         const gid = (g.groupId?._id || g.groupId)?.toString();
-        return gid === targetGroupId;
+        const gName = g.groupId?.name || g.name || g.groupName;
+        return gid === targetGroupId || gid === group.name || gName === group.name;
     });
 }
 
@@ -128,8 +132,10 @@ async function isShiftManager(user, groupId) {
     const userGroups = user.groups || [];
 
     return userGroups.some((g) => {
+        if (!g) return false;
         const gid = (g.groupId?._id || g.groupId)?.toString();
-        return gid === targetGroupId && g.role === "shift_manager";
+        const gName = g.groupId?.name || g.name || g.groupName;
+        return (gid === targetGroupId || gid === group.name || gName === group.name) && g.role === "shift_manager";
     });
 }
 

@@ -57,6 +57,24 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+const normalizeUser = (foundUser: any): User => {
+    return {
+        ...foundUser,
+        groups: (foundUser.groups || []).map((g: any) => {
+            const rawGid = g.groupId;
+            const gidString = typeof rawGid === "object" && rawGid !== null
+                ? (rawGid._id || rawGid.name || String(rawGid))
+                : String(rawGid);
+            const groupName = typeof rawGid === "object" && rawGid !== null ? rawGid.name : g.name || g.groupName;
+            return {
+                ...g,
+                groupId: gidString,
+                ...(groupName ? { groupName } : {}),
+            };
+        }),
+    };
+};
+
 /**
  * Provider component that handles the authentication lifecycle.
  * 
@@ -80,8 +98,21 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         user?.username === envConfig.superAdmin.id ||
         (currentGroup &&
             currentGroup.name === envConfig.superAdmin.groupName &&
-            user?.groups?.some((g) => g.groupId === currentGroup._id)) ||
-        user?.groups?.some((g) => g.groupId === envConfig.superAdmin.groupName),
+            user?.groups?.some((g) => {
+                const gid = typeof g.groupId === "object" && g.groupId !== null
+                    ? (g.groupId as { _id?: string; name?: string })._id || (g.groupId as { _id?: string; name?: string }).name
+                    : String(g.groupId);
+                return gid === currentGroup._id || gid === currentGroup.name || gid === envConfig.superAdmin.groupName || (g as any).groupName === envConfig.superAdmin.groupName;
+            })) ||
+        user?.groups?.some((g) => {
+            const gid = typeof g.groupId === "object" && g.groupId !== null
+                ? (g.groupId as { _id?: string; name?: string })._id || (g.groupId as { _id?: string; name?: string }).name
+                : String(g.groupId);
+            const gName = typeof g.groupId === "object" && g.groupId !== null
+                ? (g.groupId as { _id?: string; name?: string }).name
+                : (g as any)?.name || (g as any)?.groupName;
+            return gid === envConfig.superAdmin.groupName || gName === envConfig.superAdmin.groupName;
+        }),
     );
 
     /**
@@ -105,11 +136,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      */
     const activeGroupId = currentGroup?._id || localStorage.getItem("hunting_groupId");
     const isShiftManagerBool = Boolean(
-        user?.groups?.some(
-            (g) =>
-                g.groupId === activeGroupId &&
-                g.role === "shift_manager",
-        ),
+        user?.groups?.some((g) => {
+            const gid = typeof g.groupId === "object" && g.groupId !== null
+                ? (g.groupId as { _id?: string; name?: string })._id || (g.groupId as { _id?: string; name?: string }).name
+                : String(g.groupId);
+            return (gid === activeGroupId || (g as any).groupName === activeGroupId) && g.role === "shift_manager";
+        }),
     );
 
     /**
@@ -148,10 +180,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 const foundUser = response.data;
 
                 if (foundUser) {
-                    const safeUser: User = {
-                        ...foundUser,
-                        groups: foundUser.groups || [],
-                    };
+                    const safeUser = normalizeUser(foundUser);
                     setUser(safeUser);
                 } else {
                     logout();
@@ -185,10 +214,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             const token = data.token;
 
             if (foundUser) {
-                const safeUser: User = {
-                    ...foundUser,
-                    groups: foundUser.groups || [],
-                };
+                const safeUser = normalizeUser(foundUser);
 
                 setUser(safeUser);
 
@@ -198,7 +224,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 localStorage.setItem("hunting_userId", safeUser._id);
 
                 if (safeUser.groups.length > 0) {
-                    const firstGroupId = safeUser.groups[0].groupId;
+                    const rawFirstGid = safeUser.groups[0].groupId;
+                    const firstGroupId = typeof rawFirstGid === "object" && rawFirstGid !== null
+                        ? (rawFirstGid as { _id?: string; name?: string })._id || String(rawFirstGid)
+                        : String(rawFirstGid);
                     localStorage.setItem("hunting_groupId", firstGroupId);
                 }
                 return true;
@@ -217,7 +246,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      * @param {Group} [targetGroup] - Optional pre-resolved group object.
      */
     const switchGroup = (groupId: string, targetGroup?: Group) => {
-        const membership = user?.groups?.find((g) => g.groupId === groupId);
+        const membership = user?.groups?.find((g) => {
+            const gid = typeof g.groupId === "object" && g.groupId !== null
+                ? (g.groupId as { _id?: string; name?: string })._id || (g.groupId as { _id?: string; name?: string }).name
+                : String(g.groupId);
+            return gid === groupId || (g as any).groupName === groupId;
+        });
         if (membership || isUserAdminEligible) {
             localStorage.setItem("hunting_groupId", groupId);
             if (targetGroup) {

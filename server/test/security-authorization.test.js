@@ -726,5 +726,93 @@ describe("Security Authorization Gates & Input Sanitization", () => {
                 User.findById = originalFindById;
             }
         });
+
+        it("usersController.updateUser blocks deactivation of the root Super Admin account", async () => {
+            const originalFindById = User.findById;
+            const superAdminDoc = {
+                _id: new mongoose.Types.ObjectId(),
+                username: config.superAdmin.username,
+                email: config.superAdmin.email || "superadmin@example.com",
+                isActive: true,
+                groups: [{ groupId: config.superAdmin.groupName, role: "member" }],
+            };
+            User.findById = async () => superAdminDoc;
+
+            const regularAdmin = {
+                _id: new mongoose.Types.ObjectId(),
+                username: "regular_admin",
+                groups: [{ groupId: config.superAdmin.groupName, role: "member" }],
+            };
+
+            const req = {
+                user: regularAdmin,
+                params: { id: superAdminDoc._id.toString() },
+                body: { isActive: false },
+            };
+
+            let responseStatus = 200;
+            let responseJson = null;
+            const res = {
+                status: (code) => {
+                    responseStatus = code;
+                    return res;
+                },
+                json: (data) => {
+                    responseJson = data;
+                },
+            };
+
+            try {
+                await usersController.updateUser(req, res);
+                assert.equal(responseStatus, 403);
+                assert.equal(responseJson?.code, "FORBIDDEN_SUPER_ADMIN_PROTECTED");
+            } finally {
+                User.findById = originalFindById;
+            }
+        });
+
+        it("usersController.managerUpdate blocks deactivation of the root Super Admin account", async () => {
+            const originalFindById = User.findById;
+            const superAdminDoc = {
+                _id: new mongoose.Types.ObjectId(),
+                username: config.superAdmin.username,
+                email: config.superAdmin.email || "superadmin@example.com",
+                isActive: true,
+                groups: [{ groupId: "ops-group", role: "member" }],
+            };
+            User.findById = async () => superAdminDoc;
+
+            const shiftManager = {
+                _id: new mongoose.Types.ObjectId(),
+                username: "shift_mgr",
+                groups: [{ groupId: "ops-group", role: "shift_manager" }],
+            };
+
+            const req = {
+                user: shiftManager,
+                params: { id: superAdminDoc._id.toString() },
+                body: { isActive: false },
+            };
+
+            let responseStatus = 200;
+            let responseJson = null;
+            const res = {
+                status: (code) => {
+                    responseStatus = code;
+                    return res;
+                },
+                json: (data) => {
+                    responseJson = data;
+                },
+            };
+
+            try {
+                await usersController.managerUpdate(req, res);
+                assert.equal(responseStatus, 403);
+                assert.equal(responseJson?.code, "FORBIDDEN_SUPER_ADMIN_PROTECTED");
+            } finally {
+                User.findById = originalFindById;
+            }
+        });
     });
 });

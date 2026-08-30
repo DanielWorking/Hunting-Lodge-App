@@ -521,4 +521,183 @@ describe("Controller Cascading & Validation Rules", () => {
             assert.ok(jsonResponse?.message.includes("username"), "Message should mention the conflicting field");
         });
     });
+
+    describe("Admin Parity & Full Directory / Group Access", () => {
+        describe("authHelpers.isAdmin", () => {
+            it("should identify super admin by ID, username, or email", () => {
+                assert.equal(authHelpers.isAdmin({ username: config.superAdmin.id }), true);
+                assert.equal(authHelpers.isAdmin({ username: config.superAdmin.username }), true);
+                if (config.superAdmin.email) {
+                    assert.equal(authHelpers.isAdmin({ email: config.superAdmin.email }), true);
+                }
+            });
+
+            it("should identify regular admin when user belongs to SUPER_ADMIN_GROUP_NAME with populated group document", () => {
+                const adminGroupDoc = {
+                    _id: new mongoose.Types.ObjectId(),
+                    name: config.superAdmin.groupName,
+                };
+                const regularAdminUser = {
+                    username: "reg_admin_1",
+                    groups: [{ groupId: adminGroupDoc, role: "member" }],
+                };
+                assert.equal(authHelpers.isAdmin(regularAdminUser), true);
+            });
+
+            it("should identify regular admin when user has literal admin group string name", () => {
+                const regularAdminUser = {
+                    username: "reg_admin_2",
+                    groups: [{ groupId: config.superAdmin.groupName, role: "member" }],
+                };
+                assert.equal(authHelpers.isAdmin(regularAdminUser), true);
+            });
+
+            it("should identify regular admin when user has g.name or g.groupName set to SUPER_ADMIN_GROUP_NAME", () => {
+                const regularAdminUser = {
+                    username: "reg_admin_3",
+                    groups: [{ groupId: new mongoose.Types.ObjectId(), name: config.superAdmin.groupName, role: "member" }],
+                };
+                assert.equal(authHelpers.isAdmin(regularAdminUser), true);
+            });
+
+            it("should return false for regular users belonging only to operational groups", () => {
+                const regularUser = {
+                    username: "regular_user",
+                    groups: [{ groupId: { _id: new mongoose.Types.ObjectId(), name: "NOC" }, role: "member" }],
+                };
+                assert.equal(authHelpers.isAdmin(regularUser), false);
+                assert.equal(authHelpers.isAdmin(null), false);
+                assert.equal(authHelpers.isAdmin({}), false);
+            });
+        });
+
+        describe("usersController.getUsers for Regular Admin", () => {
+            it("should allow regular admin to retrieve full directory (active and inactive) across all groups", async () => {
+                const allUsersInDb = [
+                    { _id: new mongoose.Types.ObjectId(), username: "admin1", isActive: true, groups: [] },
+                    { _id: new mongoose.Types.ObjectId(), username: "user_active", isActive: true, groups: [] },
+                    { _id: new mongoose.Types.ObjectId(), username: "user_inactive", isActive: false, groups: [] },
+                ];
+                const originalFind = User.find;
+                User.find = async () => allUsersInDb;
+
+                const regularAdminUser = {
+                    _id: new mongoose.Types.ObjectId(),
+                    username: "regular_admin",
+                    groups: [{ groupId: { _id: new mongoose.Types.ObjectId(), name: config.superAdmin.groupName }, role: "member" }],
+                };
+
+                const req = {
+                    user: regularAdminUser,
+                    query: {},
+                };
+
+                let responseStatus = 200;
+                let responseJson = null;
+                const res = {
+                    status: (code) => {
+                        responseStatus = code;
+                        return res;
+                    },
+                    json: (data) => {
+                        responseJson = data;
+                    },
+                };
+
+                try {
+                    await usersController.getUsers(req, res);
+                    assert.equal(responseStatus, 200);
+                    assert.equal(responseJson.length, 3);
+                    assert.deepEqual(responseJson, allUsersInDb);
+                } finally {
+                    User.find = originalFind;
+                }
+            });
+
+            it("should reject full directory query by non-admin user with 403", async () => {
+                const nonAdminUser = {
+                    _id: new mongoose.Types.ObjectId(),
+                    username: "regular_member",
+                    groups: [{ groupId: { _id: new mongoose.Types.ObjectId(), name: "NOC" }, role: "member" }],
+                };
+
+                const req = {
+                    user: nonAdminUser,
+                    query: {},
+                };
+
+                let responseStatus = 200;
+                let responseJson = null;
+                const res = {
+                    status: (code) => {
+                        responseStatus = code;
+                        return res;
+                    },
+                    json: (data) => {
+                        responseJson = data;
+                    },
+                };
+
+                await usersController.getUsers(req, res);
+                assert.equal(responseStatus, 403);
+                assert.equal(responseJson?.code, "FORBIDDEN_ADMIN_REQUIRED");
+            });
+        });
+
+        describe("groupsController.getGroups for Regular Admin", () => {
+            it("should return all groups with user counts to a regular admin identical to super admin", async () => {
+                const groupA = { _id: new mongoose.Types.ObjectId(), name: config.superAdmin.groupName };
+                const groupB = { _id: new mongoose.Types.ObjectId(), name: "NOC" };
+                const groupC = { _id: new mongoose.Types.ObjectId(), name: "Support" };
+
+                const originalGroupFind = Group.find;
+                const originalUserCount = User.countDocuments;
+
+                Group.find = () => ({
+                    lean: async () => [groupA, groupB, groupC],
+                });
+
+                User.countDocuments = async (filter) => {
+                    if (filter["groups.groupId"] === groupA._id) return 1;
+                    if (filter["groups.groupId"] === groupB._id) return 5;
+                    return 0;
+                };
+
+                const regularAdminUser = {
+                    _id: new mongoose.Types.ObjectId(),
+                    username: "regular_admin",
+                    groups: [{ groupId: { _id: groupA._id, name: config.superAdmin.groupName }, role: "member" }],
+                };
+
+                const req = {
+                    user: regularAdminUser,
+                };
+
+                let responseStatus = 200;
+                let responseJson = null;
+                const res = {
+                    status: (code) => {
+                        responseStatus = code;
+                        return res;
+                    },
+                    json: (data) => {
+                        responseJson = data;
+                    },
+                };
+
+                try {
+                    const groupsController = require("../controllers/groupsController");
+                    await groupsController.getGroups(req, res);
+                    assert.equal(responseStatus, 200);
+                    assert.equal(responseJson.length, 3);
+                    assert.equal(responseJson[0].userCount, 1);
+                    assert.equal(responseJson[1].userCount, 5);
+                    assert.equal(responseJson[2].userCount, 0);
+                } finally {
+                    Group.find = originalGroupFind;
+                    User.countDocuments = originalUserCount;
+                }
+            });
+        });
+    });
 });

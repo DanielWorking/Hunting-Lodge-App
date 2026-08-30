@@ -162,6 +162,14 @@ exports.updateUser = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
+        // System protection: Permanently prevent deactivating the root Super Admin account
+        if (isSuperAdminUser(oldUser) && req.body.isActive === false) {
+            return res.status(403).json({
+                message: "System Security: The root Super Admin account cannot be deactivated.",
+                code: "FORBIDDEN_SUPER_ADMIN_PROTECTED",
+            });
+        }
+
         // 3. Whitelist allowed update fields (displayName and vacationBalance are strictly barred/ignored from DB updates)
         const { email, isActive, groups, favoritePhones } = req.body;
         const updateFields = {};
@@ -271,6 +279,14 @@ exports.managerUpdate = async (req, res) => {
         const targetUser = await User.findById(req.params.id);
         if (!targetUser) {
             return res.status(404).json({ message: "User not found" });
+        }
+
+        // System protection: Permanently prevent deactivating the root Super Admin account
+        if (isSuperAdminUser(targetUser) && isActive === false) {
+            return res.status(403).json({
+                message: "System Security: The root Super Admin account cannot be deactivated.",
+                code: "FORBIDDEN_SUPER_ADMIN_PROTECTED",
+            });
         }
 
         const requestedVacation = vacationBalance !== undefined ? vacationBalance : vacationDays;

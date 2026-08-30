@@ -171,6 +171,71 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             expect(screen.getByText("Manage users and groups.")).toBeInTheDocument();
         });
 
+        it("renders full user directory and groups table for regular admin users belonging to ADMINISTRATORS group", () => {
+            const adminGroup: Group = {
+                _id: "admin-group-id",
+                name: "ADMINISTRATORS",
+                members: ["reg-admin-id"],
+                createdAt: new Date().toISOString(),
+                settings: { shiftTypes: [], timeSlots: [] },
+            };
+
+            const sampleUsers = [
+                {
+                    _id: "u1",
+                    username: "reg_admin",
+                    displayName: "Regular Admin",
+                    isActive: true,
+                    vacationBalance: 18,
+                    groups: [{ groupId: "admin-group-id", role: "member" as const }],
+                },
+                {
+                    _id: "u2",
+                    username: "inactive_emp",
+                    displayName: "Inactive Employee",
+                    isActive: false,
+                    vacationBalance: 0,
+                    groups: [{ groupId: "group-1", role: "member" as const }],
+                },
+            ];
+
+            vi.spyOn(UserContextModule, "useUser").mockReturnValue({
+                user: sampleUsers[0],
+                currentGroup: adminGroup,
+                setCurrentGroup: vi.fn(),
+                isAdmin: true,
+                isShiftManager: false,
+                login: vi.fn(),
+                logout: vi.fn(),
+                switchGroup: vi.fn(),
+                isRestoringSession: false,
+            });
+
+            vi.spyOn(DataContextModule, "useData").mockReturnValue({
+                sites: [],
+                setSites: vi.fn(),
+                phones: [],
+                setPhones: vi.fn(),
+                users: sampleUsers,
+                setUsers: vi.fn(),
+                groups: [adminGroup, mockSampleGroup],
+                setGroups: vi.fn(),
+                loading: false,
+                refreshData: vi.fn(),
+            });
+
+            render(
+                <MemoryRouter initialEntries={["/admin/users"]}>
+                    <App />
+                </MemoryRouter>,
+            );
+
+            expect(screen.getByText("Admin Dashboard")).toBeInTheDocument();
+            expect(screen.getByText("Regular Admin")).toBeInTheDocument();
+            expect(screen.getByText("Inactive Employee")).toBeInTheDocument();
+            expect(screen.getByText("Inactive")).toBeInTheDocument();
+        });
+
         it("renders loading indicator and does not redirect to '/' while data context is loading during session restoration", () => {
             vi.spyOn(UserContextModule, "useUser").mockReturnValue({
                 user: {

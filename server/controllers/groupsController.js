@@ -23,7 +23,7 @@ exports.getGroups = async (req, res) => {
             groups = await Group.find().lean();
         } else {
             // Regular users receive only the groups they are assigned to
-            const userGroupIds = (req.user.groups || []).map((g) => g.groupId);
+            const userGroupIds = (req.user.groups || []).map((g) => (g.groupId?._id || g.groupId)).filter(Boolean);
             groups = await Group.find({ _id: { $in: userGroupIds } }).lean();
         }
 

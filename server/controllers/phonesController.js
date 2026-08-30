@@ -64,10 +64,24 @@ exports.getPhones = async (req, res) => {
 
 exports.createPhone = async (req, res) => {
     try {
-        // 1. Check for duplicate numbers across all contacts
-        await checkDuplicateNumbers(req.body.numbers);
+        const { name, numbers, type, description } = req.body;
+        if (!name || typeof name !== "string" || !name.trim()) {
+            return res.status(400).json({ message: "Contact name is required" });
+        }
+        if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
+            return res.status(400).json({ message: "At least one phone number is required" });
+        }
+        const cleanedNumbers = numbers.map((n) => (typeof n === "string" ? n.trim() : String(n)));
 
-        const phone = new Phone(req.body);
+        // 1. Check for duplicate numbers across all contacts
+        await checkDuplicateNumbers(cleanedNumbers);
+
+        const phone = new Phone({
+            name: name.trim(),
+            numbers: cleanedNumbers,
+            type,
+            description: typeof description === "string" ? description.trim() : "",
+        });
         const newPhone = await phone.save();
         res.status(201).json(newPhone);
     } catch (err) {
@@ -77,14 +91,36 @@ exports.createPhone = async (req, res) => {
 
 exports.updatePhone = async (req, res) => {
     try {
-        // 1. Check for duplicate numbers (excluding the current contact ID)
-        if (req.body.numbers) {
-            await checkDuplicateNumbers(req.body.numbers, req.params.id);
+        const { name, numbers, type, description } = req.body;
+        const updateData = {};
+
+        if (name !== undefined) {
+            if (typeof name !== "string" || !name.trim()) {
+                return res.status(400).json({ message: "Valid contact name is required" });
+            }
+            updateData.name = name.trim();
+        }
+
+        if (numbers !== undefined) {
+            if (!Array.isArray(numbers) || numbers.length === 0) {
+                return res.status(400).json({ message: "At least one phone number is required" });
+            }
+            updateData.numbers = numbers.map((n) => (typeof n === "string" ? n.trim() : String(n)));
+            // Check for duplicate numbers (excluding the current contact ID)
+            await checkDuplicateNumbers(updateData.numbers, req.params.id);
+        }
+
+        if (type !== undefined) {
+            updateData.type = type;
+        }
+
+        if (description !== undefined) {
+            updateData.description = typeof description === "string" ? description.trim() : description;
         }
 
         const updatedPhone = await Phone.findByIdAndUpdate(
             req.params.id,
-            req.body,
+            { $set: updateData },
             { new: true, runValidators: true },
         );
         if (!updatedPhone) return res.status(404).json({ message: "Phone contact not found" });
@@ -121,7 +157,13 @@ exports.deletePhone = async (req, res) => {
     try {
         const deletedPhone = await Phone.findByIdAndDelete(req.params.id);
         if (!deletedPhone) return res.status(404).json({ message: "Phone contact not found" });
-        // Optional: Clean up dead references in user favorite lists if needed
+
+        // Clean up dead references in user favorite phone lists
+        await User.updateMany(
+            { favoritePhones: req.params.id },
+            { $pull: { favoritePhones: req.params.id } },
+        );
+
         res.json({ message: "Phone deleted" });
     } catch (err) {
         res.status(500).json({ message: err.message });

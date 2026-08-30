@@ -8,15 +8,19 @@
 const mongoose = require("mongoose");
 const User = require("../models/User");
 const Group = require("../models/Group");
+const Site = require("../models/Site");
 const config = require("../config");
 const { generateToken } = require("../utils/jwt");
-const { isAdmin, isSuperAdminUser, resolveGroup, isGroupMember } = require("../utils/authHelpers");
+const { isAdmin, isSuperAdminUser, resolveGroup, isGroupMember, isShiftManager } = require("../utils/authHelpers");
 
 exports.login = async (req, res) => {
     try {
         const { username } = req.body;
+        if (!username || typeof username !== "string" || !username.trim()) {
+            return res.status(400).json({ message: "Valid username is required" });
+        }
         // Username could be an email or a handle depending on registration
-        const user = await User.findOne({ username });
+        const user = await User.findOne({ username: username.trim() });
 
         if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -106,6 +110,14 @@ exports.reorderUsers = async (req, res) => {
             return res.status(404).json({ message: "Group not found" });
         }
 
+        const isAuthorized = isAdmin(req.user) || await isShiftManager(req.user, group._id);
+        if (!isAuthorized) {
+            return res.status(403).json({
+                message: "Forbidden: Administrator or Shift Manager permissions required for this group.",
+                code: "FORBIDDEN_MANAGER_REQUIRED",
+            });
+        }
+
         const promises = updates.map((update) => {
             return User.updateOne(
                 { _id: update.userId, "groups.groupId": group._id },
@@ -140,11 +152,21 @@ exports.updateUser = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
-        // 3. Update user
+        // 3. Whitelist allowed update fields
+        const { displayName, email, isActive, vacationBalance, groups, favoritePhones } = req.body;
+        const updateFields = {};
+        if (displayName !== undefined) updateFields.displayName = typeof displayName === "string" ? displayName.trim() : displayName;
+        if (email !== undefined) updateFields.email = typeof email === "string" ? email.trim().toLowerCase() : email;
+        if (isActive !== undefined) updateFields.isActive = Boolean(isActive);
+        if (vacationBalance !== undefined) updateFields.vacationBalance = Number(vacationBalance);
+        if (groups !== undefined && Array.isArray(groups)) updateFields.groups = groups;
+        if (favoritePhones !== undefined && Array.isArray(favoritePhones)) updateFields.favoritePhones = favoritePhones;
+
+        // 4. Update user with schema validators
         const updatedUser = await User.findByIdAndUpdate(
             targetUserId,
-            { $set: req.body },
-            { new: true },
+            { $set: updateFields },
+            { new: true, runValidators: true },
         );
 
         // 4. Group membership synchronization logic
@@ -187,6 +209,13 @@ exports.updateUser = async (req, res) => {
 
 exports.deleteUser = async (req, res) => {
     try {
+        if (!isAdmin(req.user)) {
+            return res.status(403).json({
+                message: "Forbidden: Administrator privileges required to delete users.",
+                code: "FORBIDDEN_ADMIN_REQUIRED",
+            });
+        }
+
         const userToDelete = await User.findById(req.params.id);
         if (!userToDelete) return res.status(404).json({ message: "User not found" });
 
@@ -203,6 +232,12 @@ exports.deleteUser = async (req, res) => {
         await Group.updateMany(
             { members: req.params.id },
             { $pull: { members: req.params.id } },
+        );
+
+        // Clean up: Remove user from Site favoritedBy lists
+        await Site.updateMany(
+            { favoritedBy: req.params.id },
+            { $pull: { favoritedBy: req.params.id } },
         );
 
         res.json({ message: "User deleted" });

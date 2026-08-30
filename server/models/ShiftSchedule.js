@@ -26,26 +26,41 @@ const ShiftScheduleSchema = new mongoose.Schema(
         groupId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Group",
-            required: true,
+            required: [true, "Group reference is required"],
         },
-        startDate: { type: Date, required: true },
-        endDate: { type: Date, required: true },
-        isPublished: { type: Boolean, default: false },
+        startDate: {
+            type: Date,
+            required: [true, "Start date is required"],
+        },
+        endDate: {
+            type: Date,
+            required: [true, "End date is required"],
+        },
+        isPublished: {
+            type: Boolean,
+            default: false,
+        },
 
         shifts: [
             {
                 userId: {
                     type: mongoose.Schema.Types.ObjectId,
                     ref: "User",
-                    required: true,
+                    required: [true, "Shift userId is required"],
                 },
-                date: { type: Date, required: true },
+                date: {
+                    type: Date,
+                    required: [true, "Shift date is required"],
+                },
                 shiftTypeId: {
                     type: mongoose.Schema.Types.ObjectId,
-                    required: true,
+                    required: [true, "Shift shiftTypeId is required"],
                 },
                 // Marks whether this specific assignment has already triggered a vacation day deduction
-                vacationDeducted: { type: Boolean, default: false },
+                vacationDeducted: {
+                    type: Boolean,
+                    default: false,
+                },
             },
         ],
     },
@@ -56,5 +71,8 @@ const ShiftScheduleSchema = new mongoose.Schema(
 
 // Ensures each group has only one schedule starting on a given date.
 ShiftScheduleSchema.index({ groupId: 1, startDate: 1 }, { unique: true });
+
+// Optimizes queries looking for active published schedules covering a specific date range
+ShiftScheduleSchema.index({ groupId: 1, isPublished: 1, startDate: 1, endDate: 1 });
 
 module.exports = mongoose.model("ShiftSchedule", ShiftScheduleSchema);

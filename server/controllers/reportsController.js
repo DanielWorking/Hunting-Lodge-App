@@ -14,7 +14,7 @@ const ShiftReport = require("../models/ShiftReport");
 const ShiftSchedule = require("../models/ShiftSchedule");
 const Group = require("../models/Group");
 const User = require("../models/User");
-const { resolveGroup, isGroupMember, isShiftManager } = require("../utils/authHelpers");
+const { resolveGroup, isGroupMember, isShiftManager, isAdmin } = require("../utils/authHelpers");
 
 exports.getReports = async (req, res) => {
     try {
@@ -37,10 +37,10 @@ exports.getReports = async (req, res) => {
 
         let query = { groupId: group._id };
 
-        // Handle temporal filtering logic
+        // Handle temporal filtering logic on the BSON Date 'date' field
         if (year) {
-            const startDate = new Date(year, month ? month - 1 : 0, day || 1);
-            const endDate = new Date(year, month ? month : 12, 0, 23, 59, 59);
+            const startDate = new Date(Number(year), month ? Number(month) - 1 : 0, day ? Number(day) : 1);
+            const endDate = new Date(Number(year), month ? Number(month) : 12, 0, 23, 59, 59);
 
             if (day) {
                 endDate.setMonth(startDate.getMonth());
@@ -48,10 +48,10 @@ exports.getReports = async (req, res) => {
                 endDate.setHours(23, 59, 59);
             }
 
-            query.startTime = { $gte: startDate, $lte: endDate };
+            query.date = { $gte: startDate, $lte: endDate };
         }
 
-        const reports = await ShiftReport.find(query).sort({ startTime: -1 });
+        const reports = await ShiftReport.find(query).sort({ date: -1, startTime: -1 });
         res.json(reports);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -100,8 +100,8 @@ exports.createReport = async (req, res) => {
             // Match report start time with defined time slots in group settings
             const matchingSlot = group.settings.timeSlots.find((slot) => {
                 const [h, m] = slot.startTime.split(":").map(Number);
-                const slotVal = h * 60 + m;
-                return Math.abs(slotVal - reportTimeVal) < 5;
+                const slotTimeVal = h * 60 + m;
+                return Math.abs(slotTimeVal - reportTimeVal) < 5;
             });
 
             const relevantShiftTypeIds = matchingSlot
@@ -164,12 +164,25 @@ exports.updateReport = async (req, res) => {
             });
         }
 
+        // Lock invariant check: If report is locked, reject edits for non-administrators
+        if (report.isLocked && !isAdmin(req.user)) {
+            return res.status(400).json({
+                message: "This shift report is locked and cannot be edited.",
+                code: "REPORT_LOCKED",
+            });
+        }
+
         const { currentTasks, attendees, isLocked, previousTasks } = req.body;
+        const updateData = {};
+        if (currentTasks !== undefined) updateData.currentTasks = currentTasks;
+        if (attendees !== undefined) updateData.attendees = attendees;
+        if (isLocked !== undefined) updateData.isLocked = isLocked;
+        if (previousTasks !== undefined) updateData.previousTasks = previousTasks;
 
         const updatedReport = await ShiftReport.findByIdAndUpdate(
             req.params.id,
-            { currentTasks, attendees, isLocked, previousTasks },
-            { new: true },
+            { $set: updateData },
+            { new: true, runValidators: true },
         );
 
         res.json(updatedReport);

@@ -10,7 +10,8 @@
         "migrate:up": "migrate-mongo up",
         "migrate:down": "migrate-mongo down",
         "migrate:status": "migrate-mongo status",
-        "migrate:create": "migrate-mongo create"
+        "migrate:create": "migrate-mongo create",
+        "test": "node --test test/**/*.test.js"
     },
     "keywords": [],
     "author": "",

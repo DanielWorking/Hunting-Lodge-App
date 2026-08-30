@@ -62,6 +62,11 @@ const errorHandler = (err, req, res, next) => {
         statusCode = 400;
         message = `Invalid format for field '${err.path}': ${err.value}`;
         code = "INVALID_IDENTIFIER";
+    } else if (err.code === 11000 || (err.name === "MongoServerError" && err.code === 11000)) {
+        statusCode = 409;
+        const field = Object.keys(err.keyPattern || err.keyValue || {})[0] || "field";
+        message = `Duplicate value for '${field}'. An entry with this ${field} already exists.`;
+        code = "DUPLICATE_KEY";
     } else if (err.name === "UnauthorizedError" || err.name === "JsonWebTokenError") {
         statusCode = 401;
         message = "Unauthorized: Invalid or expired token";

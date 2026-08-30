@@ -162,6 +162,7 @@ exports.publishSchedule = async (req, res) => {
             .map((t) => t._id.toString());
 
         let updatesCount = 0;
+        const deductedUserIds = [];
 
         if (vacationTypeIds.length > 0) {
             for (let i = 0; i < schedule.shifts.length; i++) {
@@ -172,18 +173,35 @@ exports.publishSchedule = async (req, res) => {
                     vacationTypeIds.includes(shiftTypeIdStr) &&
                     !shift.vacationDeducted
                 ) {
-                    await User.findByIdAndUpdate(shift.userId, {
-                        $inc: { vacationBalance: -1 },
-                    });
-                    shift.vacationDeducted = true;
-                    updatesCount++;
+                    // Atomically decrement only if user has a positive balance to prevent negative balance underflow
+                    const updatedUser = await User.findOneAndUpdate(
+                        { _id: shift.userId, vacationBalance: { $gt: 0 } },
+                        { $inc: { vacationBalance: -1 } },
+                        { new: true },
+                    );
+
+                    if (updatedUser) {
+                        shift.vacationDeducted = true;
+                        deductedUserIds.push(shift.userId);
+                        updatesCount++;
+                    } else {
+                        console.warn(`[PublishSchedule] User ${shift.userId} has 0 vacation balance; balance deduction skipped to prevent underflow.`);
+                    }
                 }
             }
         }
 
-        schedule.isPublished = true;
-        schedule.markModified("shifts");
-        await schedule.save();
+        try {
+            schedule.isPublished = true;
+            schedule.markModified("shifts");
+            await schedule.save();
+        } catch (saveErr) {
+            // Rollback any deducted balances if schedule save fails
+            for (const userId of deductedUserIds) {
+                await User.findByIdAndUpdate(userId, { $inc: { vacationBalance: 1 } }).catch(() => {});
+            }
+            throw saveErr;
+        }
 
         res.json(schedule);
     } catch (err) {

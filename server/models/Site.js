@@ -17,22 +17,57 @@ const mongoose = require("mongoose");
  * @property {string} [description] - Optional brief overview of the resource.
  * @property {mongoose.Schema.Types.ObjectId[]} favoritedBy - List of users who have starred this site.
  * @property {mongoose.Schema.Types.ObjectId} groupId - Reference to the Group this site belongs to.
- * @property {string} tag - Category label for filtering (e.g., "Tools", "General").
- * @property {Date} createdAt - Timestamp of when the site was added.
+ * @property {string} tag - Category label for filtering (defaults to "General").
+ * @property {Date} createdAt - Automatically managed timestamp.
+ * @property {Date} updatedAt - Automatically managed timestamp.
  */
-const SiteSchema = new mongoose.Schema({
-    title: { type: String, required: true },
-    url: { type: String, required: true },
-    imageUrl: { type: String },
-    description: { type: String },
-    favoritedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    groupId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Group",
-        required: true,
+const SiteSchema = new mongoose.Schema(
+    {
+        title: {
+            type: String,
+            required: [true, "Site title is required"],
+            trim: true,
+        },
+        url: {
+            type: String,
+            required: [true, "Site URL is required"],
+            trim: true,
+        },
+        imageUrl: {
+            type: String,
+            trim: true,
+            default: "",
+        },
+        description: {
+            type: String,
+            trim: true,
+            default: "",
+        },
+        favoritedBy: {
+            type: [
+                {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "User",
+                },
+            ],
+            default: [],
+        },
+        groupId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Group",
+            required: [true, "Group reference is required"],
+        },
+        tag: {
+            type: String,
+            default: "General",
+            trim: true,
+        },
     },
-    createdAt: { type: Date, default: Date.now },
-    tag: { type: String, default: "General" },
-});
+    { timestamps: true },
+);
+
+// Compound indexes for group tag filtering and duplicate URL checks within a group
+SiteSchema.index({ groupId: 1, tag: 1 });
+SiteSchema.index({ groupId: 1, url: 1 });
 
 module.exports = mongoose.model("Site", SiteSchema);

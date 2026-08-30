@@ -17,9 +17,21 @@ const mongoose = require("mongoose");
  * @property {boolean} isVacation - Indicates if this shift type represents a vacation.
  */
 const ShiftTypeSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    color: { type: String, required: true },
-    isVacation: { type: Boolean, default: false },
+    name: {
+        type: String,
+        required: [true, "Shift type name is required"],
+        trim: true,
+    },
+    color: {
+        type: String,
+        required: [true, "Shift type color is required"],
+        default: "#1976d2",
+        match: [/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, "Invalid hex color format (e.g. #1976d2)"],
+    },
+    isVacation: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 /**
@@ -27,15 +39,31 @@ const ShiftTypeSchema = new mongoose.Schema({
  * Defines the daily working periods and their associated shift types.
  * 
  * @property {string} name - Name of the time slot (e.g., "08:00 - 16:00").
- * @property {string} startTime - Start time in HH:mm format.
- * @property {string} endTime - End time in HH:mm format.
+ * @property {string} startTime - Start time in 24-hour HH:mm format.
+ * @property {string} endTime - End time in 24-hour HH:mm format.
  * @property {mongoose.Schema.Types.ObjectId[]} linkedShiftTypes - Array of ShiftType IDs linked to this slot.
  */
 const TimeSlotSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    startTime: { type: String, required: true },
-    endTime: { type: String, required: true },
-    linkedShiftTypes: [{ type: mongoose.Schema.Types.ObjectId }], // IDs from ShiftTypeSchema (virtual reference handled in logic)
+    name: {
+        type: String,
+        required: [true, "Time slot name is required"],
+        trim: true,
+    },
+    startTime: {
+        type: String,
+        required: [true, "Start time is required"],
+        match: [/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid start time format. Must be 24-hour HH:mm (e.g. 08:00)"],
+    },
+    endTime: {
+        type: String,
+        required: [true, "End time is required"],
+        match: [/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid end time format. Must be 24-hour HH:mm (e.g. 16:00)"],
+    },
+    linkedShiftTypes: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+        },
+    ],
 });
 
 /**
@@ -48,19 +76,41 @@ const TimeSlotSchema = new mongoose.Schema({
  * @property {Object} settings - Configuration settings for shifts and slots.
  * @property {string[]} siteTags - List of tags used to categorize sites within the group.
  * @property {Date} createdAt - Timestamp of when the group was created.
+ * @property {Date} updatedAt - Timestamp of the most recent modification.
  */
-const GroupSchema = new mongoose.Schema({
-    name: { type: String, required: true, unique: true },
-    members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    settings: {
-        shiftTypes: [ShiftTypeSchema],
-        timeSlots: [TimeSlotSchema],
+const GroupSchema = new mongoose.Schema(
+    {
+        name: {
+            type: String,
+            required: [true, "Group name is required"],
+            unique: true,
+            trim: true,
+        },
+        members: {
+            type: [
+                {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "User",
+                },
+            ],
+            default: [],
+        },
+        settings: {
+            shiftTypes: {
+                type: [ShiftTypeSchema],
+                default: [],
+            },
+            timeSlots: {
+                type: [TimeSlotSchema],
+                default: [],
+            },
+        },
+        siteTags: {
+            type: [String],
+            default: ["General"],
+        },
     },
-    siteTags: {
-        type: [String],
-        default: ["General"],
-    },
-    createdAt: { type: Date, default: Date.now },
-});
+    { timestamps: true },
+);
 
 module.exports = mongoose.model("Group", GroupSchema);

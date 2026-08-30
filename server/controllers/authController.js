@@ -100,26 +100,29 @@ exports.login = async (req, res) => {
         let searchCriteria; // DB search criteria
 
         // Full name display from SSO claims, with fallback to nickname or username
-        dbDisplayName = claims.name || claims.nickname;
-        dbEmail = claims.email || "";
+        dbDisplayName = (claims.name || claims.preferred_username || claims.nickname).trim();
+        dbEmail = (claims.email).trim().toLowerCase();
 
         if (identifierMode === "username") {
             // --- Production / Organizational mode (Card / Smartcard / AD SSO) ---
-            dbUsername = claims.preferred_username || claims.nickname || claims.sub;
+            dbUsername = (claims.preferred_username).trim();
             if (!dbDisplayName) {
                 dbDisplayName = dbUsername;
             }
             if (!dbEmail && dbUsername) {
-                dbEmail = `${dbUsername}@organization.local`;
+                dbEmail = `${dbUsername.replace(/[^a-zA-Z0-9._-]/g, "")}@organization.local`.toLowerCase();
             }
             searchCriteria = { username: dbUsername };
         } else {
             // --- Development / Home mode (Auth0 / Google OAuth2) ---
-            dbUsername = claims.email || claims.preferred_username || claims.nickname || claims.sub;
+            dbUsername = (claims.name || claims.email || claims.nickname).trim();
             if (!dbDisplayName) {
                 dbDisplayName = claims.name || claims.nickname || dbUsername;
             }
-            searchCriteria = { email: claims.email || dbUsername };
+            if (!dbEmail && dbUsername) {
+                dbEmail = `${dbUsername.replace(/[^a-zA-Z0-9._-]/g, "")}@organization.local`.toLowerCase();
+            }
+            searchCriteria = dbEmail ? { email: dbEmail } : { username: dbUsername };
         }
 
         console.log(`🔍 Searching user by:`, searchCriteria);

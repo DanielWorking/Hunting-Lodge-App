@@ -14,34 +14,52 @@ const mongoose = require("mongoose");
  * @property {mongoose.Schema.Types.ObjectId} groupId - Reference to the Group this report belongs to.
  * @property {string} title - Descriptive title for the shift report.
  * @property {Date} date - The date the shift occurred.
- * @property {string} startTime - Start time of the shift (HH:mm format).
- * @property {string} endTime - End time of the shift (HH:mm format).
+ * @property {string} startTime - Start time of the shift (ISO string or timestamp).
+ * @property {string} endTime - End time of the shift (ISO string or timestamp).
  * @property {string} previousTasks - Unfinished tasks inherited from the prior shift's report.
  * @property {string} currentTasks - Rich text/HTML content detailing work performed during this shift.
  * @property {Object[]} attendees - List of personnel present during the shift.
  * @property {mongoose.Schema.Types.ObjectId} [attendees.userId] - Reference to the User model.
  * @property {string} [attendees.name] - Stored name of the user for historical records.
  * @property {boolean} [attendees.isManual] - Indicates if attendee was added manually.
- * @property {boolean} isLocked - If true, the report can no longer be edited (typically after 24 hours).
+ * @property {boolean} isLocked - If true, the report can no longer be edited.
  */
 const ShiftReportSchema = new mongoose.Schema(
     {
         groupId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Group",
-            required: true,
-            index: true,
+            required: [true, "Group reference is required"],
         },
 
         // Title and times
-        title: { type: String, required: true },
-        date: { type: Date, required: true },
-        startTime: { type: String, required: true },
-        endTime: { type: String, required: true },
+        title: {
+            type: String,
+            required: [true, "Report title is required"],
+            trim: true,
+        },
+        date: {
+            type: Date,
+            required: [true, "Report date is required"],
+        },
+        startTime: {
+            type: String,
+            required: [true, "Start time is required"],
+        },
+        endTime: {
+            type: String,
+            required: [true, "End time is required"],
+        },
 
         // Report content
-        previousTasks: { type: String, default: "" }, // Automatically copied from the previous report
-        currentTasks: { type: String, default: "" }, // HTML/Rich Text from the editor
+        previousTasks: {
+            type: String,
+            default: "",
+        },
+        currentTasks: {
+            type: String,
+            default: "",
+        },
 
         // Attendance
         attendees: [
@@ -50,17 +68,31 @@ const ShiftReportSchema = new mongoose.Schema(
                     type: mongoose.Schema.Types.ObjectId,
                     ref: "User",
                 },
-                name: { type: String }, // Storing the name in case the user is deleted in the future (history)
-                isManual: { type: Boolean, default: false }, // Was added manually or pulled from the schedule?
+                name: {
+                    type: String,
+                    trim: true,
+                },
+                isManual: {
+                    type: Boolean,
+                    default: false,
+                },
             },
         ],
 
-        // Is the report locked for editing? (After 24 hours)
-        isLocked: { type: Boolean, default: false },
+        // Lock status
+        isLocked: {
+            type: Boolean,
+            default: false,
+        },
     },
     {
         timestamps: true,
     },
 );
+
+// Compound indexes for temporal report filtering, latest report inheritance, and cron idempotency
+ShiftReportSchema.index({ groupId: 1, date: -1 });
+ShiftReportSchema.index({ groupId: 1, startTime: -1 });
+ShiftReportSchema.index({ groupId: 1, title: 1 });
 
 module.exports = mongoose.model("ShiftReport", ShiftReportSchema);

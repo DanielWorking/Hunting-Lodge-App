@@ -44,9 +44,22 @@ exports.createSite = async (req, res) => {
     const { title, url, imageUrl, description, groupId, tag } = req.body;
 
     try {
+        if (!groupId) {
+            return res.status(400).json({ message: "Target groupId is required." });
+        }
+
         const group = await resolveGroup(groupId);
         if (!group) {
             return res.status(404).json({ message: "Target group not found." });
+        }
+
+        // Authorization: Verify user is an explicit member of the target group
+        const hasAccess = await isGroupMember(req.user, group._id);
+        if (!hasAccess) {
+            return res.status(403).json({
+                message: "Forbidden: You are not a member of this group.",
+                code: "FORBIDDEN_GROUP_MEMBER_REQUIRED",
+            });
         }
 
         // --- Duplicate Check ---
@@ -60,10 +73,10 @@ exports.createSite = async (req, res) => {
         }
 
         const site = new Site({
-            title,
-            url,
-            imageUrl,
-            description,
+            title: typeof title === "string" ? title.trim() : title,
+            url: typeof url === "string" ? url.trim() : url,
+            imageUrl: typeof imageUrl === "string" ? imageUrl.trim() : imageUrl,
+            description: typeof description === "string" ? description.trim() : (description || ""),
             groupId: group._id,
             tag: tag || "General",
         });
@@ -105,10 +118,11 @@ exports.updateSite = async (req, res) => {
             req.body.groupId = newGroup._id;
         }
 
-        // If updating the URL, perform a duplicate check within the target group
-        if (req.body.url) {
+        // If updating the URL or transferring groups, perform duplicate check within the target group
+        const urlToCheck = req.body.url !== undefined ? req.body.url.trim() : currentSite.url;
+        if (req.body.url !== undefined || req.body.groupId) {
             const duplicateSite = await Site.findOne({
-                url: req.body.url,
+                url: urlToCheck,
                 groupId: targetGroupId,
                 _id: { $ne: req.params.id },
             });
@@ -120,10 +134,19 @@ exports.updateSite = async (req, res) => {
             }
         }
 
+        const { title, url, imageUrl, description, tag } = req.body;
+        const updateData = {};
+        if (title !== undefined) updateData.title = typeof title === "string" ? title.trim() : title;
+        if (url !== undefined) updateData.url = typeof url === "string" ? url.trim() : url;
+        if (imageUrl !== undefined) updateData.imageUrl = typeof imageUrl === "string" ? imageUrl.trim() : imageUrl;
+        if (description !== undefined) updateData.description = typeof description === "string" ? description.trim() : description;
+        if (tag !== undefined) updateData.tag = typeof tag === "string" ? tag.trim() : tag;
+        if (req.body.groupId) updateData.groupId = targetGroupId;
+
         const updatedSite = await Site.findByIdAndUpdate(
             req.params.id,
-            req.body,
-            { new: true },
+            { $set: updateData },
+            { new: true, runValidators: true },
         );
         res.json(updatedSite);
     } catch (err) {

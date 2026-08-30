@@ -20,10 +20,24 @@ const Group = require("../models/Group");
  */
 async function resolveGroup(groupId) {
     if (!groupId) return null;
-    if (typeof groupId === "object" && groupId._id) {
+    // Only trust groupId directly if it is an authentic Mongoose document instance
+    if (groupId instanceof mongoose.Document || (typeof groupId === "object" && groupId._id && typeof groupId.save === "function")) {
         return groupId;
     }
-    const strId = groupId.toString();
+    // For plain object literals (e.g. injected payload { _id: "..." }), safely extract and verify via DB
+    if (typeof groupId === "object" && !(groupId instanceof mongoose.Types.ObjectId)) {
+        if (groupId._id && (typeof groupId._id === "string" || groupId._id instanceof mongoose.Types.ObjectId)) {
+            const rawId = groupId._id.toString().trim();
+            if (mongoose.Types.ObjectId.isValid(rawId)) {
+                const byId = await Group.findById(rawId);
+                if (byId) return byId;
+            }
+        }
+        return null;
+    }
+    const strId = typeof groupId === "string" ? groupId.trim() : groupId.toString();
+    if (!strId || strId === "[object Object]") return null;
+
     if (mongoose.Types.ObjectId.isValid(strId)) {
         const byId = await Group.findById(strId);
         if (byId) return byId;

@@ -93,6 +93,7 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
                             </Typography>
                             <Typography
                                 variant="h6"
+                                component="p"
                                 sx={{ wordBreak: "break-word" }}
                             >
                                 {data.name}
@@ -120,6 +121,7 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
                             <Typography
                                 key={num}
                                 variant="h5"
+                                component="p"
                                 sx={{
                                     fontFamily: "monospace",
                                     letterSpacing: 1,

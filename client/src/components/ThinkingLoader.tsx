@@ -109,6 +109,7 @@ export default function ThinkingLoader({
             {showText && (
                 <Typography
                     variant="h6"
+                    component="p"
                     sx={{
                         fontWeight: "bold",
                         color: "text.secondary",

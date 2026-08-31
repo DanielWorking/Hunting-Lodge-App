@@ -66,7 +66,7 @@ export default function GuestPage() {
                         Welcome, {user?.username}
                     </Typography>
 
-                    <Typography variant="subtitle1" paragraph color="text.secondary" sx={{ mb: 4 }}>
+                    <Typography variant="subtitle1" component="p" paragraph color="text.secondary" sx={{ mb: 4 }}>
                         Your account has been created successfully via SSO.
                     </Typography>
 

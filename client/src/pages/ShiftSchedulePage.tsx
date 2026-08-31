@@ -352,7 +352,7 @@ export default function ShiftSchedulePage() {
                                 "dd/MM/yyyy",
                             )}
                         </Typography>
-                        <Typography variant="subtitle2" color="text.secondary">
+                        <Typography variant="subtitle2" component="p" color="text.secondary">
                             Status:{" "}
                             {scheduleData?.isPublished ? (
                                 <Box

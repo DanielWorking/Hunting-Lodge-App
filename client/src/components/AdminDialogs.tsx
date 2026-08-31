@@ -237,7 +237,7 @@ export function UserDialog({
 
                     {isSuperAdminProfile && (
                         <Alert severity="warning" variant="outlined">
-                            <Typography variant="subtitle2" fontWeight="bold">
+                            <Typography variant="subtitle2" component="p" fontWeight="bold">
                                 Super Administrator
                             </Typography>
                             Core system account. Some restrictions apply.
@@ -554,6 +554,7 @@ export function GroupDialog({
                         <Box>
                             <Typography
                                 variant="subtitle2"
+                                component="p"
                                 color="text.secondary"
                                 gutterBottom
                             >

@@ -59,6 +59,7 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
                     <Box>
                         <Typography
                             variant="subtitle2"
+                            component="p"
                             color="text.secondary"
                             gutterBottom
                             sx={{
@@ -69,7 +70,7 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
                         >
                             <CodeIcon fontSize="small" /> Developed by
                         </Typography>
-                        <Typography variant="h6" fontWeight="bold">
+                        <Typography variant="h6" component="p" fontWeight="bold">
                             Daniel Reifer
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
@@ -83,6 +84,7 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
                     <Box>
                         <Typography
                             variant="subtitle2"
+                            component="p"
                             color="text.secondary"
                             gutterBottom
                             sx={{
@@ -117,6 +119,7 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
                         >
                             <Typography
                                 variant="h5"
+                                component="p"
                                 sx={{
                                     fontFamily: "monospace",
                                     letterSpacing: 2,

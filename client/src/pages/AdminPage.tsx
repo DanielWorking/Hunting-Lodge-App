@@ -222,7 +222,7 @@ export default function AdminPage() {
                 >
                     Admin Dashboard
                 </Typography>
-                <Typography variant="subtitle1" color="text.secondary">
+                <Typography variant="subtitle1" component="p" color="text.secondary">
                     Manage users and groups.
                 </Typography>
             </Box>

@@ -711,10 +711,32 @@ export default function ShiftReportPage() {
         );
 
     return (
-        <Container maxWidth="xl" sx={{ mt: 2, mb: 2, height: "85vh" }}>
-            <Grid container spacing={2} sx={{ height: "100%" }}>
+        <Container maxWidth="xl" sx={{ mt: 2, mb: 2 }}>
+            {/* Header Section */}
+            <Box
+                sx={{
+                    mb: 3,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                }}
+            >
+                <Typography
+                    variant="h4"
+                    component="h1"
+                    gutterBottom
+                    sx={{ fontWeight: "bold" }}
+                >
+                    Shift Reports
+                </Typography>
+                <Typography variant="subtitle1" component="p" color="text.secondary">
+                    Shift logs and operational handover reports.
+                </Typography>
+            </Box>
+
+            <Grid container spacing={2} sx={{ height: "calc(85vh - 70px)" }}>
                 {/* Sidebar */}
-                <Grid size={{ xs: 12, md: 3 }} sx={{ height: { xs: "calc(100vh - 120px)", md: "100%" }, display: { xs: mobileSidebarOpen ? "block" : "none", md: "block" } }}>
+                <Grid size={{ xs: 12, md: 3 }} sx={{ height: { xs: "calc(100vh - 200px)", md: "100%" }, display: { xs: mobileSidebarOpen ? "block" : "none", md: "block" } }}>
                     <Paper
                         sx={{
                             height: "100%",
@@ -989,7 +1011,7 @@ export default function ShiftReportPage() {
                                     </IconButton>
                                     <Typography
                                         variant="h4"
-                                        component="h1"
+                                        component="h2"
                                         fontWeight="bold"
                                     >
                                         {selectedReport.title}
@@ -1032,7 +1054,7 @@ export default function ShiftReportPage() {
                             >
                                 <Typography
                                     variant="subtitle2"
-                                    component="h2"
+                                    component="h3"
                                     color="text.secondary"
                                     sx={{ p: 2, pb: 0 }}
                                     gutterBottom
@@ -1057,7 +1079,7 @@ export default function ShiftReportPage() {
                             <Box mb={4}>
                                 <Typography
                                     variant="h6"
-                                    component="h2"
+                                    component="h3"
                                     gutterBottom
                                     fontWeight="bold"
                                 >
@@ -1115,7 +1137,7 @@ export default function ShiftReportPage() {
                             >
                                 <Typography
                                     variant="h6"
-                                    component="h2"
+                                    component="h3"
                                     gutterBottom
                                     fontWeight="bold"
                                 >
@@ -1172,7 +1194,7 @@ export default function ShiftReportPage() {
                                 </IconButton>
                                 <Typography
                                     variant="h4"
-                                    component="h1"
+                                    component="h2"
                                     color="text.secondary"
                                 >
                                     Select a report to view details

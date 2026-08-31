@@ -93,7 +93,7 @@ export default function ShiftDatesDialog({
                 }}
             >
                 <CalendarTodayIcon />
-                <Typography variant="h6">{shiftName}</Typography>
+                <Typography variant="h6" component="span">{shiftName}</Typography>
             </DialogTitle>
 
             <DialogContent sx={{ p: 0 }}>
@@ -107,7 +107,7 @@ export default function ShiftDatesDialog({
                         textAlign: "center",
                     }}
                 >
-                    <Typography variant="subtitle1" fontWeight="bold">
+                    <Typography variant="subtitle1" component="p" fontWeight="bold">
                         Total Days: {sortedDates.length}
                     </Typography>
                 </Box>

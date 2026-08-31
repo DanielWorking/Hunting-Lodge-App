@@ -133,7 +133,7 @@ export default function LoginPage() {
                     Hunting Lodge
                 </Typography>
 
-                <Typography variant="subtitle1" color="text.secondary" sx={{ fontWeight: 500, mb: 2 }}>
+                <Typography variant="subtitle1" component="p" color="text.secondary" sx={{ fontWeight: 500, mb: 2 }}>
                     Secure Shift Management
                 </Typography>
 

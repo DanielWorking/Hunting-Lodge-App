@@ -366,6 +366,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                                 >
                                     <Typography
                                         variant="subtitle2"
+                                        component="p"
                                         sx={{
                                             fontFamily: '"Fira Code", monospace',
                                             fontWeight: 600,

@@ -74,7 +74,7 @@ export default function PhonesHeader({
                 >
                     Phone Directory
                 </Typography>
-                <Typography variant="subtitle1" color="text.secondary">
+                <Typography variant="subtitle1" component="p" color="text.secondary">
                     Global contact list shared across all teams.
                 </Typography>
             </Box>

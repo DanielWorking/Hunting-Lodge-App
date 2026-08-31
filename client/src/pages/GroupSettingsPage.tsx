@@ -75,7 +75,7 @@ export default function GroupSettingsPage() {
                 >
                     {currentGroup.name} Settings
                 </Typography>
-                <Typography variant="subtitle1" color="text.secondary">
+                <Typography variant="subtitle1" component="p" color="text.secondary">
                     Configure shift types, report times, and manage member
                     vacations.
                 </Typography>

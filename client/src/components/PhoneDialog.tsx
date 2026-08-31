@@ -280,7 +280,7 @@ export default function PhoneDialog({
                     </Select>
                 </FormControl>
 
-                <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+                <Typography variant="subtitle2" component="p" sx={{ mt: 2, mb: 1 }}>
                     Phone Numbers *
                 </Typography>
 

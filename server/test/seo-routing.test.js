@@ -55,20 +55,22 @@ describe("SEO & Static Routing Verification", () => {
     });
 
     describe("SPA Wildcard Fallback vs API Route Handling", () => {
-        it("should return HTML single-page application for client page routes", async () => {
-            const res = await fetch(`${baseUrl}/sites`);
-            const contentType = res.headers.get("content-type") || "";
-            const bodyText = await res.text();
+        it("should return HTML single-page application for client page routes and deep nested links", async () => {
+            for (const route of ["/", "/sites", "/admin/users", "/groups/123/edit"]) {
+                const res = await fetch(`${baseUrl}${route}`);
+                const contentType = res.headers.get("content-type") || "";
+                const bodyText = await res.text();
 
-            assert.equal(res.status, 200);
-            assert.ok(
-                contentType.includes("text/html"),
-                `Expected Content-Type to include 'text/html', received '${contentType}'`
-            );
-            assert.ok(
-                bodyText.includes("<div id=\"root\"></div>") || bodyText.includes("<!doctype html>"),
-                "Expected HTML response containing root div or doctype"
-            );
+                assert.equal(res.status, 200, `Failed for route: ${route}`);
+                assert.ok(
+                    contentType.includes("text/html"),
+                    `Expected Content-Type for ${route} to include 'text/html', received '${contentType}'`
+                );
+                assert.ok(
+                    bodyText.includes("<div id=\"root\"></div>") || bodyText.includes("<!doctype html>"),
+                    `Expected HTML response for ${route}`
+                );
+            }
         });
 
         it("should not route unmatched /api/* requests to SPA HTML fallback", async () => {

@@ -25,6 +25,7 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
+    Typography,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -177,7 +178,9 @@ export default function ShiftTypesTab() {
     return (
         <Box p={3}>
             <Box display="flex" justifyContent="space-between" mb={2}>
-                <h3>Manage Shift Types</h3>
+                <Typography variant="h6" component="h2" fontWeight="bold">
+                    Manage Shift Types
+                </Typography>
                 <Button
                     variant="contained"
                     startIcon={<AddIcon />}
@@ -218,6 +221,7 @@ export default function ShiftTypesTab() {
                                 <TableCell align="center">
                                     <IconButton
                                         onClick={() => handleOpenDialog(type)}
+                                        aria-label={`Edit shift type ${type.name}`}
                                     >
                                         <EditIcon />
                                     </IconButton>
@@ -226,6 +230,7 @@ export default function ShiftTypesTab() {
                                             handleDeleteClick(type._id)
                                         }
                                         color="error"
+                                        aria-label={`Delete shift type ${type.name}`}
                                     >
                                         <DeleteIcon />
                                     </IconButton>
@@ -277,6 +282,7 @@ export default function ShiftTypesTab() {
                                 Color:
                                 <input
                                     type="color"
+                                    aria-label="Shift Type Color"
                                     value={formData.color}
                                     onChange={(e) =>
                                         setFormData({

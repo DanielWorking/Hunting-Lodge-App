@@ -32,6 +32,7 @@ import {
     Checkbox,
     ListItemText,
     Typography,
+    useTheme,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -54,6 +55,7 @@ import { updateGroupSettings } from "../../api/groupsApi";
  * @returns {JSX.Element} The rendered TimeSlotsTab component.
  */
 export default function TimeSlotsTab() {
+    const theme = useTheme();
     const { currentGroup } = useUser();
     const { groups, refreshData } = useData();
     const { showNotification } = useNotification();
@@ -197,7 +199,7 @@ export default function TimeSlotsTab() {
         const startTotal = startH * 60 + startM;
         let endTotal = endH * 60 + endM;
         let label = "";
-        let color = "text.secondary";
+        let color = "text.primary";
 
         // Logic for cross-day shifts
         if (endTotal < startTotal) {
@@ -215,7 +217,7 @@ export default function TimeSlotsTab() {
         const minutes = diff % 60;
 
         return (
-            <Box display="flex" alignItems="center" gap={1} mt={1}>
+            <Box display="flex" alignItems="center" gap={1} mt={1.5}>
                 <AccessTimeIcon fontSize="small" sx={{ color }} />
                 <Typography variant="body2" sx={{ color, fontWeight: "bold" }}>
                     Duration: {hours}h {minutes > 0 ? `${minutes}m` : ""}{" "}
@@ -228,7 +230,9 @@ export default function TimeSlotsTab() {
     return (
         <Box p={3}>
             <Box display="flex" justifyContent="space-between" mb={2}>
-                <h3>Manage Report Time Slots</h3>
+                <Typography variant="h6" component="h2" fontWeight="bold">
+                    Manage Report Time Slots
+                </Typography>
                 <Button
                     variant="contained"
                     startIcon={<AddIcon />}
@@ -289,6 +293,7 @@ export default function TimeSlotsTab() {
                                 <TableCell align="center">
                                     <IconButton
                                         onClick={() => handleOpenDialog(slot)}
+                                        aria-label={`Edit time slot ${slot.name}`}
                                     >
                                         <EditIcon />
                                     </IconButton>
@@ -297,6 +302,7 @@ export default function TimeSlotsTab() {
                                             handleDeleteClick(slot._id)
                                         }
                                         color="error"
+                                        aria-label={`Delete time slot ${slot.name}`}
                                     >
                                         <DeleteIcon />
                                     </IconButton>
@@ -342,8 +348,8 @@ export default function TimeSlotsTab() {
                                 p: 2,
                                 border: "1px solid",
                                 borderColor: "divider",
-                                borderRadius: 1,
-                                bgcolor: "background.default",
+                                borderRadius: 2,
+                                bgcolor: "action.hover",
                             }}
                         >
                             <Box display="flex" gap={2}>
@@ -352,6 +358,18 @@ export default function TimeSlotsTab() {
                                     type="time"
                                     fullWidth
                                     InputLabelProps={{ shrink: true }}
+                                    inputProps={{
+                                        style: {
+                                            colorScheme: theme.palette.mode,
+                                        },
+                                    }}
+                                    slotProps={{
+                                        htmlInput: {
+                                            style: {
+                                                colorScheme: theme.palette.mode,
+                                            },
+                                        },
+                                    }}
                                     value={formData.startTime}
                                     onChange={(e) =>
                                         setFormData({
@@ -359,12 +377,29 @@ export default function TimeSlotsTab() {
                                             startTime: e.target.value,
                                         })
                                     }
+                                    sx={{
+                                        "& input::-webkit-calendar-picker-indicator": {
+                                            cursor: "pointer",
+                                        },
+                                    }}
                                 />
                                 <TextField
                                     label="End Time"
                                     type="time"
                                     fullWidth
                                     InputLabelProps={{ shrink: true }}
+                                    inputProps={{
+                                        style: {
+                                            colorScheme: theme.palette.mode,
+                                        },
+                                    }}
+                                    slotProps={{
+                                        htmlInput: {
+                                            style: {
+                                                colorScheme: theme.palette.mode,
+                                            },
+                                        },
+                                    }}
                                     value={formData.endTime}
                                     onChange={(e) =>
                                         setFormData({
@@ -372,6 +407,11 @@ export default function TimeSlotsTab() {
                                             endTime: e.target.value,
                                         })
                                     }
+                                    sx={{
+                                        "& input::-webkit-calendar-picker-indicator": {
+                                            cursor: "pointer",
+                                        },
+                                    }}
                                 />
                             </Box>
 

@@ -125,11 +125,12 @@ export default function Navbar() {
 
     return (
         <>
-            <AppBar position="sticky" color="default" elevation={1} sx={{ top: 0, zIndex: 1100 }}>
+            <AppBar component="header" position="sticky" color="default" elevation={1} sx={{ top: 0, zIndex: 1100 }}>
                 <Toolbar>
                     <Box
                         component={RouterLink}
                         to="/"
+                        aria-label="Hunting Lodge Home"
                         sx={{
                             display: "flex",
                             alignItems: "center",
@@ -166,7 +167,7 @@ export default function Navbar() {
                     <Box sx={{ display: { xs: "flex", md: "none" }, mr: 1 }}>
                         <IconButton
                             size="large"
-                            aria-label="show more"
+                            aria-label="Open navigation menu"
                             aria-controls="mobile-menu"
                             aria-haspopup="true"
                             onClick={handleMobileMenuOpen}
@@ -177,6 +178,8 @@ export default function Navbar() {
                     </Box>
 
                     <Box
+                        component="nav"
+                        aria-label="Main Navigation"
                         sx={{
                             flexGrow: 1,
                             display: { xs: "none", md: "flex" },
@@ -216,6 +219,7 @@ export default function Navbar() {
                                     component={RouterLink}
                                     to="/group-settings"
                                     color="inherit"
+                                    aria-label="Group Settings"
                                     sx={{ minWidth: "auto", px: 1 }}
                                 >
                                     <SettingsIcon />
@@ -239,6 +243,7 @@ export default function Navbar() {
                             <IconButton
                                 onClick={() => setAboutOpen(true)}
                                 color="inherit"
+                                aria-label="About & Support"
                             >
                                 <HelpOutlineIcon />
                             </IconButton>
@@ -255,6 +260,11 @@ export default function Navbar() {
                                 sx={{ ml: 1 }}
                                 onClick={toggleColorMode}
                                 color="inherit"
+                                aria-label={
+                                    mode === "dark"
+                                        ? "Switch to Light Mode"
+                                        : "Switch to Dark Mode"
+                                }
                             >
                                 {theme.palette.mode === "dark" ? (
                                     <Brightness7Icon />
@@ -268,6 +278,7 @@ export default function Navbar() {
                             onClick={handleMenuClick}
                             size="small"
                             sx={{ ml: 2 }}
+                            aria-label="Account menu and group switcher"
                         >
                             <Badge
                                 color="secondary"

@@ -120,6 +120,7 @@ export default function LoginPage() {
             >
                 <Typography 
                     variant="h3" 
+                    component="h1"
                     fontWeight="900" 
                     color="primary"
                     sx={{ 

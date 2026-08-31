@@ -188,7 +188,7 @@ export default function MembersTab() {
         <Box p={3}>
 
             {/* --- Members Table Section --- */}
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h6" component="h2" gutterBottom>
                 Group Members ({sortedMembers.length})
             </Typography>
 
@@ -249,6 +249,7 @@ export default function MembersTab() {
                                                 onClick={() =>
                                                     handleMove(index, "up")
                                                 }
+                                                aria-label={`Move ${user.displayName} up`}
                                             >
                                                 <ArrowUpwardIcon fontSize="small" />
                                             </IconButton>
@@ -261,6 +262,7 @@ export default function MembersTab() {
                                                 onClick={() =>
                                                     handleMove(index, "down")
                                                 }
+                                                aria-label={`Move ${user.displayName} down`}
                                             >
                                                 <ArrowDownwardIcon fontSize="small" />
                                             </IconButton>
@@ -323,6 +325,9 @@ export default function MembersTab() {
                                                     e.target.checked,
                                                 )
                                             }
+                                            inputProps={{
+                                                "aria-label": `Toggle active status for ${user.displayName}`,
+                                            }}
                                             color={
                                                 currentActive
                                                     ? "success"
@@ -339,6 +344,9 @@ export default function MembersTab() {
                                             size="small"
                                             sx={{ width: 80 }}
                                             value={currentVacation}
+                                            inputProps={{
+                                                "aria-label": `Vacation balance for ${user.displayName}`,
+                                            }}
                                             onChange={(e) =>
                                                 handleChange(
                                                     userId,
@@ -359,6 +367,7 @@ export default function MembersTab() {
                                                     onClick={() =>
                                                         handleSaveUser(userId)
                                                     }
+                                                    aria-label={`Save changes for ${user.displayName}`}
                                                 >
                                                     <SaveIcon />
                                                 </IconButton>

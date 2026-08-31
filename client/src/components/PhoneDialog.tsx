@@ -284,13 +284,14 @@ export default function PhoneDialog({
                     Phone Numbers *
                 </Typography>
 
-                {formData.numbers.map((item) => (
+                {formData.numbers.map((item, index) => (
                     <Box key={item.id} sx={{ display: "flex", gap: 1, mb: 1 }}>
                         <TextField
                             fullWidth
                             size="small"
                             type="tel"
                             value={item.value}
+                            inputProps={{ "aria-label": `Phone number ${index + 1}` }}
                             onChange={(e) =>
                                 handleNumberChange(item.id, e.target.value)
                             }
@@ -301,6 +302,7 @@ export default function PhoneDialog({
                             onClick={() => handleRemoveNumberField(item.id)}
                             disabled={formData.numbers.length <= 1}
                             color="error"
+                            aria-label={`Remove phone number ${index + 1}`}
                         >
                             <DeleteOutlineIcon />
                         </IconButton>

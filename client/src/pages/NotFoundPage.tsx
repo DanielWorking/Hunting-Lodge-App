@@ -71,6 +71,7 @@ export default function NotFoundPage() {
 
                     <Typography
                         variant="h2"
+                        component="h1"
                         fontWeight="900"
                         color="primary"
                         sx={{
@@ -85,7 +86,13 @@ export default function NotFoundPage() {
                         404
                     </Typography>
 
-                    <Typography variant="h5" fontWeight="700" color="text.primary" gutterBottom>
+                    <Typography
+                        variant="h5"
+                        component="h2"
+                        fontWeight="700"
+                        color="text.primary"
+                        gutterBottom
+                    >
                         Page Not Found
                     </Typography>
 

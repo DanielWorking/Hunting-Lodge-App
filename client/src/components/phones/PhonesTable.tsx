@@ -201,6 +201,11 @@ export default function PhonesTable({
                                         e.stopPropagation();
                                         onToggleFavorite(row);
                                     }}
+                                    aria-label={
+                                        row.isFavorite
+                                            ? `Remove ${row.name} from favorites`
+                                            : `Add ${row.name} to favorites`
+                                    }
                                 >
                                     {row.isFavorite ? (
                                         <FavoriteIcon />
@@ -218,6 +223,7 @@ export default function PhonesTable({
                                             e.stopPropagation();
                                             onEditClick(row);
                                         }}
+                                        aria-label={`Edit ${row.name}`}
                                     >
                                         <EditIcon fontSize="small" />
                                     </IconButton>
@@ -229,6 +235,7 @@ export default function PhonesTable({
                                             e.stopPropagation();
                                             onDeleteClick(row);
                                         }}
+                                        aria-label={`Delete ${row.name}`}
                                     >
                                         <DeleteIcon fontSize="small" />
                                     </IconButton>
@@ -243,7 +250,7 @@ export default function PhonesTable({
                                 align="center"
                                 sx={{ py: 6 }}
                             >
-                                <Typography variant="h6" color="text.secondary" gutterBottom>
+                                <Typography variant="h6" component="p" color="text.secondary" gutterBottom>
                                     No phone numbers found.
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">

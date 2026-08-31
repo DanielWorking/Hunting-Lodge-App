@@ -339,12 +339,13 @@ export default function ShiftSchedulePage() {
                 <Box display="flex" alignItems="center" gap={2}>
                     <IconButton
                         onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
+                        aria-label="Previous week"
                     >
                         <ArrowBackIosNewIcon />
                     </IconButton>
 
                     <Box textAlign="center">
-                        <Typography variant="h5" fontWeight="bold">
+                        <Typography variant="h5" component="h1" fontWeight="bold">
                             {format(weekStart, "dd/MM/yyyy")} -{" "}
                             {format(
                                 endOfWeek(currentDate, { weekStartsOn: 0 }),
@@ -354,29 +355,32 @@ export default function ShiftSchedulePage() {
                         <Typography variant="subtitle2" color="text.secondary">
                             Status:{" "}
                             {scheduleData?.isPublished ? (
-                                <span
-                                    style={{
-                                        color: "green",
+                                <Box
+                                    component="span"
+                                    sx={{
+                                        color: "#15803D",
                                         fontWeight: "bold",
                                     }}
                                 >
                                     PUBLISHED
-                                </span>
+                                </Box>
                             ) : (
-                                <span
-                                    style={{
-                                        color: "orange",
+                                <Box
+                                    component="span"
+                                    sx={{
+                                        color: "#B45309",
                                         fontWeight: "bold",
                                     }}
                                 >
                                     DRAFT
-                                </span>
+                                </Box>
                             )}
                         </Typography>
                     </Box>
 
                     <IconButton
                         onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
+                        aria-label="Next week"
                     >
                         <ArrowForwardIosIcon />
                     </IconButton>
@@ -385,6 +389,7 @@ export default function ShiftSchedulePage() {
                         <IconButton
                             onClick={() => setIsFullScreen(true)}
                             color="primary"
+                            aria-label="Toggle full screen schedule"
                         >
                             <FullscreenIcon fontSize="large" />
                         </IconButton>
@@ -424,6 +429,7 @@ export default function ShiftSchedulePage() {
                 <ScheduleTable isFull={false} {...tableProps} />
             )}
 
+            {/* --- FULL SCREEN DIALOG --- */}
             <Dialog
                 fullScreen
                 open={isFullScreen}
@@ -446,14 +452,14 @@ export default function ShiftSchedulePage() {
                             edge="start"
                             color="inherit"
                             onClick={() => setIsFullScreen(false)}
-                            aria-label="close"
+                            aria-label="Close full view"
                         >
                             <CloseIcon />
                         </IconButton>
                         <Typography
                             sx={{ ml: 2, flex: 1 }}
                             variant="h6"
-                            component="div"
+                            component="h2"
                         >
                             Full View
                         </Typography>

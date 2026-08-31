@@ -18,6 +18,7 @@ import {
     Paper,
     CircularProgress,
     Chip,
+    Typography,
 } from "@mui/material";
 import { useUser } from "../../context/UserContext";
 import { useData } from "../../context/DataContext";
@@ -154,7 +155,9 @@ export default function StatisticsTab() {
                 alignItems="center"
                 mb={2}
             >
-                <h3>Yearly Statistics (Published Shifts)</h3>
+                <Typography variant="h6" component="h2" fontWeight="bold">
+                    Yearly Statistics (Published Shifts)
+                </Typography>
             </Box>
 
             {loading ? (

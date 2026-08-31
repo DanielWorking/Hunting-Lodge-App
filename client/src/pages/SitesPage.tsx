@@ -361,6 +361,7 @@ export default function SitesPage() {
                         <IconButton
                             size="small"
                             onClick={openCreateTagDialog}
+                            aria-label="Create new tag"
                             sx={{ border: "1px dashed grey" }}
                         >
                             <AddIcon fontSize="small" />
@@ -387,6 +388,7 @@ export default function SitesPage() {
                                 size="small"
                                 onClick={openEditTagDialog}
                                 color="primary"
+                                aria-label="Rename selected tag"
                             >
                                 <EditIcon fontSize="small" />
                             </IconButton>
@@ -396,6 +398,7 @@ export default function SitesPage() {
                                 size="small"
                                 onClick={handleDeleteTagClick}
                                 color="error"
+                                aria-label="Delete selected tag"
                             >
                                 <DeleteIcon fontSize="small" />
                             </IconButton>
@@ -506,7 +509,7 @@ export default function SitesPage() {
                 </Grid>
             ) : (
                 <Box sx={{ textAlign: "center", mt: 8, opacity: 0.6 }}>
-                    <Typography variant="h6">No sites found.</Typography>
+                    <Typography variant="h6" component="p">No sites found.</Typography>
                 </Box>
             )}
 

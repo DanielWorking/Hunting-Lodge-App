@@ -77,7 +77,7 @@ export default function AdminFilterBar({
                     onChange={(_, newMode) => {
                         if (newMode) onViewModeChange(newMode);
                     }}
-                    aria-label="Platform"
+                    aria-label="Admin directory view mode"
                     size="small"
                 >
                     <ToggleButton value="users" sx={{ px: 3 }}>
@@ -99,6 +99,10 @@ export default function AdminFilterBar({
                 size="small"
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
+                inputProps={{
+                    "aria-label":
+                        viewMode === "users" ? "Search Users" : "Search Groups",
+                }}
                 sx={{
                     width: "100%",
                     maxWidth: "400px",

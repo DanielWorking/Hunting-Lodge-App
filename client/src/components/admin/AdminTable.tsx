@@ -22,6 +22,7 @@ import {
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import PersonIcon from "@mui/icons-material/Person";
 
 import type { User, Group } from "../../types";
 import envConfig from "../../config/env";
@@ -257,6 +258,7 @@ export default function AdminTable({
                         <IconButton
                             size="small"
                             onClick={() => onEdit(rawUser)}
+                            aria-label={`Edit user ${user.displayName || user.username}`}
                         >
                             <EditIcon fontSize="small" />
                         </IconButton>
@@ -268,6 +270,7 @@ export default function AdminTable({
                                 size="small"
                                 color="error"
                                 onClick={() => onDelete(rawUser)}
+                                aria-label={`Delete user ${user.displayName || user.username}`}
                             >
                                 <DeleteIcon fontSize="small" />
                             </IconButton>
@@ -304,17 +307,16 @@ export default function AdminTable({
         const canDelete = !isSystemGroup && userCount === 0;
 
         return (
-            <TableRow key={groupId} hover>
-                <TableCell>{group.name}</TableCell>
+            <TableRow key={group._id} hover>
+                <TableCell sx={{ fontWeight: "bold" }}>
+                    <Typography variant="body2">{group.name}</Typography>
+                </TableCell>
 
                 <TableCell>
-                    {userCount === 0 ? (
-                        <Typography variant="body2" color="error">
-                            0
-                        </Typography>
-                    ) : (
-                        userCount
-                    )}
+                    <Box display="flex" alignItems="center" gap={1}>
+                        <PersonIcon fontSize="small" color="action" />
+                        <Typography variant="body2">{userCount}</Typography>
+                    </Box>
                 </TableCell>
 
                 <TableCell>{formatDate(group.createdAt)}</TableCell>
@@ -324,6 +326,7 @@ export default function AdminTable({
                         <IconButton
                             size="small"
                             onClick={() => onEdit(rawGroup)}
+                            aria-label={`Edit group ${group.name}`}
                         >
                             <EditIcon fontSize="small" />
                         </IconButton>
@@ -344,6 +347,7 @@ export default function AdminTable({
                                     color="error"
                                     onClick={() => onDelete(rawGroup)}
                                     disabled={!canDelete}
+                                    aria-label={`Delete group ${group.name}`}
                                 >
                                     <DeleteIcon fontSize="small" />
                                 </IconButton>
@@ -475,7 +479,7 @@ export default function AdminTable({
                                 align="center"
                                 sx={{ py: 6 }}
                             >
-                                <Typography variant="h6" color="text.secondary" gutterBottom>
+                                <Typography variant="h6" component="p" color="text.secondary" gutterBottom>
                                     No {viewMode} found matching your search.
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">

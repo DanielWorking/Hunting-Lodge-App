@@ -8,6 +8,7 @@
 
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { Box } from "@mui/material";
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
 import SSOCallback from "./pages/SSOCallback";
@@ -144,78 +145,88 @@ function App() {
     const showNavbar = user && user.groups.length > 0;
 
     return (
-        <>
+        <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
             {showNavbar && <Navbar />}
-            <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/auth/callback" element={<SSOCallback />} />
-                <Route
-                    path="/guest"
-                    element={
-                        isRestoringSession ? (
-                            <ThinkingLoader />
-                        ) : user && user.groups.length === 0 ? (
-                            <GuestPage />
-                        ) : (
-                            <Navigate to="/" replace />
-                        )
-                    }
-                />
+            <Box
+                component="main"
+                id="main-content"
+                sx={{
+                    flexGrow: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                }}
+            >
+                <Routes>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/auth/callback" element={<SSOCallback />} />
+                    <Route
+                        path="/guest"
+                        element={
+                            isRestoringSession ? (
+                                <ThinkingLoader />
+                            ) : user && user.groups.length === 0 ? (
+                                <GuestPage />
+                            ) : (
+                                <Navigate to="/" replace />
+                            )
+                        }
+                    />
 
-                <Route
-                    path="/"
-                    element={
-                        <ProtectedRoute>
-                            <SitesPage />
-                        </ProtectedRoute>
-                    }
-                />
+                    <Route
+                        path="/"
+                        element={
+                            <ProtectedRoute>
+                                <SitesPage />
+                            </ProtectedRoute>
+                        }
+                    />
 
-                <Route
-                    path="/phones"
-                    element={
-                        <ProtectedRoute>
-                            <PhonesPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/group-settings"
-                    element={
-                        <ShiftManagerRoute>
-                            <GroupSettingsPage />
-                        </ShiftManagerRoute>
-                    }
-                />
-                <Route
-                    path="/schedule"
-                    element={
-                        <ProtectedRoute>
-                            <ShiftSchedulePage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/reports"
-                    element={
-                        <ProtectedRoute>
-                            <ShiftReportPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/admin/users"
-                    element={
-                        <AdminRoute>
-                            <AdminPage />
-                        </AdminRoute>
-                    }
-                />
+                    <Route
+                        path="/phones"
+                        element={
+                            <ProtectedRoute>
+                                <PhonesPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/group-settings"
+                        element={
+                            <ShiftManagerRoute>
+                                <GroupSettingsPage />
+                            </ShiftManagerRoute>
+                        }
+                    />
+                    <Route
+                        path="/schedule"
+                        element={
+                            <ProtectedRoute>
+                                <ShiftSchedulePage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/reports"
+                        element={
+                            <ProtectedRoute>
+                                <ShiftReportPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/admin/users"
+                        element={
+                            <AdminRoute>
+                                <AdminPage />
+                            </AdminRoute>
+                        }
+                    />
 
-                {/* Catch-all route for unmatched paths */}
-                <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-        </>
+                    {/* Catch-all route for unmatched paths */}
+                    <Route path="*" element={<NotFoundPage />} />
+                </Routes>
+            </Box>
+        </Box>
     );
 }
 

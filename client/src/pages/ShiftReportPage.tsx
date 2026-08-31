@@ -321,6 +321,7 @@ const TiptapEditor = ({
                             />
                             <input
                                 type="color"
+                                aria-label="Text Color"
                                 onInput={(event) =>
                                     editor
                                         .chain()
@@ -371,6 +372,7 @@ const TiptapEditor = ({
                             />
                             <input
                                 type="color"
+                                aria-label="Highlight Color"
                                 onInput={(event) =>
                                     editor
                                         .chain()
@@ -728,7 +730,11 @@ export default function ShiftReportPage() {
                             alignItems="center"
                             mb={2}
                         >
-                            <Typography variant="h6" fontWeight="bold">
+                            <Typography
+                                variant="h6"
+                                component="h2"
+                                fontWeight="bold"
+                            >
                                 Reports Archive
                             </Typography>
                             <Button
@@ -912,7 +918,7 @@ export default function ShiftReportPage() {
                                                                                                         {isShiftManager && (
                                                                                                             <IconButton
                                                                                                                 size="small"
-                                                                                                                aria-label="delete report"
+                                                                                                                aria-label={`Delete report ${rep.title}`}
                                                                                                                 onClick={(
                                                                                                                     e,
                                                                                                                 ) => {
@@ -976,11 +982,16 @@ export default function ShiftReportPage() {
                                 <Box display="flex" alignItems="center">
                                     <IconButton
                                         onClick={() => setMobileSidebarOpen(true)}
+                                        aria-label="Open reports archive"
                                         sx={{ display: { xs: "flex", md: "none" }, mr: 1 }}
                                     >
                                         <MenuIcon />
                                     </IconButton>
-                                    <Typography variant="h4" fontWeight="bold">
+                                    <Typography
+                                        variant="h4"
+                                        component="h1"
+                                        fontWeight="bold"
+                                    >
                                         {selectedReport.title}
                                     </Typography>
                                 </Box>
@@ -1021,6 +1032,7 @@ export default function ShiftReportPage() {
                             >
                                 <Typography
                                     variant="subtitle2"
+                                    component="h2"
                                     color="text.secondary"
                                     sx={{ p: 2, pb: 0 }}
                                     gutterBottom
@@ -1045,6 +1057,7 @@ export default function ShiftReportPage() {
                             <Box mb={4}>
                                 <Typography
                                     variant="h6"
+                                    component="h2"
                                     gutterBottom
                                     fontWeight="bold"
                                 >
@@ -1102,6 +1115,7 @@ export default function ShiftReportPage() {
                             >
                                 <Typography
                                     variant="h6"
+                                    component="h2"
                                     gutterBottom
                                     fontWeight="bold"
                                 >
@@ -1151,11 +1165,16 @@ export default function ShiftReportPage() {
                             <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
                                 <IconButton
                                     onClick={() => setMobileSidebarOpen(true)}
+                                    aria-label="Open reports archive"
                                     sx={{ display: { xs: "flex", md: "none" } }}
                                 >
                                     <MenuIcon fontSize="large" />
                                 </IconButton>
-                                <Typography variant="h4" color="text.secondary">
+                                <Typography
+                                    variant="h4"
+                                    component="h1"
+                                    color="text.secondary"
+                                >
                                     Select a report to view details
                                 </Typography>
                             </Box>

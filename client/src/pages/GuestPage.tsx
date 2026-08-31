@@ -5,7 +5,7 @@
  * but have not yet been assigned to any group or granted specific permissions.
  */
 
-import { Box, Typography, Button, Paper, Container } from "@mui/material";
+import { Box, Typography, Button, Paper, Container, Alert } from "@mui/material";
 import LockClockIcon from "@mui/icons-material/LockClock";
 import { useUser } from "../context/UserContext";
 
@@ -56,7 +56,13 @@ export default function GuestPage() {
                         />
                     </Box>
 
-                    <Typography variant="h4" gutterBottom fontWeight="900" color="text.primary">
+                    <Typography
+                        variant="h4"
+                        component="h1"
+                        gutterBottom
+                        fontWeight="900"
+                        color="text.primary"
+                    >
                         Welcome, {user?.username}
                     </Typography>
 
@@ -64,27 +70,16 @@ export default function GuestPage() {
                         Your account has been created successfully via SSO.
                     </Typography>
 
-                <Box
-                    sx={{
-                        bgcolor: "warning.light",
-                        p: 2,
-                        borderRadius: 1,
-                        my: 2,
-                    }}
-                >
-                    <Typography
-                        variant="body2"
-                        color="warning.dark"
-                        fontWeight="medium"
-                    >
-                        Pending Approval
-                    </Typography>
-                    <Typography variant="caption" color="warning.dark">
-                        You are not assigned to any group yet. Please contact
-                        your System Administrator or Team Leader to assign you
-                        permissions.
-                    </Typography>
-                </Box>
+                    <Alert severity="warning" sx={{ my: 2, textAlign: "left" }}>
+                        <Typography variant="body2" fontWeight="bold">
+                            Pending Approval
+                        </Typography>
+                        <Typography variant="body2">
+                            You are not assigned to any group yet. Please contact
+                            your System Administrator or Team Leader to assign you
+                            permissions.
+                        </Typography>
+                    </Alert>
 
                 <Button
                     variant="outlined"

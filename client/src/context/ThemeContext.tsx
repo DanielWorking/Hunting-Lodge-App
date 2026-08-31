@@ -80,6 +80,14 @@ export const ColorModeProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [user]);
 
+    /**
+     * Synchronize browser root color-scheme with current theme mode
+     * to ensure native form controls (date/time pickers) render with correct theme.
+     */
+    useEffect(() => {
+        document.documentElement.style.colorScheme = mode;
+    }, [mode]);
+
     const colorMode = useMemo(
         () => ({
             /**

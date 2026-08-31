@@ -136,7 +136,7 @@ export default function SiteCard({
                             <Typography
                                 gutterBottom
                                 variant="h6"
-                                component="div"
+                                component="h2"
                                 sx={{
                                     fontWeight: "bold",
                                     lineHeight: 1.2,
@@ -175,6 +175,7 @@ export default function SiteCard({
                                     onClick={handleFlip}
                                     color="info"
                                     size="small"
+                                    aria-label={`Show description for ${title}`}
                                 >
                                     <InfoIcon />
                                 </IconButton>
@@ -194,6 +195,11 @@ export default function SiteCard({
                                     }}
                                     color={isFavorite ? "error" : "default"}
                                     size="small"
+                                    aria-label={
+                                        isFavorite
+                                            ? `Remove ${title} from favorites`
+                                            : `Add ${title} to favorites`
+                                    }
                                 >
                                     {isFavorite ? (
                                         <FavoriteIcon fontSize="small" />
@@ -208,6 +214,7 @@ export default function SiteCard({
                                     onClick={onEdit}
                                     size="small"
                                     color="primary"
+                                    aria-label={`Edit ${title}`}
                                 >
                                     <EditIcon fontSize="small" />
                                 </IconButton>
@@ -218,6 +225,7 @@ export default function SiteCard({
                                     onClick={onDelete}
                                     size="small"
                                     color="error"
+                                    aria-label={`Delete ${title}`}
                                 >
                                     <DeleteIcon fontSize="small" />
                                 </IconButton>
@@ -243,7 +251,11 @@ export default function SiteCard({
                     }}
                 >
                     <Box p={1} display="flex" justifyContent="flex-end">
-                        <IconButton onClick={handleFlip} size="small">
+                        <IconButton
+                            onClick={handleFlip}
+                            size="small"
+                            aria-label={`Return to front of ${title}`}
+                        >
                             <ArrowBackIcon />
                         </IconButton>
                     </Box>
@@ -251,6 +263,7 @@ export default function SiteCard({
                     <CardContent sx={{ overflowY: "auto", flexGrow: 1, pt: 0 }}>
                         <Typography
                             variant="h6"
+                            component="h3"
                             gutterBottom
                             sx={{ fontSize: "1rem", fontWeight: "bold" }}
                         >

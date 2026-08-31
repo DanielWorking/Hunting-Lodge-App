@@ -560,4 +560,38 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             expect(screen.getByTestId("location-display")).toHaveTextContent("/");
         });
     });
+
+    describe("Accessibility Landmarks & Semantic Outlines", () => {
+        it("renders the primary <main> landmark encapsulating dynamic page routes", () => {
+            vi.spyOn(UserContextModule, "useUser").mockReturnValue({
+                user: {
+                    _id: "user-1",
+                    username: "member_user",
+                    displayName: "Member User",
+                    isActive: true,
+                    vacationBalance: 10,
+                    groups: [{ groupId: "group-1", role: "member" }],
+                },
+                currentGroup: mockSampleGroup,
+                setCurrentGroup: vi.fn(),
+                isAdmin: false,
+                isShiftManager: false,
+                login: vi.fn(),
+                logout: vi.fn(),
+                switchGroup: vi.fn(),
+                isRestoringSession: false,
+            });
+
+            render(
+                <MemoryRouter initialEntries={["/"]}>
+                    <App />
+                </MemoryRouter>,
+            );
+
+            // Verify <main> landmark exists in the accessibility tree
+            const mainLandmark = screen.getByRole("main");
+            expect(mainLandmark).toBeInTheDocument();
+            expect(mainLandmark).toHaveAttribute("id", "main-content");
+        });
+    });
 });

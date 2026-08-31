@@ -27,7 +27,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                     main: '#1E40AF',
                 },
                 secondary: {
-                    main: '#3B82F6',
+                    main: '#1D4ED8',
                 },
                 warning: {
                     main: '#F59E0B', // CTA/Accent
@@ -89,7 +89,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                 },
                 containedPrimary: {
                     backgroundColor: mode === 'light' ? '#F59E0B' : '#FBBF24',
-                    color: mode === 'light' ? 'white' : '#0F172A',
+                    color: '#0F172A',
                     '&:hover': {
                         backgroundColor: mode === 'light' ? '#F59E0B' : '#FBBF24',
                         opacity: 0.9,
@@ -125,6 +125,16 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                 },
             },
         },
+        MuiCssBaseline: {
+            styleOverrides: {
+                html: {
+                    colorScheme: mode,
+                },
+                body: {
+                    colorScheme: mode,
+                },
+            },
+        },
         MuiOutlinedInput: {
             styleOverrides: {
                 root: {
@@ -141,6 +151,10 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                 },
                 input: {
                     padding: '12px 16px',
+                    colorScheme: mode,
+                    '&::-webkit-calendar-picker-indicator': {
+                        cursor: 'pointer',
+                    },
                 },
                 notchedOutline: {
                     borderColor: mode === 'light' ? '#E2E8F0' : '#334155',

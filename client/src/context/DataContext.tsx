@@ -79,24 +79,26 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
     // Keep refs of dynamic context values to maintain stable callback identities
     const userRef = useRef(user);
-    userRef.current = user;
     const currentGroupRef = useRef(currentGroup);
-    currentGroupRef.current = currentGroup;
     const isAdminRef = useRef(isAdmin);
-    isAdminRef.current = isAdmin;
     const isRestoringSessionRef = useRef(isRestoringSession);
-    isRestoringSessionRef.current = isRestoringSession;
+
+    useEffect(() => {
+        userRef.current = user;
+        currentGroupRef.current = currentGroup;
+        isAdminRef.current = isAdmin;
+        isRestoringSessionRef.current = isRestoringSession;
+    }, [user, currentGroup, isAdmin, isRestoringSession]);
 
     /**
      * Fetches core application entities from the backend.
-     * Enforces group scoping on user data queries for regular users.
+     * Enforces group scoping on user data queries for regular users while parallelizing all network requests.
      */
     const fetchData = useCallback(async () => {
-        const currentUser = userRef.current;
         const storedToken = localStorage.getItem("hunting_token");
         const storedUserId = localStorage.getItem("hunting_userId");
 
-        if (!storedToken || !storedUserId || !currentUser || isRestoringSessionRef.current) {
+        if (!storedToken || !storedUserId) {
             setLoading(false);
             return;
         }
@@ -107,20 +109,36 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         try {
             setLoading(true);
 
-            // Fetch sites, phones, and groups in parallel
-            const [sitesRes, phonesRes, groupsRes] = await Promise.all([
+            const currentUser = userRef.current;
+            const storedGroupId = localStorage.getItem("hunting_groupId");
+            const firstRawGid = currentUser?.groups?.[0]?.groupId;
+            const fallbackGid = typeof firstRawGid === "object" && firstRawGid !== null
+                ? (firstRawGid as { _id?: string; name?: string })._id || (firstRawGid as { _id?: string; name?: string }).name
+                : firstRawGid ? String(firstRawGid) : undefined;
+            const activeGroupIdToFetch = storedGroupId || fallbackGid;
+
+            // Determine if users should be fetched in parallel with other entities
+            const usersPromise = isAdminRef.current
+                ? getUsers()
+                : (activeGroupIdToFetch ? getUsers(activeGroupIdToFetch) : Promise.resolve({ data: [] as User[] }));
+
+            // Fetch sites, phones, groups, and scoped users simultaneously in parallel
+            const [sitesRes, phonesRes, groupsRes, usersRes] = await Promise.all([
                 getSites(),
                 getPhones(),
                 getGroups(),
+                usersPromise,
             ]);
 
             setSites(sitesRes?.data || []);
             setPhones(phonesRes?.data || []);
             const fetchedGroups: Group[] = groupsRes?.data || [];
             setGroups(fetchedGroups);
+            if (usersRes?.data) {
+                setUsers(usersRes.data);
+            }
 
             // Synchronize and resolve full Group object in UserContext
-            const storedGroupId = localStorage.getItem("hunting_groupId");
             let targetGroup: Group | undefined;
 
             if (currentGroupRef.current?._id) {
@@ -135,8 +153,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 );
             }
 
-            if (!targetGroup && currentUser.groups && currentUser.groups.length > 0) {
-                const rawGid = currentUser.groups[0].groupId;
+            const latestUser = userRef.current;
+            if (!targetGroup && latestUser?.groups && latestUser.groups.length > 0) {
+                const rawGid = latestUser.groups[0].groupId;
                 const firstGid = typeof rawGid === "object" && rawGid !== null
                     ? (rawGid as { _id?: string; name?: string })._id || (rawGid as { _id?: string; name?: string }).name
                     : String(rawGid);
@@ -149,29 +168,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 setCurrentGroup(targetGroup);
             }
 
-            // Determine active group ID for scoping users
-            const firstRawGid = currentUser.groups[0]?.groupId;
-            const fallbackGid = typeof firstRawGid === "object" && firstRawGid !== null
-                ? (firstRawGid as { _id?: string; name?: string })._id || (firstRawGid as { _id?: string; name?: string }).name
-                : firstRawGid ? String(firstRawGid) : undefined;
-            const activeGroupId =
-                targetGroup?._id ||
-                storedGroupId ||
-                fallbackGid;
-
-            // Fetch users with appropriate scope
-            if (isAdminRef.current) {
-                const usersRes = await getUsers();
-                setUsers(usersRes?.data || []);
-                lastLoadedGroupIdRef.current = activeGroupId || "admin";
-            } else if (activeGroupId) {
-                const usersRes = await getUsers(activeGroupId);
-                setUsers(usersRes?.data || []);
-                lastLoadedGroupIdRef.current = activeGroupId;
-            } else {
-                setUsers([]);
-                lastLoadedGroupIdRef.current = null;
-            }
+            const activeGroupId = targetGroup?._id || storedGroupId || activeGroupIdToFetch;
+            lastLoadedGroupIdRef.current = isAdminRef.current ? "admin" : (activeGroupId || null);
         } catch (error: unknown) {
             console.error("Error fetching data:", error);
         } finally {
@@ -180,23 +178,26 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [setCurrentGroup]);
 
-    // Initial data fetch upon authentication state stabilization
+    // Initial data fetch upon mount or authentication state update
     useEffect(() => {
-        if (!isRestoringSession) {
-            if (user) {
-                if (lastFetchedUserIdRef.current !== user._id) {
+        const storedToken = localStorage.getItem("hunting_token");
+        const storedUserId = localStorage.getItem("hunting_userId");
+
+        if (storedToken && storedUserId) {
+            if (!user || lastFetchedUserIdRef.current !== user._id) {
+                if (user) {
                     lastFetchedUserIdRef.current = user._id;
-                    fetchData();
                 }
-            } else {
-                lastFetchedUserIdRef.current = null;
-                lastLoadedGroupIdRef.current = null;
-                setSites([]);
-                setPhones([]);
-                setGroups([]);
-                setUsers([]);
-                setLoading(false);
+                fetchData();
             }
+        } else if (!isRestoringSession && !user) {
+            lastFetchedUserIdRef.current = null;
+            lastLoadedGroupIdRef.current = null;
+            setSites([]);
+            setPhones([]);
+            setGroups([]);
+            setUsers([]);
+            setLoading(false);
         }
     }, [user, isRestoringSession, fetchData]);
 

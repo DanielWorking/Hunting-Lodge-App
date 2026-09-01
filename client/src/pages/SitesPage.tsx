@@ -6,7 +6,7 @@
  * and performing CRUD operations on both sites and tags.
  */
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 // ... (imports remain unchanged)
 import {
     Container,
@@ -89,6 +89,22 @@ export default function SitesPage() {
     );
     const [tagValue, setTagValue] = useState("");
     const [tagToDelete, setTagToDelete] = useState<string | null>(null);
+
+    const handleCloseSiteDialog = useCallback(() => {
+        setIsSiteDialogOpen(false);
+    }, []);
+
+    const handleCloseDeleteDialog = useCallback(() => {
+        setDeleteSiteItem(null);
+    }, []);
+
+    const handleCloseTagDialog = useCallback(() => {
+        setIsTagDialogOpen(false);
+    }, []);
+
+    const handleCloseTagDeleteDialog = useCallback(() => {
+        setTagToDelete(null);
+    }, []);
 
     // === Site Management Handlers ===
 
@@ -278,46 +294,43 @@ export default function SitesPage() {
         }
     };
 
-    // === Filtering & Sorting ===
+    // === Filtering & Sorting (Memoized for render performance) ===
 
-    const filteredSites = sites.filter((site) => {
-        // Compare ObjectId to ObjectId
-        if (site.groupId !== activeGroup?._id) return false;
+    const sortedSites = useMemo(() => {
+        const filtered = sites.filter((site) => {
+            // Compare ObjectId to ObjectId
+            if (site.groupId !== activeGroup?._id) return false;
 
-        // Tag Filtering
-        const siteTag = site.tag || "General";
-        if (selectedTag !== "All" && siteTag !== selectedTag) return false;
+            // Tag Filtering
+            const siteTag = site.tag || "General";
+            if (selectedTag !== "All" && siteTag !== selectedTag) return false;
 
-        // Favorite Filtering (Per User)
-        const userId = user?._id;
-        const isFav =
-            userId && site.favoritedBy
-                ? site.favoritedBy.includes(userId)
-                : false;
-        if (filterFav === "fav" && !isFav) return false;
+            // Favorite Filtering (Per User)
+            const userId = user?._id;
+            const isFav =
+                userId && site.favoritedBy
+                    ? site.favoritedBy.includes(userId)
+                    : false;
+            if (filterFav === "fav" && !isFav) return false;
 
-        // Search Filtering
-        const matchesSearch = site.title
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase());
-        return matchesSearch;
-    });
+            // Search Filtering
+            const matchesSearch = site.title
+                .toLowerCase()
+                .includes(searchTerm.toLowerCase());
+            return matchesSearch;
+        });
 
-    const sortedSites = [...filteredSites].sort((a, b) => {
-        // Always prioritize favorites if "newest" or "oldest" isn't strictly overriding logic
-        // (Usually users want favorites on top unless sorting by name)
+        return [...filtered].sort((a, b) => {
+            if (sortOrder === "a-z") return a.title.localeCompare(b.title);
+            if (sortOrder === "z-a") return b.title.localeCompare(a.title);
+            if (sortOrder === "newest")
+                return b.createdAt.localeCompare(a.createdAt);
+            if (sortOrder === "oldest")
+                return a.createdAt.localeCompare(b.createdAt);
 
-        // Let's implement strict sorting based on user selection:
-
-        if (sortOrder === "a-z") return a.title.localeCompare(b.title);
-        if (sortOrder === "z-a") return b.title.localeCompare(a.title);
-        if (sortOrder === "newest")
-            return b.createdAt.localeCompare(a.createdAt);
-        if (sortOrder === "oldest")
-            return a.createdAt.localeCompare(b.createdAt);
-
-        return 0;
-    });
+            return 0;
+        });
+    }, [sites, activeGroup?._id, selectedTag, user?._id, filterFav, searchTerm, sortOrder]);
 
     if (loading && sites.length === 0) {
         return <ThinkingLoader />;
@@ -541,7 +554,7 @@ export default function SitesPage() {
             {/* Modal Dialogs for data entry and confirmation */}
             <SiteDialog
                 open={isSiteDialogOpen}
-                onClose={() => setIsSiteDialogOpen(false)}
+                onClose={handleCloseSiteDialog}
                 onSave={handleSaveSite}
                 initialData={editingSite}
                 currentGroup={activeGroup}
@@ -555,14 +568,14 @@ export default function SitesPage() {
                         : "Delete Site"
                 }
                 content={`Are you sure you want to delete "${deleteSiteItem?.title}"?`}
-                onCancel={() => setDeleteSiteItem(null)}
+                onCancel={handleCloseDeleteDialog}
                 onConfirm={handleConfirmDeleteSite}
             />
 
             {/* Tag Management Dialog: Used for both creating and renaming tags. */}
             <Dialog
                 open={isTagDialogOpen}
-                onClose={() => setIsTagDialogOpen(false)}
+                onClose={handleCloseTagDialog}
                 maxWidth="xs"
                 fullWidth
             >
@@ -590,7 +603,7 @@ export default function SitesPage() {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setIsTagDialogOpen(false)}>
+                    <Button onClick={handleCloseTagDialog}>
                         Cancel
                     </Button>
                     <Button
@@ -607,7 +620,7 @@ export default function SitesPage() {
                 open={!!tagToDelete}
                 title={`Delete Tag "${tagToDelete}"?`}
                 content={`Are you sure? All sites under this tag will be moved to "General".`}
-                onCancel={() => setTagToDelete(null)}
+                onCancel={handleCloseTagDeleteDialog}
                 onConfirm={handleConfirmDeleteTag}
             />
         </Container>

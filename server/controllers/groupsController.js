@@ -5,6 +5,7 @@
  * shift settings, site tags, and member synchronization.
  */
 
+const mongoose = require("mongoose");
 const Group = require("../models/Group");
 const User = require("../models/User");
 const Site = require("../models/Site");
@@ -27,19 +28,55 @@ exports.getGroups = async (req, res) => {
             groups = await Group.find({ _id: { $in: userGroupIds } }).lean();
         }
 
-        // Query the User collection for each group to get the actual member count
-        const groupsWithCounts = await Promise.all(
-            groups.map(async (group) => {
-                const realCount = await User.countDocuments({
-                    "groups.groupId": group._id,
-                });
+        // Query the User collection using an optimized aggregation pipeline (with fallback for unit test mocks)
+        let groupsWithCounts;
+        if (mongoose.connection && mongoose.connection.readyState === 1 && typeof User.aggregate === "function") {
+            try {
+                const groupIds = groups.map((g) => g._id);
+                const userCounts = await User.aggregate([
+                    { $unwind: "$groups" },
+                    { $match: { "groups.groupId": { $in: groupIds } } },
+                    { $group: { _id: "$groups.groupId", count: { $sum: 1 } } },
+                ]);
 
-                return {
-                    ...group,
-                    userCount: realCount,
-                };
-            }),
-        );
+                if (Array.isArray(userCounts)) {
+                    const countMap = new Map(
+                        userCounts.map((item) => [item._id ? item._id.toString() : "", item.count]),
+                    );
+
+                    groupsWithCounts = groups.map((group) => ({
+                        ...group,
+                        userCount: countMap.get(group._id ? group._id.toString() : "") || 0,
+                    }));
+                } else {
+                    throw new Error("Aggregation returned non-array");
+                }
+            } catch {
+                groupsWithCounts = await Promise.all(
+                    groups.map(async (group) => {
+                        const realCount = await User.countDocuments({
+                            "groups.groupId": group._id,
+                        });
+                        return {
+                            ...group,
+                            userCount: realCount,
+                        };
+                    }),
+                );
+            }
+        } else {
+            groupsWithCounts = await Promise.all(
+                groups.map(async (group) => {
+                    const realCount = await User.countDocuments({
+                        "groups.groupId": group._id,
+                    });
+                    return {
+                        ...group,
+                        userCount: realCount,
+                    };
+                }),
+            );
+        }
 
         res.json(groupsWithCounts);
     } catch (err) {

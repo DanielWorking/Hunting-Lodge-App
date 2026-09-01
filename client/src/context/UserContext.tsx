@@ -283,7 +283,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             const gid = typeof g.groupId === "object" && g.groupId !== null
                 ? (g.groupId as { _id?: string; name?: string })._id || (g.groupId as { _id?: string; name?: string }).name
                 : String(g.groupId);
-            return gid === groupId || (g as any).groupName === groupId;
+            return gid === groupId || (g as { name?: string; groupName?: string }).groupName === groupId;
         });
         if (membership || isUserAdminEligible) {
             localStorage.setItem("hunting_groupId", groupId);

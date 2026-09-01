@@ -48,7 +48,7 @@ axiosInstance.interceptors.response.use(
 );
 
 // In-flight Promise deduplication map for concurrent GET requests
-const inFlightRequests = new Map<string, Promise<AxiosResponse<any>>>();
+const inFlightRequests = new Map<string, Promise<AxiosResponse<unknown>>>();
 
 /**
  * Builds a deterministic cache key from the request URL and query parameters.
@@ -80,7 +80,7 @@ export const clearInFlightRequests = (): void => {
 
 const originalGet = axiosInstance.get.bind(axiosInstance);
 
-axiosInstance.get = (<T = any, R = AxiosResponse<T>, D = any>(
+axiosInstance.get = (<T = unknown, R = AxiosResponse<T>, D = unknown>(
     url: string,
     config?: AxiosRequestConfig<D>,
 ): Promise<R> => {
@@ -97,7 +97,7 @@ axiosInstance.get = (<T = any, R = AxiosResponse<T>, D = any>(
 
     inFlightRequests.set(
         requestKey,
-        requestPromise as Promise<AxiosResponse<any>>,
+        requestPromise as Promise<AxiosResponse<unknown>>,
     );
 
     return requestPromise as Promise<R>;

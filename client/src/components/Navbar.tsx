@@ -141,13 +141,19 @@ export default function Navbar() {
                     >
                         <Box
                             component="img"
-                            src="/hunting-lodge-image.jpg"
+                            src="/hunting-lodge-image-50.jpg"
+                            srcSet="/hunting-lodge-image-50.jpg 1x, /hunting-lodge-image-100.jpg 2x, /hunting-lodge-image.jpg 225w"
+                            sizes="50px"
                             alt="Logo"
+                            width={50}
+                            height={50}
+                            decoding="async"
                             sx={{
                                 height: 50,
-                                width: "auto",
+                                width: 50,
                                 mr: 2,
                                 borderRadius: 1,
+                                objectFit: "cover",
                             }}
                         />
                         <Typography

@@ -11,13 +11,14 @@ import {
     useContext,
     useState,
     useCallback,
+    useRef,
     type ReactNode,
     useEffect,
 } from "react";
 import axios from "axios";
 import { getMe } from "../api/authApi";
 import { loginUser } from "../api/usersApi";
-import type { User, Group } from "../types";
+import type { User, Group, GroupRole } from "../types";
 import envConfig from "../config/env";
 
 /**
@@ -57,15 +58,42 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-const normalizeUser = (foundUser: any): User => {
+interface RawUserGroup {
+    groupId: string | { _id?: string; name?: string };
+    role: GroupRole;
+    name?: string;
+    groupName?: string;
+    order?: number;
+}
+
+interface RawUserData {
+    _id: string;
+    id?: string;
+    username: string;
+    displayName?: string;
+    email?: string;
+    groups?: RawUserGroup[];
+    isActive: boolean;
+    vacationBalance: number;
+    favoritePhones?: string[];
+    createdAt?: string;
+    updatedAt?: string;
+    lastLogin?: string;
+}
+
+const normalizeUser = (foundUser: RawUserData): User => {
     return {
         ...foundUser,
-        groups: (foundUser.groups || []).map((g: any) => {
+        groups: (foundUser.groups || []).map((g) => {
             const rawGid = g.groupId;
-            const gidString = typeof rawGid === "object" && rawGid !== null
-                ? (rawGid._id || rawGid.name || String(rawGid))
-                : String(rawGid);
-            const groupName = typeof rawGid === "object" && rawGid !== null ? rawGid.name : g.name || g.groupName;
+            const gidString =
+                typeof rawGid === "object" && rawGid !== null
+                    ? rawGid._id || rawGid.name || String(rawGid)
+                    : String(rawGid);
+            const groupName =
+                typeof rawGid === "object" && rawGid !== null
+                    ? rawGid.name
+                    : g.name || g.groupName;
             return {
                 ...g,
                 groupId: gidString,
@@ -89,6 +117,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [currentGroup, setCurrentGroup] = useState<Group | null>(null);
     const [isRestoringSession, setIsRestoringSession] = useState(true);
+    const isRestoringRef = useRef(false);
 
     /**
      * Determines whether the user account possesses global administrative eligibility.
@@ -102,7 +131,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 const gid = typeof g.groupId === "object" && g.groupId !== null
                     ? (g.groupId as { _id?: string; name?: string })._id || (g.groupId as { _id?: string; name?: string }).name
                     : String(g.groupId);
-                return gid === currentGroup._id || gid === currentGroup.name || gid === envConfig.superAdmin.groupName || (g as any).groupName === envConfig.superAdmin.groupName;
+                return gid === currentGroup._id || gid === currentGroup.name || gid === envConfig.superAdmin.groupName;
             })) ||
         user?.groups?.some((g) => {
             const gid = typeof g.groupId === "object" && g.groupId !== null
@@ -110,7 +139,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 : String(g.groupId);
             const gName = typeof g.groupId === "object" && g.groupId !== null
                 ? (g.groupId as { _id?: string; name?: string }).name
-                : (g as any)?.name || (g as any)?.groupName;
+                : (g as { name?: string; groupName?: string })?.name || (g as { name?: string; groupName?: string })?.groupName;
             return gid === envConfig.superAdmin.groupName || gName === envConfig.superAdmin.groupName;
         }),
     );
@@ -140,7 +169,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             const gid = typeof g.groupId === "object" && g.groupId !== null
                 ? (g.groupId as { _id?: string; name?: string })._id || (g.groupId as { _id?: string; name?: string }).name
                 : String(g.groupId);
-            return (gid === activeGroupId || (g as any).groupName === activeGroupId) && g.role === "shift_manager";
+            return (gid === activeGroupId || (g as { name?: string; groupName?: string }).groupName === activeGroupId) && g.role === "shift_manager";
         }),
     );
 
@@ -175,9 +204,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 return;
             }
 
+            if (isRestoringRef.current) return;
+            isRestoringRef.current = true;
+
             try {
                 const response = await getMe();
-                const foundUser = response.data;
+                const foundUser = response.data as RawUserData;
 
                 if (foundUser) {
                     const safeUser = normalizeUser(foundUser);
@@ -185,7 +217,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 } else {
                     logout();
                 }
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error("Session restoration failed:", error);
                 // Only clear the stored session if the backend explicitly rejected the token (401)
                 if (axios.isAxiosError(error) && error.response?.status === 401) {
@@ -193,6 +225,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 }
             } finally {
                 setIsRestoringSession(false);
+                isRestoringRef.current = false;
             }
         };
 

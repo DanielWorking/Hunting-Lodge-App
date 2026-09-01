@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import App from "./App";
@@ -81,7 +81,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
     });
 
     describe("/admin/users Route Protection", () => {
-        it("redirects unauthorized users (isAdmin: false) to '/' and does not render admin elements or access denied messages", () => {
+        it("redirects unauthorized users (isAdmin: false) to '/' and does not render admin elements or access denied messages", async () => {
             vi.spyOn(UserContextModule, "useUser").mockReturnValue({
                 user: {
                     _id: "user-1",
@@ -108,8 +108,8 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             );
 
             // Should redirect to '/' and render the home / Sites page
+            expect(await screen.findByRole("button", { name: "All Tags" })).toBeInTheDocument();
             expect(screen.getAllByText("Sites").length).toBeGreaterThan(0);
-            expect(screen.getByRole("button", { name: "All Tags" })).toBeInTheDocument();
 
             // Must NOT render any admin dashboard elements or error messages
             expect(screen.queryByText("Admin Dashboard")).not.toBeInTheDocument();
@@ -117,7 +117,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             expect(screen.queryByText(/Access Denied/i)).not.toBeInTheDocument();
         });
 
-        it("redirects unauthenticated users to '/login'", () => {
+        it("redirects unauthenticated users to '/login'", async () => {
             vi.spyOn(UserContextModule, "useUser").mockReturnValue({
                 user: null,
                 currentGroup: null,
@@ -137,11 +137,11 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             );
 
             // Should render login page elements
-            expect(screen.getByRole("button", { name: /login/i })).toBeInTheDocument();
+            expect(await screen.findByRole("button", { name: /login/i })).toBeInTheDocument();
             expect(screen.queryByText("Admin Dashboard")).not.toBeInTheDocument();
         });
 
-        it("renders Admin Dashboard when user is an authorized admin (isAdmin: true)", () => {
+        it("renders Admin Dashboard when user is an authorized admin (isAdmin: true)", async () => {
             vi.spyOn(UserContextModule, "useUser").mockReturnValue({
                 user: {
                     _id: "admin-1",
@@ -167,11 +167,11 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                 </MemoryRouter>,
             );
 
-            expect(screen.getByText("Admin Dashboard")).toBeInTheDocument();
+            expect(await screen.findByText("Admin Dashboard")).toBeInTheDocument();
             expect(screen.getByText("Manage users and groups.")).toBeInTheDocument();
         });
 
-        it("renders full user directory and groups table for regular admin users belonging to ADMINISTRATORS group", () => {
+        it("renders full user directory and groups table for regular admin users belonging to ADMINISTRATORS group", async () => {
             const adminGroup: Group = {
                 _id: "admin-group-id",
                 name: "ADMINISTRATORS",
@@ -230,7 +230,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                 </MemoryRouter>,
             );
 
-            expect(screen.getByText("Admin Dashboard")).toBeInTheDocument();
+            expect(await screen.findByText("Admin Dashboard")).toBeInTheDocument();
             expect(screen.getByText("Regular Admin")).toBeInTheDocument();
             expect(screen.getByText("Inactive Employee")).toBeInTheDocument();
             expect(screen.getByText("Inactive")).toBeInTheDocument();
@@ -288,7 +288,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
     });
 
     describe("/group-settings Route Protection", () => {
-        it("redirects unauthorized users (isShiftManager: false) to '/' without rendering an Access Denied message", () => {
+        it("redirects unauthorized users (isShiftManager: false) to '/' without rendering an Access Denied message", async () => {
             vi.spyOn(UserContextModule, "useUser").mockReturnValue({
                 user: {
                     _id: "user-1",
@@ -315,15 +315,15 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             );
 
             // Should redirect to '/' and render Sites page
+            expect(await screen.findByRole("button", { name: "All Tags" })).toBeInTheDocument();
             expect(screen.getAllByText("Sites").length).toBeGreaterThan(0);
-            expect(screen.getByRole("button", { name: "All Tags" })).toBeInTheDocument();
 
             // Must NOT render Access Denied message or settings tabs
             expect(screen.queryByText(/Access Denied/i)).not.toBeInTheDocument();
             expect(screen.queryByText(/Test Group Settings/i)).not.toBeInTheDocument();
         });
 
-        it("renders Group Settings when user is an authorized shift manager (isShiftManager: true)", () => {
+        it("renders Group Settings when user is an authorized shift manager (isShiftManager: true)", async () => {
             vi.spyOn(UserContextModule, "useUser").mockReturnValue({
                 user: {
                     _id: "user-mgr-1",
@@ -349,7 +349,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                 </MemoryRouter>,
             );
 
-            expect(screen.getByText("Test Group Settings")).toBeInTheDocument();
+            expect(await screen.findByText("Test Group Settings")).toBeInTheDocument();
         });
 
         it("renders loading indicator and does not redirect to '/' while data context is loading", () => {
@@ -404,7 +404,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
     });
 
     describe("ProtectedRoute Route Protection", () => {
-        it("redirects unauthenticated users to '/login'", () => {
+        it("redirects unauthenticated users to '/login'", async () => {
             vi.spyOn(UserContextModule, "useUser").mockReturnValue({
                 user: null,
                 currentGroup: null,
@@ -424,8 +424,10 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                 </MemoryRouter>,
             );
 
-            expect(screen.getByTestId("location-display")).toHaveTextContent("/login");
-            expect(screen.getByRole("button", { name: /login/i })).toBeInTheDocument();
+            await waitFor(() => {
+                expect(screen.getByTestId("location-display")).toHaveTextContent("/login");
+            });
+            expect(await screen.findByRole("button", { name: /login/i })).toBeInTheDocument();
         });
 
         it("renders loading indicator and stays on protected route while loading", () => {
@@ -473,7 +475,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             expect(screen.getByText("Thinking...")).toBeInTheDocument();
         });
 
-        it("redirects authenticated users with no groups to '/guest'", () => {
+        it("redirects authenticated users with no groups to '/guest'", async () => {
             vi.spyOn(UserContextModule, "useUser").mockReturnValue({
                 user: {
                     _id: "guest-user",
@@ -500,7 +502,9 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                 </MemoryRouter>,
             );
 
-            expect(screen.getByTestId("location-display")).toHaveTextContent("/guest");
+            await waitFor(() => {
+                expect(screen.getByTestId("location-display")).toHaveTextContent("/guest");
+            });
         });
     });
 
@@ -530,7 +534,7 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             expect(screen.getByText("Thinking...")).toBeInTheDocument();
         });
 
-        it("redirects users with groups from '/guest' to '/'", () => {
+        it("redirects users with groups from '/guest' to '/'", async () => {
             vi.spyOn(UserContextModule, "useUser").mockReturnValue({
                 user: {
                     _id: "user-1",
@@ -557,7 +561,9 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                 </MemoryRouter>,
             );
 
-            expect(screen.getByTestId("location-display")).toHaveTextContent("/");
+            await waitFor(() => {
+                expect(screen.getByTestId("location-display")).toHaveTextContent("/");
+            });
         });
     });
 

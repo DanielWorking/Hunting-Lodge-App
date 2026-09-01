@@ -6,25 +6,25 @@
  * application, including the conditional display of the navigation bar.
  */
 
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Box } from "@mui/material";
 import Navbar from "./components/Navbar";
-import LoginPage from "./pages/LoginPage";
-import SSOCallback from "./pages/SSOCallback";
-import GuestPage from "./pages/GuestPage";
 import { useUser } from "./context/UserContext";
 import { useData } from "./context/DataContext";
 import ThinkingLoader from "./components/ThinkingLoader";
 
-// Page imports
-import SitesPage from "./pages/SitesPage";
-import PhonesPage from "./pages/PhonesPage";
-import AdminPage from "./pages/AdminPage";
-import GroupSettingsPage from "./pages/GroupSettingsPage";
-import ShiftSchedulePage from "./pages/ShiftSchedulePage";
-import ShiftReportPage from "./pages/ShiftReportPage";
-import NotFoundPage from "./pages/NotFoundPage";
+// Lazy-loaded page components for route-level code splitting
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const SSOCallback = lazy(() => import("./pages/SSOCallback"));
+const GuestPage = lazy(() => import("./pages/GuestPage"));
+const SitesPage = lazy(() => import("./pages/SitesPage"));
+const PhonesPage = lazy(() => import("./pages/PhonesPage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
+const GroupSettingsPage = lazy(() => import("./pages/GroupSettingsPage"));
+const ShiftSchedulePage = lazy(() => import("./pages/ShiftSchedulePage"));
+const ShiftReportPage = lazy(() => import("./pages/ShiftReportPage"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 /**
  * A wrapper component for routes that require active Administrator privileges.
@@ -156,75 +156,91 @@ function App() {
                     flexDirection: "column",
                 }}
             >
-                <Routes>
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/auth/callback" element={<SSOCallback />} />
-                    <Route
-                        path="/guest"
-                        element={
-                            isRestoringSession ? (
-                                <ThinkingLoader />
-                            ) : user && user.groups.length === 0 ? (
-                                <GuestPage />
-                            ) : (
-                                <Navigate to="/" replace />
-                            )
-                        }
-                    />
+                <Suspense
+                    fallback={
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                flexGrow: 1,
+                                minHeight: "50vh",
+                            }}
+                        >
+                            <ThinkingLoader />
+                        </Box>
+                    }
+                >
+                    <Routes>
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/auth/callback" element={<SSOCallback />} />
+                        <Route
+                            path="/guest"
+                            element={
+                                isRestoringSession ? (
+                                    <ThinkingLoader />
+                                ) : user && user.groups.length === 0 ? (
+                                    <GuestPage />
+                                ) : (
+                                    <Navigate to="/" replace />
+                                )
+                            }
+                        />
 
-                    <Route
-                        path="/"
-                        element={
-                            <ProtectedRoute>
-                                <SitesPage />
-                            </ProtectedRoute>
-                        }
-                    />
+                        <Route
+                            path="/"
+                            element={
+                                <ProtectedRoute>
+                                    <SitesPage />
+                                </ProtectedRoute>
+                            }
+                        />
 
-                    <Route
-                        path="/phones"
-                        element={
-                            <ProtectedRoute>
-                                <PhonesPage />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/group-settings"
-                        element={
-                            <ShiftManagerRoute>
-                                <GroupSettingsPage />
-                            </ShiftManagerRoute>
-                        }
-                    />
-                    <Route
-                        path="/schedule"
-                        element={
-                            <ProtectedRoute>
-                                <ShiftSchedulePage />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/reports"
-                        element={
-                            <ProtectedRoute>
-                                <ShiftReportPage />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/users"
-                        element={
-                            <AdminRoute>
-                                <AdminPage />
-                            </AdminRoute>
-                        }
-                    />
+                        <Route
+                            path="/phones"
+                            element={
+                                <ProtectedRoute>
+                                    <PhonesPage />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/group-settings"
+                            element={
+                                <ShiftManagerRoute>
+                                    <GroupSettingsPage />
+                                </ShiftManagerRoute>
+                            }
+                        />
+                        <Route
+                            path="/schedule"
+                            element={
+                                <ProtectedRoute>
+                                    <ShiftSchedulePage />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/reports"
+                            element={
+                                <ProtectedRoute>
+                                    <ShiftReportPage />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/admin/users"
+                            element={
+                                <AdminRoute>
+                                    <AdminPage />
+                                </AdminRoute>
+                            }
+                        />
 
-                    {/* Catch-all route for unmatched paths */}
-                    <Route path="*" element={<NotFoundPage />} />
-                </Routes>
+                        {/* Catch-all route for unmatched paths */}
+                        <Route path="*" element={<NotFoundPage />} />
+                    </Routes>
+                </Suspense>
             </Box>
         </Box>
     );

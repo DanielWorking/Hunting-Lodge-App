@@ -22,31 +22,37 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            const normalizedId = id.replace(/\\/g, '/');
+
             // Heavy Rich-Text Editor Suite (isolated from initial entry)
-            if (id.includes('@tiptap') || id.includes('prosemirror') || id.includes('orderedmap') || id.includes('w3c-keyname')) {
+            if (
+              normalizedId.includes('@tiptap') ||
+              normalizedId.includes('prosemirror') ||
+              normalizedId.includes('orderedmap') ||
+              normalizedId.includes('w3c-keyname')
+            ) {
               return 'vendor-tiptap';
             }
+            // Material UI & Emotion CSS-in-JS Engine
+            if (
+              normalizedId.includes('@mui') ||
+              normalizedId.includes('@emotion') ||
+              normalizedId.includes('@popperjs') ||
+              normalizedId.includes('clsx')
+            ) {
+              return 'vendor-mui';
+            }
             // HTTP Networking Client
-            if (id.includes('axios')) {
+            if (normalizedId.includes('axios')) {
               return 'vendor-axios';
             }
             // Date formatting utility
-            if (id.includes('date-fns')) {
+            if (normalizedId.includes('date-fns')) {
               return 'vendor-date-fns';
             }
-            // Material UI & UI Components
-            if (id.includes('@mui') || id.includes('@popperjs') || id.includes('clsx')) {
-              return 'vendor-mui';
-            }
-            // React runtime core, DOM, Router, and Emotion CSS-in-JS engine
+            // Core React runtime, DOM, and Router
             if (
-              id.includes('react') ||
-              id.includes('react-dom') ||
-              id.includes('react-router') ||
-              id.includes('react-router-dom') ||
-              id.includes('@emotion') ||
-              id.includes('scheduler') ||
-              id.includes('@remix-run')
+              /\/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler|@remix-run)\//.test(normalizedId)
             ) {
               return 'vendor-react';
             }

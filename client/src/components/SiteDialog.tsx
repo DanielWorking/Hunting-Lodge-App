@@ -52,20 +52,6 @@ export default function SiteDialog({
     initialData,
     currentGroup,
 }: SiteDialogProps) {
-    const [formData, setFormData] = useState({
-        title: "",
-        url: "",
-        imageUrl: "",
-        description: "",
-        tag: "General",
-    });
-
-    const [errors, setErrors] = useState({
-        title: false,
-        url: false,
-        description: false,
-    });
-
     /**
      * Derives the list of available tags from the current group context.
      * Defaults to ["General"] if no group-specific tags are defined.
@@ -75,18 +61,39 @@ export default function SiteDialog({
             ? currentGroup.siteTags
             : ["General"];
 
+    const defaultTag = availableTags[0] || "General";
+
+    const [formData, setFormData] = useState({
+        title: "",
+        url: "",
+        imageUrl: "",
+        description: "",
+        tag: defaultTag,
+    });
+
+    const [errors, setErrors] = useState({
+        title: false,
+        url: false,
+        description: false,
+    });
+
     /**
      * Synchronizes the internal form state with provided initial data or resets it
      * whenever the dialog visibility or source data changes.
      */
     useEffect(() => {
+        const resolvedDefaultTag =
+            currentGroup?.siteTags && currentGroup.siteTags.length > 0
+                ? currentGroup.siteTags[0]
+                : "General";
+
         if (initialData) {
             setFormData({
                 title: initialData.title,
                 url: initialData.url,
                 imageUrl: initialData.imageUrl || "",
                 description: initialData.description,
-                tag: initialData.tag || "General",
+                tag: initialData.tag || resolvedDefaultTag,
             });
         } else {
             setFormData({
@@ -94,7 +101,7 @@ export default function SiteDialog({
                 url: "",
                 imageUrl: "",
                 description: "",
-                tag: "General",
+                tag: resolvedDefaultTag,
             });
         }
         setErrors({
@@ -102,7 +109,7 @@ export default function SiteDialog({
             url: false,
             description: false,
         });
-    }, [initialData, open]);
+    }, [initialData, open, currentGroup]);
 
     /**
      * Validates required fields and invokes the onSave callback if the form is valid.
@@ -133,18 +140,28 @@ export default function SiteDialog({
                 <TextField
                     autoFocus
                     margin="dense"
+                    id="site-name-input"
                     label="Site Name *"
                     fullWidth
                     variant="outlined"
                     value={formData.title}
                     error={errors.title}
                     helperText={errors.title ? "Name is required" : ""}
+                    slotProps={{
+                        htmlInput: {
+                            "aria-label": "Site Name",
+                        },
+                    }}
+                    inputProps={{
+                        "aria-label": "Site Name",
+                    }}
                     onChange={(e) =>
                         setFormData({ ...formData, title: e.target.value })
                     }
                 />
                 <TextField
                     margin="dense"
+                    id="site-url-input"
                     label="URL (Link) *"
                     fullWidth
                     type="url"
@@ -152,14 +169,23 @@ export default function SiteDialog({
                     value={formData.url}
                     error={errors.url}
                     helperText={errors.url ? "URL is required" : ""}
+                    slotProps={{
+                        htmlInput: {
+                            "aria-label": "URL (Link)",
+                        },
+                    }}
+                    inputProps={{
+                        "aria-label": "URL (Link)",
+                    }}
                     onChange={(e) =>
                         setFormData({ ...formData, url: e.target.value })
                     }
                 />
 
                 <FormControl fullWidth margin="dense">
-                    <InputLabel>Tag</InputLabel>
+                    <InputLabel id="site-dialog-tag-label">Tag</InputLabel>
                     <Select
+                        labelId="site-dialog-tag-label"
                         value={formData.tag}
                         label="Tag"
                         onChange={(e) =>
@@ -176,17 +202,27 @@ export default function SiteDialog({
 
                 <TextField
                     margin="dense"
+                    id="site-image-url-input"
                     label="Image URL"
                     fullWidth
                     variant="outlined"
                     placeholder="https://example.com/image.jpg"
                     value={formData.imageUrl}
+                    slotProps={{
+                        htmlInput: {
+                            "aria-label": "Image URL",
+                        },
+                    }}
+                    inputProps={{
+                        "aria-label": "Image URL",
+                    }}
                     onChange={(e) =>
                         setFormData({ ...formData, imageUrl: e.target.value })
                     }
                 />
                 <TextField
                     margin="dense"
+                    id="site-description-input"
                     label="Description *"
                     fullWidth
                     multiline
@@ -197,6 +233,14 @@ export default function SiteDialog({
                     helperText={
                         errors.description ? "Description is required" : ""
                     }
+                    slotProps={{
+                        htmlInput: {
+                            "aria-label": "Description",
+                        },
+                    }}
+                    inputProps={{
+                        "aria-label": "Description",
+                    }}
                     onChange={(e) =>
                         setFormData({
                             ...formData,

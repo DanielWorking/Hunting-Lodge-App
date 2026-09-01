@@ -25,12 +25,15 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                 // Light mode color palette - Data Dense Dashboard
                 primary: {
                     main: '#1E40AF',
+                    contrastText: '#FFFFFF',
                 },
                 secondary: {
                     main: '#1D4ED8',
+                    contrastText: '#FFFFFF',
                 },
                 warning: {
                     main: '#F59E0B', // CTA/Accent
+                    contrastText: '#0F172A',
                 },
                 background: {
                     default: '#F8FAFC',
@@ -40,18 +43,21 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                     primary: '#1E3A8A',
                     secondary: '#475569',
                 },
-                divider: '#E2E8F0',
+                divider: '#CBD5E1',
             }
             : {
                 // Dark mode color palette
                 primary: {
                     main: '#60A5FA',
+                    contrastText: '#0F172A',
                 },
                 secondary: {
                     main: '#93C5FD',
+                    contrastText: '#0F172A',
                 },
                 warning: {
                     main: '#FBBF24', // CTA/Accent
+                    contrastText: '#0F172A',
                 },
                 background: {
                     default: '#0F172A',
@@ -61,7 +67,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                     primary: '#F8FAFC',
                     secondary: '#94A3B8',
                 },
-                divider: '#334155',
+                divider: '#475569',
             }),
     },
     typography: {
@@ -86,13 +92,18 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                     transition: 'all 200ms ease',
                     padding: '12px 24px',
                     cursor: 'pointer',
+                    '&:focus-visible': {
+                        outline: mode === 'light' ? '2px solid #1E40AF' : '2px solid #60A5FA',
+                        outlineOffset: '2px',
+                    },
                 },
                 containedPrimary: {
                     backgroundColor: mode === 'light' ? '#F59E0B' : '#FBBF24',
                     color: '#0F172A',
                     '&:hover': {
-                        backgroundColor: mode === 'light' ? '#F59E0B' : '#FBBF24',
-                        opacity: 0.9,
+                        backgroundColor: mode === 'light' ? '#D97706' : '#F59E0B',
+                        color: '#0F172A',
+                        opacity: 1,
                         transform: 'translateY(-1px)',
                     },
                 },
@@ -143,10 +154,10 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                     transition: 'border-color 200ms ease',
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
                         borderColor: mode === 'light' ? '#1E40AF' : '#60A5FA',
-                        borderWidth: '1px',
+                        borderWidth: '2px',
                     },
                     '&.Mui-focused': {
-                        boxShadow: mode === 'light' ? '0 0 0 3px #1E40AF20' : '0 0 0 3px #60A5FA20',
+                        boxShadow: mode === 'light' ? '0 0 0 3px rgba(30, 64, 175, 0.25)' : '0 0 0 3px rgba(96, 165, 250, 0.35)',
                     },
                 },
                 input: {
@@ -157,7 +168,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                     },
                 },
                 notchedOutline: {
-                    borderColor: mode === 'light' ? '#E2E8F0' : '#334155',
+                    borderColor: mode === 'light' ? '#64748B' : '#94A3B8',
                 },
             },
         },
@@ -194,7 +205,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                     backgroundColor: mode === 'dark' ? '#1E293B' : '#ffffff',
                     color: mode === 'dark' ? '#F8FAFC' : '#1E40AF',
                     boxShadow: 'none',
-                    borderBottom: `1px solid ${mode === 'dark' ? '#334155' : '#E2E8F0'}`,
+                    borderBottom: `1px solid ${mode === 'dark' ? '#475569' : '#CBD5E1'}`,
                 },
             },
         },
@@ -204,7 +215,7 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                     padding: '8px 12px',
                     fontFamily: '"Fira Code", monospace',
                     fontSize: '0.875rem',
-                    borderColor: mode === 'dark' ? '#334155' : '#E2E8F0',
+                    borderColor: mode === 'dark' ? '#475569' : '#CBD5E1',
                 },
                 head: {
                     fontWeight: 600,

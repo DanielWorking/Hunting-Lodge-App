@@ -181,6 +181,7 @@ export default function SitesPage() {
             await toggleFavoriteSite(siteId);
             refreshData();
         } catch (error) {
+            console.error(error);
             showNotification("Error updating favorite", "error");
         }
     };
@@ -230,9 +231,20 @@ export default function SitesPage() {
             }
             refreshData();
             setIsTagDialogOpen(false);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            console.error(error);
+            const errorMessage =
+                typeof error === "object" &&
+                error !== null &&
+                "response" in error
+                    ? (
+                          error as {
+                              response?: { data?: { message?: string } };
+                          }
+                      ).response?.data?.message
+                    : undefined;
             showNotification(
-                error.response?.data?.message || "Error saving tag",
+                errorMessage || "Error saving tag",
                 "error",
             );
         }
@@ -258,7 +270,8 @@ export default function SitesPage() {
             showNotification("Tag deleted. Sites moved to General.", "success");
             setSelectedTag("General");
             refreshData();
-        } catch (error: any) {
+        } catch (error: unknown) {
+            console.error(error);
             showNotification("Error deleting tag", "error");
         } finally {
             setTagToDelete(null);
@@ -425,8 +438,9 @@ export default function SitesPage() {
             >
                 {/* 1. Favorite Filter: Toggles between all sites and user-specific favorites. */}
                 <FormControl size="small" sx={{ minWidth: 120 }}>
-                    <InputLabel>Show</InputLabel>
+                    <InputLabel id="filter-fav-label">Show</InputLabel>
                     <Select
+                        labelId="filter-fav-label"
                         value={filterFav}
                         label="Show"
                         onChange={(e) => setFilterFav(e.target.value)}
@@ -438,18 +452,28 @@ export default function SitesPage() {
 
                 {/* 2. Text Search: Filters site titles in real-time. */}
                 <TextField
+                    id="search-sites-input"
                     size="small"
                     label="Search Sites..."
                     variant="outlined"
                     sx={{ flexGrow: 1 }}
                     value={searchTerm}
+                    slotProps={{
+                        htmlInput: {
+                            "aria-label": "Search Sites",
+                        },
+                    }}
+                    inputProps={{
+                        "aria-label": "Search Sites",
+                    }}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
 
                 {/* 3. Sort Control: Allows ordering by date (newest/oldest) or title. */}
                 <FormControl size="small" sx={{ minWidth: 140 }}>
-                    <InputLabel>Sort By</InputLabel>
+                    <InputLabel id="sort-order-label">Sort By</InputLabel>
                     <Select
+                        labelId="sort-order-label"
                         value={sortOrder}
                         label="Sort By"
                         onChange={(e) => setSortOrder(e.target.value)}
@@ -457,6 +481,7 @@ export default function SitesPage() {
                             <SortIcon
                                 fontSize="small"
                                 sx={{ mr: 1, color: "action.active" }}
+                                aria-hidden="true"
                             />
                         }
                     >
@@ -508,8 +533,8 @@ export default function SitesPage() {
                     ))}
                 </Grid>
             ) : (
-                <Box sx={{ textAlign: "center", mt: 8, opacity: 0.6 }}>
-                    <Typography variant="h6" component="p">No sites found.</Typography>
+                <Box sx={{ textAlign: "center", mt: 8 }}>
+                    <Typography variant="h6" component="p" color="text.secondary">No sites found.</Typography>
                 </Box>
             )}
 
@@ -548,10 +573,19 @@ export default function SitesPage() {
                     <TextField
                         autoFocus
                         margin="dense"
+                        id="tag-name-input"
                         label="Tag Name"
                         fullWidth
                         variant="outlined"
                         value={tagValue}
+                        slotProps={{
+                            htmlInput: {
+                                "aria-label": "Tag Name",
+                            },
+                        }}
+                        inputProps={{
+                            "aria-label": "Tag Name",
+                        }}
                         onChange={(e) => setTagValue(e.target.value)}
                     />
                 </DialogContent>

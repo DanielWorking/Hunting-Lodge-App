@@ -15,7 +15,9 @@ import {
     Box,
     Chip,
     Divider,
+    IconButton,
 } from "@mui/material";
+import PhoneIcon from "@mui/icons-material/Phone";
 import type { PhoneRow, PhoneType } from "../types";
 
 /**
@@ -29,6 +31,8 @@ interface Props {
     /** The phone data to display, or null if no phone is selected. */
     data: PhoneRow | null;
 }
+
+type ChipColor = "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning";
 
 /**
  * Renders a modal dialog displaying exhaustive details for a phone entry.
@@ -46,9 +50,9 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
      * Maps a phone type to a Material-UI color theme for consistent UI signaling.
      *
      * @param {PhoneType} type  The type classification of the phone.
-     * @returns {string}        The corresponding Material-UI color key.
+     * @returns {ChipColor}     The corresponding Material-UI color key.
      */
-    const getTypeColor = (type: PhoneType) => {
+    const getTypeColor = (type: PhoneType): ChipColor => {
         switch (type) {
             case "Red":
                 return "error";
@@ -57,15 +61,22 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
             case "Mobile":
                 return "primary";
             case "Landline":
-                return "success";
+                return "info";
             default:
                 return "default";
         }
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+        <Dialog
+            open={open}
+            onClose={onClose}
+            maxWidth="sm"
+            fullWidth
+            aria-labelledby="phone-details-title"
+        >
             <DialogTitle
+                id="phone-details-title"
                 sx={{
                     bgcolor: "background.default",
                     borderBottom: 1,
@@ -101,7 +112,7 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
                         </Box>
                         <Chip
                             label={data.type}
-                            color={getTypeColor(data.type) as any}
+                            color={getTypeColor(data.type)}
                             size="medium"
                             variant="filled"
                         />
@@ -118,28 +129,58 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
                             Phone Numbers ({data.numbers.length})
                         </Typography>
                         {data.numbers.map((num) => (
-                            <Typography
+                            <Box
                                 key={num}
-                                variant="h5"
-                                component="p"
                                 sx={{
-                                    fontFamily: "monospace",
-                                    letterSpacing: 1,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
                                     borderLeft: "4px solid",
                                     borderColor: "primary.main",
                                     pl: 2,
+                                    pr: 1,
                                     mb: 1,
+                                    minHeight: 48,
                                     bgcolor: "background.paper",
                                 }}
                             >
-                                {num}
-                            </Typography>
+                                <Typography
+                                    variant="h5"
+                                    component="p"
+                                    sx={{
+                                        fontFamily: "monospace",
+                                        letterSpacing: 1,
+                                        color: "text.primary",
+                                    }}
+                                >
+                                    {num}
+                                </Typography>
+                                <IconButton
+                                    component="a"
+                                    href={`tel:${num}`}
+                                    aria-label={`Call ${data.name} at ${num}`}
+                                    size="small"
+                                    color="primary"
+                                    sx={{
+                                        minWidth: 44,
+                                        minHeight: 44,
+                                        p: 1.25,
+                                        "&:focus-visible": {
+                                            outline: "2px solid",
+                                            outlineColor: "primary.main",
+                                            outlineOffset: "2px",
+                                        },
+                                    }}
+                                >
+                                    <PhoneIcon fontSize="small" />
+                                </IconButton>
+                            </Box>
                         ))}
                     </Box>
 
                     <Box
                         sx={{
-                            bgcolor: "action.hover",
+                            bgcolor: "background.default",
                             p: 2,
                             borderRadius: 1,
                             maxHeight: "250px",
@@ -169,7 +210,13 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
             </DialogContent>
 
             <DialogActions sx={{ pb: 2, px: 3 }}>
-                <Button onClick={onClose} variant="contained">
+                <Button
+                    onClick={onClose}
+                    variant="contained"
+                    color="primary"
+                    aria-label="Close phone details"
+                    sx={{ minHeight: 44, px: 3 }}
+                >
                     Close
                 </Button>
             </DialogActions>

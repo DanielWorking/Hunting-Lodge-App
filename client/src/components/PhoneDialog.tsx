@@ -6,7 +6,7 @@
  * and multi-number management.
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
     Dialog,
     DialogTitle,
@@ -60,18 +60,25 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
  * @param {PhoneDialogProps} props  The properties for the component.
  * @returns {JSX.Element}           The rendered dialog component.
  */
-export default function PhoneDialog({
-    open,
-    onClose,
-    onSave,
-    initialData,
-}: PhoneDialogProps) {
-    const [formData, setFormData] = useState({
-        name: "",
-        numbers: [{ id: generateId(), value: "" }],
-        type: "Mobile" as PhoneType,
-        description: "",
-    });
+interface PhoneFormProps {
+    initialData?: PhoneRow | null;
+    onClose: () => void;
+    onSave: (phoneData: Partial<PhoneRow>) => Promise<void>;
+}
+
+function PhoneForm({ initialData, onClose, onSave }: PhoneFormProps) {
+    const [formData, setFormData] = useState(() => ({
+        name: initialData?.name ?? "",
+        numbers:
+            initialData && initialData.numbers.length > 0
+                ? initialData.numbers.map((num) => ({
+                      id: generateId(),
+                      value: num,
+                  }))
+                : [{ id: generateId(), value: "" }],
+        type: (initialData?.type ?? "Mobile") as PhoneType,
+        description: initialData?.description ?? "",
+    }));
 
     const [errors, setErrors] = useState({
         name: false,
@@ -82,43 +89,6 @@ export default function PhoneDialog({
 
     /** Stores error messages returned from the server (e.g., duplicate numbers). */
     const [serverError, setServerError] = useState<string | null>(null);
-
-    /**
-     * Resets or populates the form state whenever the dialog opens or
-     * the initial data changes.
-     */
-    useEffect(() => {
-        if (open) {
-            setServerError(null);
-            if (initialData) {
-                setFormData({
-                    name: initialData.name,
-                    numbers:
-                        initialData.numbers.length > 0
-                            ? initialData.numbers.map((num) => ({
-                                  id: generateId(),
-                                  value: num,
-                              }))
-                            : [{ id: generateId(), value: "" }],
-                    type: initialData.type,
-                    description: initialData.description,
-                });
-            } else {
-                setFormData({
-                    name: "",
-                    numbers: [{ id: generateId(), value: "" }],
-                    type: "Mobile",
-                    description: "",
-                });
-            }
-            setErrors({
-                name: false,
-                type: false,
-                numbers: false,
-                description: false,
-            });
-        }
-    }, [initialData, open]);
 
     /**
      * Applies type-specific formatting masks to raw digit strings.
@@ -232,16 +202,23 @@ export default function PhoneDialog({
         try {
             await onSave({ ...formData, numbers: filteredNumbers });
             onClose();
-        } catch (err: any) {
-            setServerError(
-                err.response?.data?.message || "Failed to save phone",
-            );
+        } catch (err: unknown) {
+            const message =
+                typeof err === "object" &&
+                err !== null &&
+                "response" in err &&
+                typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
+                    ? (err as { response: { data: { message: string } } }).response.data.message
+                    : err instanceof Error
+                      ? err.message
+                      : "Failed to save phone";
+            setServerError(message);
         }
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>
+        <>
+            <DialogTitle id="phone-dialog-title">
                 {initialData ? "Edit Phone Number" : "Add New Phone"}
             </DialogTitle>
             <DialogContent>
@@ -252,6 +229,7 @@ export default function PhoneDialog({
                 )}
 
                 <TextField
+                    id="phone-name-input"
                     margin="dense"
                     label="Name *"
                     fullWidth
@@ -259,16 +237,20 @@ export default function PhoneDialog({
                     value={formData.name}
                     error={errors.name}
                     helperText={errors.name ? "Name is required" : ""}
+                    inputProps={{ "aria-label": "Name" }}
                     onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                     }
                 />
 
                 <FormControl fullWidth margin="dense">
-                    <InputLabel>Phone Type *</InputLabel>
+                    <InputLabel id="phone-type-label">Phone Type *</InputLabel>
                     <Select
+                        labelId="phone-type-label"
+                        id="phone-type-select"
                         value={formData.type}
                         label="Phone Type *"
+                        inputProps={{ "aria-label": "Phone Type" }}
                         onChange={(e) =>
                             handleTypeChange(e.target.value as PhoneType)
                         }
@@ -285,8 +267,9 @@ export default function PhoneDialog({
                 </Typography>
 
                 {formData.numbers.map((item, index) => (
-                    <Box key={item.id} sx={{ display: "flex", gap: 1, mb: 1 }}>
+                    <Box key={item.id} sx={{ display: "flex", gap: 1, mb: 1, alignItems: "center" }}>
                         <TextField
+                            id={`phone-number-input-${index + 1}`}
                             fullWidth
                             size="small"
                             type="tel"
@@ -303,6 +286,7 @@ export default function PhoneDialog({
                             disabled={formData.numbers.length <= 1}
                             color="error"
                             aria-label={`Remove phone number ${index + 1}`}
+                            sx={{ minWidth: 44, minHeight: 44, p: 1.25 }}
                         >
                             <DeleteOutlineIcon />
                         </IconButton>
@@ -313,7 +297,8 @@ export default function PhoneDialog({
                     startIcon={<AddCircleOutlineIcon />}
                     onClick={handleAddNumberField}
                     size="small"
-                    sx={{ mb: 2 }}
+                    aria-label="Add another number"
+                    sx={{ mb: 2, minHeight: 44, py: 1, px: 2 }}
                 >
                     Add Another Number
                 </Button>
@@ -325,6 +310,7 @@ export default function PhoneDialog({
                 )}
 
                 <TextField
+                    id="phone-description-input"
                     margin="dense"
                     label="Description *"
                     fullWidth
@@ -336,6 +322,7 @@ export default function PhoneDialog({
                     helperText={
                         errors.description ? "Description is required" : ""
                     }
+                    inputProps={{ "aria-label": "Description" }}
                     onChange={(e) =>
                         setFormData({
                             ...formData,
@@ -345,18 +332,60 @@ export default function PhoneDialog({
                 />
             </DialogContent>
 
-            <DialogActions sx={{ pb: 2, px: 3 }}>
-                <Button onClick={onClose} color="inherit">
+            <DialogActions sx={{ pb: 2, px: 3, gap: 1.5 }}>
+                <Button
+                    onClick={onClose}
+                    color="inherit"
+                    aria-label="Cancel"
+                    sx={{ minHeight: 44, px: 2.5 }}
+                >
                     Cancel
                 </Button>
                 <Button
                     onClick={handleSubmit}
                     variant="contained"
                     color="primary"
+                    aria-label={initialData ? "Save Changes" : "Add Phone"}
+                    sx={{ minHeight: 44, px: 2.5 }}
                 >
                     {initialData ? "Save Changes" : "Add Phone"}
                 </Button>
             </DialogActions>
+        </>
+    );
+}
+
+/**
+ * Renders a dialog with a form for managing phone entries.
+ *
+ * Supports adding multiple numbers for a single contact, with specific 
+ * formatting rules for Mobile, Landline, Black (Secure), and Red (Emergency) phones.
+ *
+ * @param {PhoneDialogProps} props  The properties for the component.
+ * @returns {JSX.Element}           The rendered dialog component.
+ */
+export default function PhoneDialog({
+    open,
+    onClose,
+    onSave,
+    initialData,
+}: PhoneDialogProps) {
+    return (
+        <Dialog
+            open={open}
+            onClose={onClose}
+            maxWidth="sm"
+            fullWidth
+            aria-labelledby="phone-dialog-title"
+        >
+            {open && (
+                <PhoneForm
+                    key={initialData?._id ?? "new"}
+                    initialData={initialData}
+                    onClose={onClose}
+                    onSave={onSave}
+                />
+            )}
         </Dialog>
     );
 }

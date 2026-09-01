@@ -34,10 +34,6 @@ export default function PhonesPage() {
     const { phones, refreshData, loading } = useData();
     const { showNotification } = useNotification();
 
-    if (loading && phones.length === 0) {
-        return <ThinkingLoader />;
-    }
-
     // === State Management ===
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingPhone, setEditingPhone] = useState<PhoneRow | null>(null);
@@ -106,7 +102,7 @@ export default function PhonesPage() {
                 await deletePhone(idToDelete);
                 showNotification("Phone deleted successfully", "success");
                 refreshData();
-            } catch (error) {
+            } catch {
                 showNotification("Error deleting phone", "error");
             } finally {
                 setDeleteItem(null);
@@ -121,23 +117,18 @@ export default function PhonesPage() {
      * @throws {Error} Propagates errors for the dialog to handle.
      */
     const handleSavePhone = async (phoneData: Partial<PhoneRow>) => {
-        try {
-            if (editingPhone) {
-                await updatePhone(
-                    editingPhone._id,
-                    phoneData,
-                );
-                showNotification("Phone updated successfully", "success");
-            } else {
-                await createPhone(phoneData);
-                showNotification("Phone added successfully", "success");
-            }
-            refreshData();
-            setIsDialogOpen(false); // Close only on success
-        } catch (err: any) {
-            // Do not close the dialog on error; propagate for display
-            throw err;
+        if (editingPhone) {
+            await updatePhone(
+                editingPhone._id,
+                phoneData,
+            );
+            showNotification("Phone updated successfully", "success");
+        } else {
+            await createPhone(phoneData);
+            showNotification("Phone added successfully", "success");
         }
+        refreshData();
+        setIsDialogOpen(false); // Close only on success
     };
 
     /**
@@ -158,10 +149,14 @@ export default function PhonesPage() {
                 newStatus ? "Added to favorites" : "Removed from favorites",
                 "success",
             );
-        } catch (err) {
+        } catch {
             showNotification("Failed to update favorite", "error");
         }
     };
+
+    if (loading && phones.length === 0) {
+        return <ThinkingLoader />;
+    }
 
     // === Filtering & Sorting Logic ===
 

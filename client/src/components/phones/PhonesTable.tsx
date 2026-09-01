@@ -18,6 +18,8 @@ import {
     Chip,
     Tooltip,
     Typography,
+    Link,
+    Box,
     useTheme,
 } from "@mui/material";
 import FavoriteIcon from "@mui/icons-material/Favorite";
@@ -41,6 +43,8 @@ interface PhonesTableProps {
     /** Callback triggered when the favorite status is toggled. */
     onToggleFavorite: (phone: PhoneRow) => void;
 }
+
+type ChipColor = "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning";
 
 /**
  * Renders an interactive table displaying phone contact information.
@@ -68,15 +72,15 @@ export default function PhonesTable({
     const headerBgColor =
         theme.palette.mode === "dark"
             ? theme.palette.background.default
-            : theme.palette.action.hover;
+            : theme.palette.background.default;
 
     /**
      * Maps a phone type classification to a Material-UI color theme.
      * 
      * @param {PhoneType} type  The type of the phone entry.
-     * @returns {string}        The corresponding Material-UI color key.
+     * @returns {ChipColor}     The corresponding Material-UI color key.
      */
-    const getTypeColor = (type: PhoneType) => {
+    const getTypeColor = (type: PhoneType): ChipColor => {
         switch (type) {
             case "Red":
                 return "error";
@@ -105,7 +109,16 @@ export default function PhonesTable({
     return (
         <TableContainer
             component={Paper}
-            sx={{ maxHeight: "65vh", overflowY: "auto", overflowX: "auto" }}
+            elevation={0}
+            sx={{
+                maxHeight: "65vh",
+                overflowY: "auto",
+                overflowX: "auto",
+                bgcolor: "background.paper",
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 2,
+            }}
         >
             <Table sx={{ minWidth: 650 }} stickyHeader size="small">
                 <TableHead>
@@ -120,6 +133,8 @@ export default function PhonesTable({
                         ].map((header) => (
                             <TableCell
                                 key={header}
+                                component="th"
+                                scope="col"
                                 align={
                                     header === "Favorite" ||
                                     header === "Actions"
@@ -129,6 +144,7 @@ export default function PhonesTable({
                                 sx={{
                                     fontWeight: "bold",
                                     bgcolor: headerBgColor,
+                                    color: "text.primary",
                                     zIndex: 10,
                                 }}
                             >
@@ -142,9 +158,24 @@ export default function PhonesTable({
                         <TableRow
                             key={row._id}
                             onClick={() => onRowClick(row)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    onRowClick(row);
+                                }
+                            }}
+                            tabIndex={0}
+                            role="button"
+                            aria-label={`View details for ${row.name}`}
                             sx={{
                                 cursor: "pointer",
+                                minHeight: 48,
                                 "&:hover": { bgcolor: "action.hover" },
+                                "&:focus-visible": {
+                                    outline: "2px solid",
+                                    outlineColor: "primary.main",
+                                    outlineOffset: "-2px",
+                                },
                                 textDecoration: "none",
                             }}
                         >
@@ -156,9 +187,36 @@ export default function PhonesTable({
                                     fontSize: "1.1rem",
                                 }}
                             >
-                                {row.numbers && row.numbers.length > 0
-                                    ? formatPhoneNumber(row.numbers[0])
-                                    : ""}
+                                {row.numbers && row.numbers.length > 0 ? (
+                                    <Link
+                                        href={`tel:${row.numbers[0]}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        aria-label={`Dial ${row.name}: ${formatPhoneNumber(row.numbers[0])}`}
+                                        sx={{
+                                            color: "text.primary",
+                                            textDecoration: "none",
+                                            minHeight: 44,
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            py: 0.5,
+                                            px: 0.5,
+                                            "&:hover": {
+                                                textDecoration: "underline",
+                                                color: "primary.main",
+                                            },
+                                            "&:focus-visible": {
+                                                outline: "2px solid",
+                                                outlineColor: "primary.main",
+                                                outlineOffset: "2px",
+                                                borderRadius: "4px",
+                                            },
+                                        }}
+                                    >
+                                        {formatPhoneNumber(row.numbers[0])}
+                                    </Link>
+                                ) : (
+                                    ""
+                                )}
                                 {row.numbers && row.numbers.length > 1 && (
                                     <Typography
                                         component="span"
@@ -174,7 +232,7 @@ export default function PhonesTable({
                             <TableCell>
                                 <Chip
                                     label={row.type}
-                                    color={getTypeColor(row.type) as any}
+                                    color={getTypeColor(row.type)}
                                     size="small"
                                     variant="outlined"
                                 />
@@ -206,6 +264,16 @@ export default function PhonesTable({
                                             ? `Remove ${row.name} from favorites`
                                             : `Add ${row.name} to favorites`
                                     }
+                                    sx={{
+                                        minWidth: 44,
+                                        minHeight: 44,
+                                        p: 1.25,
+                                        "&:focus-visible": {
+                                            outline: "2px solid",
+                                            outlineColor: "primary.main",
+                                            outlineOffset: "2px",
+                                        },
+                                    }}
                                 >
                                     {row.isFavorite ? (
                                         <FavoriteIcon />
@@ -216,30 +284,59 @@ export default function PhonesTable({
                             </TableCell>
 
                             <TableCell align="center">
-                                <Tooltip title="Edit">
-                                    <IconButton
-                                        size="small"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onEditClick(row);
-                                        }}
-                                        aria-label={`Edit ${row.name}`}
-                                    >
-                                        <EditIcon fontSize="small" />
-                                    </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Delete">
-                                    <IconButton
-                                        size="small"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onDeleteClick(row);
-                                        }}
-                                        aria-label={`Delete ${row.name}`}
-                                    >
-                                        <DeleteIcon fontSize="small" />
-                                    </IconButton>
-                                </Tooltip>
+                                <Box
+                                    sx={{
+                                        display: "inline-flex",
+                                        gap: 1,
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                    }}
+                                >
+                                    <Tooltip title="Edit">
+                                        <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onEditClick(row);
+                                            }}
+                                            aria-label={`Edit ${row.name}`}
+                                            sx={{
+                                                minWidth: 44,
+                                                minHeight: 44,
+                                                p: 1.25,
+                                                "&:focus-visible": {
+                                                    outline: "2px solid",
+                                                    outlineColor: "primary.main",
+                                                    outlineOffset: "2px",
+                                                },
+                                            }}
+                                        >
+                                            <EditIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Delete">
+                                        <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDeleteClick(row);
+                                            }}
+                                            aria-label={`Delete ${row.name}`}
+                                            sx={{
+                                                minWidth: 44,
+                                                minHeight: 44,
+                                                p: 1.25,
+                                                "&:focus-visible": {
+                                                    outline: "2px solid",
+                                                    outlineColor: "primary.main",
+                                                    outlineOffset: "2px",
+                                                },
+                                            }}
+                                        >
+                                            <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+                                </Box>
                             </TableCell>
                         </TableRow>
                     ))}

@@ -119,6 +119,21 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                 },
             },
         },
+        MuiIconButton: {
+            styleOverrides: {
+                root: {
+                    borderRadius: 8,
+                    minWidth: 44,
+                    minHeight: 44,
+                    padding: 10,
+                    transition: 'all 150ms ease',
+                    '&:focus-visible': {
+                        outline: mode === 'light' ? '2px solid #1E40AF' : '2px solid #60A5FA',
+                        outlineOffset: '2px',
+                    },
+                },
+            },
+        },
         MuiCard: {
             styleOverrides: {
                 root: {
@@ -231,6 +246,55 @@ export const getDesignTokens = (mode: PaletteMode) => ({
                     '&:hover': {
                         backgroundColor: mode === 'dark' ? '#334155' : '#F1F5F9',
                     },
+                },
+            },
+        },
+        MuiChip: {
+            styleOverrides: {
+                root: {
+                    fontWeight: 600,
+                    fontSize: '0.8125rem',
+                },
+                outlinedDefault: {
+                    borderColor: mode === 'light' ? '#475569' : '#94A3B8',
+                    color: mode === 'light' ? '#1E293B' : '#F8FAFC',
+                },
+                outlinedPrimary: {
+                    borderColor: mode === 'light' ? '#1E40AF' : '#60A5FA',
+                    color: mode === 'light' ? '#1E40AF' : '#93C5FD',
+                },
+                outlinedError: {
+                    borderColor: mode === 'light' ? '#B91C1C' : '#F87171',
+                    color: mode === 'light' ? '#B91C1C' : '#FCA5A5',
+                },
+                outlinedInfo: {
+                    borderColor: mode === 'light' ? '#0369A1' : '#38BDF8',
+                    color: mode === 'light' ? '#0369A1' : '#7DD3FC',
+                },
+                filledDefault: {
+                    backgroundColor: mode === 'light' ? '#E2E8F0' : '#334155',
+                    color: mode === 'light' ? '#0F172A' : '#F8FAFC',
+                },
+                filledPrimary: {
+                    backgroundColor: mode === 'light' ? '#1E40AF' : '#2563EB',
+                    color: '#FFFFFF',
+                },
+                filledError: {
+                    backgroundColor: mode === 'light' ? '#B91C1C' : '#DC2626',
+                    color: '#FFFFFF',
+                },
+                filledInfo: {
+                    backgroundColor: mode === 'light' ? '#0369A1' : '#0369A1',
+                    color: '#FFFFFF',
+                },
+            },
+        },
+        MuiTableContainer: {
+            styleOverrides: {
+                root: {
+                    borderRadius: 8,
+                    border: `1px solid ${mode === 'light' ? '#CBD5E1' : '#475569'}`,
+                    backgroundColor: mode === 'light' ? '#FFFFFF' : '#1E293B',
                 },
             },
         },

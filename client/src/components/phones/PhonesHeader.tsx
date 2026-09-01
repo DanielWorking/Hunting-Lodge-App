@@ -92,11 +92,17 @@ export default function PhonesHeader({
                     boxShadow: 1,
                 }}
             >
-                <FormControl size="small" sx={{ minWidth: 120 }}>
-                    <InputLabel>Filter</InputLabel>
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <InputLabel id="phone-filter-label">Filter</InputLabel>
                     <Select
+                        labelId="phone-filter-label"
+                        id="phone-filter-select"
                         value={filterFav}
                         label="Filter"
+                        inputProps={{
+                            "aria-label": "Filter",
+                        }}
+                        sx={{ minHeight: 44 }}
                         onChange={(e) => setFilterFav(e.target.value)}
                     >
                         <MenuItem value="all">Show All</MenuItem>
@@ -105,11 +111,16 @@ export default function PhonesHeader({
                 </FormControl>
 
                 <TextField
+                    id="phone-search-input"
                     size="small"
                     label="Search by name, number, or description..."
                     variant="outlined"
-                    sx={{ flexGrow: 1 }}
+                    sx={{ flexGrow: 1, minHeight: 44 }}
                     value={searchTerm}
+                    inputProps={{
+                        "aria-label": "Search by name, number, or description",
+                        role: "searchbox",
+                    }}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
 
@@ -117,6 +128,12 @@ export default function PhonesHeader({
                     variant="outlined"
                     startIcon={<SortIcon />}
                     onClick={onToggleSortOrder}
+                    sx={{ minHeight: 44 }}
+                    aria-label={
+                        sortOrder === "name-asc"
+                            ? "Sort by name (A-Z), click to sort descending"
+                            : "Sort by name (Z-A), click to sort ascending"
+                    }
                 >
                     {sortOrder === "name-asc" ? "Name (A-Z)" : "Name (Z-A)"}
                 </Button>
@@ -126,6 +143,8 @@ export default function PhonesHeader({
                     color="primary"
                     startIcon={<AddIcon />}
                     onClick={onAddClick}
+                    sx={{ minHeight: 44 }}
+                    aria-label="Add Phone"
                 >
                     Add Phone
                 </Button>

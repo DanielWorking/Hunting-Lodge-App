@@ -206,8 +206,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const activeGroupId = currentGroup?._id;
         if (!user || isRestoringSession || !activeGroupId) return;
 
-        // Skip if this group was already loaded during the initial fetchData
-        if (lastLoadedGroupIdRef.current === activeGroupId && !isAdmin) return;
+        const currentKey = isAdmin ? "admin" : activeGroupId;
+        // Skip if this scope was already loaded during the initial fetchData or previous switch
+        if (lastLoadedGroupIdRef.current === currentKey) return;
 
         const fetchScopedUsers = async () => {
             try {
@@ -218,7 +219,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                     const usersRes = await getUsers(activeGroupId);
                     setUsers(usersRes?.data || []);
                 }
-                lastLoadedGroupIdRef.current = activeGroupId;
+                lastLoadedGroupIdRef.current = currentKey;
             } catch (error: unknown) {
                 console.error("Error fetching scoped users for group:", error);
             }

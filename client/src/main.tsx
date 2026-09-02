@@ -18,6 +18,7 @@ import { BrowserRouter } from "react-router-dom";
 import { CssBaseline } from "@mui/material";
 import { ColorModeProvider } from "./context/ThemeContext.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
+import "./fonts.css";
 
 /**
  * Initializes and renders the React application root.

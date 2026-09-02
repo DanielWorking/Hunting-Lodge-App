@@ -34,6 +34,7 @@ exports.getGroups = async (req, res) => {
             try {
                 const groupIds = groups.map((g) => g._id);
                 const userCounts = await User.aggregate([
+                    { $match: { "groups.groupId": { $in: groupIds } } },
                     { $unwind: "$groups" },
                     { $match: { "groups.groupId": { $in: groupIds } } },
                     { $group: { _id: "$groups.groupId", count: { $sum: 1 } } },

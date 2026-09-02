@@ -12,6 +12,7 @@ const Site = require("../models/Site");
 const config = require("../config");
 const { generateToken } = require("../utils/jwt");
 const { isAdmin, isSuperAdminUser, resolveGroup, isGroupMember, isShiftManager, isShiftManagerForTargetUser } = require("../utils/authHelpers");
+const { invalidateUserCache } = require("../middleware/authMiddleware");
 
 exports.login = async (req, res) => {
     try {
@@ -223,6 +224,7 @@ exports.updateUser = async (req, res) => {
             }
         }
 
+        invalidateUserCache(targetUserId);
         res.json(updatedUser);
     } catch (err) {
         console.error("Update user error:", err);
@@ -250,6 +252,7 @@ exports.deleteUser = async (req, res) => {
         }
 
         await User.findByIdAndDelete(req.params.id);
+        invalidateUserCache(req.params.id);
 
         // Clean up group memberships and site favorites concurrently
         await Promise.all([
@@ -340,6 +343,7 @@ exports.managerUpdate = async (req, res) => {
         }
 
         const updatedUser = await targetUser.save();
+        invalidateUserCache(req.params.id);
         res.json(updatedUser);
     } catch (err) {
         console.error("Manager Update Error:", err);

@@ -16,8 +16,10 @@
     "migrate:up": "npm run migrate:up --workspace=server",
     "migrate:down": "npm run migrate:down --workspace=server",
     "migrate:status": "npm run migrate:status --workspace=server",
-    "migrate:create": "npm run migrate:create --workspace=server",
     "build": "npm run build --workspace=client",
+    "test:client": "npm run test --workspace=client",
+    "test:server": "npm run test --workspace=server",
+    "test": "npm run test:client && npm run test:server",
     "start": "npm run start --workspace=server"
   },
   "repository": {

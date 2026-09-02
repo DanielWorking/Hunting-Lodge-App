@@ -33,14 +33,26 @@ export default defineConfig({
             ) {
               return 'vendor-tiptap';
             }
-            // Material UI & Emotion CSS-in-JS Engine
+            // Material UI Icons suite (isolated so icon usage does not block UI core)
+            if (normalizedId.includes('@mui/icons-material')) {
+              return 'vendor-mui-icons';
+            }
+            // Material UI Core component primitives & styling system
             if (
-              normalizedId.includes('@mui') ||
+              normalizedId.includes('@mui/material') ||
+              normalizedId.includes('@mui/system') ||
+              normalizedId.includes('@mui/base') ||
+              normalizedId.includes('@mui/utils') ||
+              normalizedId.includes('@popperjs')
+            ) {
+              return 'vendor-mui-core';
+            }
+            // Emotion CSS-in-JS styling engine & class utilities
+            if (
               normalizedId.includes('@emotion') ||
-              normalizedId.includes('@popperjs') ||
               normalizedId.includes('clsx')
             ) {
-              return 'vendor-mui';
+              return 'vendor-emotion';
             }
             // HTTP Networking Client
             if (normalizedId.includes('axios')) {

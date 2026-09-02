@@ -11,11 +11,27 @@ const User = require("../models/User");
 const { verifyToken } = require("../utils/jwt");
 const { isAdmin, isGroupMember, isShiftManager } = require("../utils/authHelpers");
 
+// In-memory session cache to avoid per-request database lookups
+const userCache = new Map();
+const USER_CACHE_TTL_MS = 30 * 1000; // 30-second TTL
+
+/**
+ * Invalidates the cached user session when profile, roles, or status change.
+ * @param {string|mongoose.Types.ObjectId} [userId] - Optional user ID; clears all if omitted.
+ */
+const invalidateUserCache = (userId) => {
+    if (userId) {
+        userCache.delete(userId.toString());
+    } else {
+        userCache.clear();
+    }
+};
+
 /**
  * Protects routes by requiring a valid JSON Web Token in the Authorization header.
  * 
  * Verifies the token signature and expiration, retrieves the active user from
- * the database, and attaches the user document to `req.user`.
+ * the cache or database, and attaches the user document to `req.user`.
  *
  * @async
  * @function protect
@@ -60,13 +76,31 @@ const protect = async (req, res, next) => {
             });
         }
 
-        // Verify the user exists and is active in the database
-        const user = await User.findById(decoded.userId).populate("groups.groupId");
-        if (!user || user.isActive === false) {
-            return res.status(401).json({
-                message: "Unauthorized: User not found or inactive",
-                code: "USER_INACTIVE",
-            });
+        const userIdStr = decoded.userId ? decoded.userId.toString() : null;
+        let user;
+
+        if (userIdStr && userCache.has(userIdStr)) {
+            const cached = userCache.get(userIdStr);
+            if (Date.now() - cached.timestamp < USER_CACHE_TTL_MS) {
+                user = cached.user;
+            } else {
+                userCache.delete(userIdStr);
+            }
+        }
+
+        if (!user) {
+            // Verify the user exists and is active in the database
+            user = await User.findById(decoded.userId).populate("groups.groupId");
+            if (!user || user.isActive === false) {
+                if (userIdStr) userCache.delete(userIdStr);
+                return res.status(401).json({
+                    message: "Unauthorized: User not found or inactive",
+                    code: "USER_INACTIVE",
+                });
+            }
+            if (userIdStr) {
+                userCache.set(userIdStr, { user, timestamp: Date.now() });
+            }
         }
 
         // Attach user and token claims to request
@@ -178,6 +212,7 @@ const requireShiftManager = (getGroupId) => {
 
 module.exports = {
     protect,
+    invalidateUserCache,
     requireAdmin,
     requireSuperAdmin,
     requireGroupMember,

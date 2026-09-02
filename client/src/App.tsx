@@ -42,16 +42,12 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
     const { user, isAdmin, isRestoringSession } = useUser();
     const { loading } = useData();
 
-    if (isRestoringSession) {
+    if (isRestoringSession || (user && loading)) {
         return <ThinkingLoader />;
     }
 
     if (!user) {
         return <Navigate to="/login" replace />;
-    }
-
-    if (loading) {
-        return <ThinkingLoader />;
     }
 
     if (!isAdmin) {
@@ -77,16 +73,12 @@ const ShiftManagerRoute = ({ children }: { children: React.ReactNode }) => {
     const { user, currentGroup, isShiftManager, isRestoringSession } = useUser();
     const { loading } = useData();
 
-    if (isRestoringSession) {
+    if (isRestoringSession || (user && loading)) {
         return <ThinkingLoader />;
     }
 
     if (!user) {
         return <Navigate to="/login" replace />;
-    }
-
-    if (loading) {
-        return <ThinkingLoader />;
     }
 
     if (!currentGroup || !isShiftManager) {
@@ -112,16 +104,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const { user, isRestoringSession } = useUser();
     const { loading } = useData();
 
-    if (isRestoringSession) {
+    if (isRestoringSession || (user && loading)) {
         return <ThinkingLoader />;
     }
 
     if (!user) {
         return <Navigate to="/login" replace />;
-    }
-
-    if (loading) {
-        return <ThinkingLoader />;
     }
 
     if (user.groups.length === 0) {

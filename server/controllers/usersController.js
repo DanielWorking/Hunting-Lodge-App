@@ -183,7 +183,7 @@ exports.updateUser = async (req, res) => {
         const updatedUser = await User.findByIdAndUpdate(
             targetUserId,
             { $set: updateFields },
-            { new: true, runValidators: true },
+            { returnDocument: 'after', runValidators: true },
         );
 
         // 6. Group membership synchronization logic

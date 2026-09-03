@@ -121,7 +121,7 @@ exports.updatePhone = async (req, res) => {
         const updatedPhone = await Phone.findByIdAndUpdate(
             req.params.id,
             { $set: updateData },
-            { new: true, runValidators: true },
+            { returnDocument: 'after', runValidators: true },
         );
         if (!updatedPhone) return res.status(404).json({ message: "Phone contact not found" });
         res.json(updatedPhone);

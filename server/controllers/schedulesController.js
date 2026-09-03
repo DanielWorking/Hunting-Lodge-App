@@ -121,7 +121,7 @@ exports.saveSchedule = async (req, res) => {
         const schedule = await ShiftSchedule.findOneAndUpdate(
             { groupId: group._id, startDate },
             { groupId: group._id, startDate, endDate, shifts },
-            { new: true, upsert: true },
+            { returnDocument: 'after', upsert: true },
         );
 
         res.json(schedule);
@@ -177,7 +177,7 @@ exports.publishSchedule = async (req, res) => {
                     const updatedUser = await User.findOneAndUpdate(
                         { _id: shift.userId, vacationBalance: { $gt: 0 } },
                         { $inc: { vacationBalance: -1 } },
-                        { new: true },
+                        { returnDocument: 'after' },
                     );
 
                     if (updatedUser) {

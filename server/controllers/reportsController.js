@@ -182,7 +182,7 @@ exports.updateReport = async (req, res) => {
         const updatedReport = await ShiftReport.findByIdAndUpdate(
             req.params.id,
             { $set: updateData },
-            { new: true, runValidators: true },
+            { returnDocument: 'after', runValidators: true },
         );
 
         res.json(updatedReport);

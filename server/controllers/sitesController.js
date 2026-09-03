@@ -146,7 +146,7 @@ exports.updateSite = async (req, res) => {
         const updatedSite = await Site.findByIdAndUpdate(
             req.params.id,
             { $set: updateData },
-            { new: true, runValidators: true },
+            { returnDocument: 'after', runValidators: true },
         );
         res.json(updatedSite);
     } catch (err) {

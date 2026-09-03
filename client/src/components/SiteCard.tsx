@@ -74,7 +74,7 @@ export default function SiteCard({
 
     const imageSrc = isValidImage(imageUrl)
         ? imageUrl
-        : "/hunting-lodge-image.jpg";
+        : "/images/hunting-lodge-image.png";
 
     /**
      * Toggles the card's flip state.

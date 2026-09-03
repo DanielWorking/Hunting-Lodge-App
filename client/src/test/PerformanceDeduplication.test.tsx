@@ -87,10 +87,10 @@ describe("Performance Optimization & Deduplication Suite", () => {
 
             const logo = screen.getByRole("img", { name: /Logo/i });
             expect(logo).toBeInTheDocument();
-            expect(logo).toHaveAttribute("src", "/hunting-lodge-image-50.jpg");
+            expect(logo).toHaveAttribute("src", "/images/hunting-lodge-image-50.png");
             expect(logo).toHaveAttribute("srcset");
-            expect(logo.getAttribute("srcset")).toContain("/hunting-lodge-image-50.jpg 1x");
-            expect(logo.getAttribute("srcset")).toContain("/hunting-lodge-image-100.jpg 2x");
+            expect(logo.getAttribute("srcset")).toContain("/images/hunting-lodge-image-50.png 1x");
+            expect(logo.getAttribute("srcset")).toContain("/images/hunting-lodge-image-100.png 2x");
             expect(logo).toHaveAttribute("sizes", "50px");
         });
     });

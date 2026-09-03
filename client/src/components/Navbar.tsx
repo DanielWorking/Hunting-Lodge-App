@@ -141,8 +141,8 @@ export default function Navbar() {
                     >
                         <Box
                             component="img"
-                            src="/hunting-lodge-image-50.jpg"
-                            srcSet="/hunting-lodge-image-50.jpg 1x, /hunting-lodge-image-100.jpg 2x, /hunting-lodge-image.jpg 225w"
+                            src="/images/hunting-lodge-image-50.png"
+                            srcSet="/images/hunting-lodge-image-50.png 1x, /images/hunting-lodge-image-100.png 2x, /images/hunting-lodge-image.png 225w"
                             sizes="50px"
                             alt="Logo"
                             width={50}

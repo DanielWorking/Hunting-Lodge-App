@@ -58,8 +58,13 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+interface RawGroupObject {
+    _id?: string;
+    name?: string;
+}
+
 interface RawUserGroup {
-    groupId: string | { _id?: string; name?: string };
+    groupId: string | RawGroupObject;
     role: GroupRole;
     name?: string;
     groupName?: string;
@@ -86,14 +91,18 @@ const normalizeUser = (foundUser: RawUserData): User => {
         ...foundUser,
         groups: (foundUser.groups || []).map((g) => {
             const rawGid = g.groupId;
-            const gidString =
-                typeof rawGid === "object" && rawGid !== null
-                    ? rawGid._id || rawGid.name || String(rawGid)
-                    : String(rawGid);
-            const groupName =
-                typeof rawGid === "object" && rawGid !== null
-                    ? rawGid.name
-                    : g.name || g.groupName;
+            let gidString: string;
+            let groupName: string | undefined = g.name || g.groupName;
+
+            if (typeof rawGid === "object" && rawGid !== null) {
+                gidString = rawGid._id || rawGid.name || "";
+                if (rawGid.name) {
+                    groupName = rawGid.name;
+                }
+            } else {
+                gidString = String(rawGid);
+            }
+
             return {
                 ...g,
                 groupId: gidString,
@@ -128,19 +137,20 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         (currentGroup &&
             currentGroup.name === envConfig.superAdmin.groupName &&
             user?.groups?.some((g) => {
-                const gid = typeof g.groupId === "object" && g.groupId !== null
-                    ? (g.groupId as { _id?: string; name?: string })._id || (g.groupId as { _id?: string; name?: string }).name
-                    : String(g.groupId);
-                return gid === currentGroup._id || gid === currentGroup.name || gid === envConfig.superAdmin.groupName;
+                return (
+                    g.groupId === currentGroup._id ||
+                    g.groupId === currentGroup.name ||
+                    g.groupId === envConfig.superAdmin.groupName ||
+                    g.groupName === currentGroup.name ||
+                    g.name === currentGroup.name
+                );
             })) ||
         user?.groups?.some((g) => {
-            const gid = typeof g.groupId === "object" && g.groupId !== null
-                ? (g.groupId as { _id?: string; name?: string })._id || (g.groupId as { _id?: string; name?: string }).name
-                : String(g.groupId);
-            const gName = typeof g.groupId === "object" && g.groupId !== null
-                ? (g.groupId as { _id?: string; name?: string }).name
-                : (g as { name?: string; groupName?: string })?.name || (g as { name?: string; groupName?: string })?.groupName;
-            return gid === envConfig.superAdmin.groupName || gName === envConfig.superAdmin.groupName;
+            const gName = g.name || g.groupName;
+            return (
+                g.groupId === envConfig.superAdmin.groupName ||
+                gName === envConfig.superAdmin.groupName
+            );
         }),
     );
 
@@ -166,10 +176,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const activeGroupId = currentGroup?._id || localStorage.getItem("hunting_groupId");
     const isShiftManagerBool = Boolean(
         user?.groups?.some((g) => {
-            const gid = typeof g.groupId === "object" && g.groupId !== null
-                ? (g.groupId as { _id?: string; name?: string })._id || (g.groupId as { _id?: string; name?: string }).name
-                : String(g.groupId);
-            return (gid === activeGroupId || (g as { name?: string; groupName?: string }).groupName === activeGroupId) && g.role === "shift_manager";
+            const gName = g.name || g.groupName;
+            return (
+                (g.groupId === activeGroupId || gName === activeGroupId) &&
+                g.role === "shift_manager"
+            );
         }),
     );
 
@@ -257,11 +268,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 localStorage.setItem("hunting_userId", safeUser._id);
 
                 if (safeUser.groups.length > 0) {
-                    const rawFirstGid = safeUser.groups[0].groupId;
-                    const firstGroupId = typeof rawFirstGid === "object" && rawFirstGid !== null
-                        ? (rawFirstGid as { _id?: string; name?: string })._id || String(rawFirstGid)
-                        : String(rawFirstGid);
-                    localStorage.setItem("hunting_groupId", firstGroupId);
+                    localStorage.setItem("hunting_groupId", safeUser.groups[0].groupId);
                 }
                 return true;
             }
@@ -280,10 +287,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      */
     const switchGroup = (groupId: string, targetGroup?: Group) => {
         const membership = user?.groups?.find((g) => {
-            const gid = typeof g.groupId === "object" && g.groupId !== null
-                ? (g.groupId as { _id?: string; name?: string })._id || (g.groupId as { _id?: string; name?: string }).name
-                : String(g.groupId);
-            return gid === groupId || (g as { name?: string; groupName?: string }).groupName === groupId;
+            return (
+                g.groupId === groupId ||
+                g.groupName === groupId ||
+                g.name === groupId
+            );
         });
         if (membership || isUserAdminEligible) {
             localStorage.setItem("hunting_groupId", groupId);

@@ -26,23 +26,7 @@ import PersonIcon from "@mui/icons-material/Person";
 
 import type { User, Group } from "../../types";
 import envConfig from "../../config/env";
-
-/**
- * Extension of the User type to include administrative metadata
- * and creation timestamps for UI display.
- */
-type ExtendedUser = User & {
-    isAdmin?: boolean;
-    isShiftManager?: boolean;
-    createdAt?: string | Date;
-};
-
-/**
- * Extension of the Group type to include creation timestamps for UI display.
- */
-type ExtendedGroup = Group & {
-    createdAt?: string | Date;
-};
+import { useUser } from "../../context/UserContext";
 
 /**
  * Configuration properties for the {@link AdminTable} component.
@@ -83,6 +67,7 @@ export default function AdminTable({
     onDelete,
 }: AdminTableProps) {
     const theme = useTheme();
+    const { user: currentUser } = useUser();
 
     /** The background color for the sticky table header, adapted for light/dark modes. */
     const headerBgColor =
@@ -158,13 +143,17 @@ export default function AdminTable({
     /**
      * Renders a single row for the User management view.
      * 
-     * @param {User} rawUser  The user data to render.
+     * @param {User} user      The user data to render.
      * @returns {JSX.Element}  The rendered table row.
      */
-    const renderUserRow = (rawUser: User) => {
-        const user = rawUser as unknown as ExtendedUser;
+    const renderUserRow = (user: User) => {
         const superAdminId = envConfig.superAdmin.id;
         const isSuperAdmin = user.username === superAdminId;
+        const isCurrentUser = Boolean(
+            currentUser &&
+                ((currentUser._id && user._id === currentUser._id) ||
+                    (currentUser.username && user.username === currentUser.username)),
+        );
 
         /**
          * Filter out memberships to groups that no longer exist (ghost groups).
@@ -201,7 +190,7 @@ export default function AdminTable({
                         alignItems="center"
                     >
                         {visibleGroups.length > 0 ? (
-                            visibleGroups.map((g, idx) => {
+                            visibleGroups.map((g) => {
                                 const groupName =
                                     allGroups.find(
                                         (grp) =>
@@ -209,7 +198,7 @@ export default function AdminTable({
                                     )?.name || "Unknown";
                                 return (
                                     <Chip
-                                        key={idx}
+                                        key={String(g.groupId)}
                                         label={groupName}
                                         size="small"
                                         variant="outlined"
@@ -257,19 +246,19 @@ export default function AdminTable({
                     <Tooltip title="Edit">
                         <IconButton
                             size="small"
-                            onClick={() => onEdit(rawUser)}
+                            onClick={() => onEdit(user)}
                             aria-label={`Edit user ${user.displayName || user.username}`}
                         >
                             <EditIcon fontSize="small" />
                         </IconButton>
                     </Tooltip>
 
-                    {!isSuperAdmin && (
+                    {!isSuperAdmin && !isCurrentUser && (
                         <Tooltip title="Delete">
                             <IconButton
                                 size="small"
                                 color="error"
-                                onClick={() => onDelete(rawUser)}
+                                onClick={() => onDelete(user)}
                                 aria-label={`Delete user ${user.displayName || user.username}`}
                             >
                                 <DeleteIcon fontSize="small" />
@@ -284,11 +273,10 @@ export default function AdminTable({
     /**
      * Renders a single row for the Group management view.
      * 
-     * @param {Group} rawGroup  The group data to render.
+     * @param {Group} group     The group data to render.
      * @returns {JSX.Element}   The rendered table row.
      */
-    const renderGroupRow = (rawGroup: Group) => {
-        const group = rawGroup as unknown as ExtendedGroup;
+    const renderGroupRow = (group: Group) => {
         const isSystemGroup =
             group.name === envConfig.superAdmin.groupName;
         const groupId = group._id;
@@ -325,7 +313,7 @@ export default function AdminTable({
                     <Tooltip title="Edit">
                         <IconButton
                             size="small"
-                            onClick={() => onEdit(rawGroup)}
+                            onClick={() => onEdit(group)}
                             aria-label={`Edit group ${group.name}`}
                         >
                             <EditIcon fontSize="small" />
@@ -345,7 +333,7 @@ export default function AdminTable({
                                 <IconButton
                                     size="small"
                                     color="error"
-                                    onClick={() => onDelete(rawGroup)}
+                                    onClick={() => onDelete(group)}
                                     disabled={!canDelete}
                                     aria-label={`Delete group ${group.name}`}
                                 >

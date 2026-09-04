@@ -26,6 +26,10 @@ export interface GroupMembership {
     role: GroupRole;
     /** Optional sorting order for the group in the user's view. */
     order?: number;
+    /** Optional group display name when populated or aliased. */
+    name?: string;
+    /** Optional group name alias. */
+    groupName?: string;
 }
 
 /**

@@ -241,6 +241,15 @@ exports.deleteUser = async (req, res) => {
             });
         }
 
+        // Prevent self-deletion by administrators
+        const requestingUserId = (req.user?._id || req.user?.id || req.auth?.userId || req.auth?.sub)?.toString();
+        if (requestingUserId && req.params.id && requestingUserId === req.params.id.toString()) {
+            return res.status(403).json({
+                message: "Forbidden: Administrators cannot delete their own accounts.",
+                code: "FORBIDDEN_SELF_DELETION",
+            });
+        }
+
         const userToDelete = await User.findById(req.params.id);
         if (!userToDelete) return res.status(404).json({ message: "User not found" });
 

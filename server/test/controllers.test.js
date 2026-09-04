@@ -100,6 +100,34 @@ describe("Controller Cascading & Validation Rules", () => {
             assert.equal(responseStatus, 403);
             assert.equal(responseJson?.code, "FORBIDDEN_ADMIN_REQUIRED");
         });
+
+        it("should reject self-deletion by an administrator", async () => {
+            const adminUserId = new mongoose.Types.ObjectId();
+            const req = {
+                user: {
+                    _id: adminUserId,
+                    username: "regular_admin",
+                    groups: [{ groupId: config.superAdmin.groupName, role: "member" }],
+                },
+                params: { id: adminUserId.toString() },
+            };
+            let responseStatus = 200;
+            let responseJson = null;
+            const res = {
+                status: (code) => {
+                    responseStatus = code;
+                    return res;
+                },
+                json: (data) => {
+                    responseJson = data;
+                },
+            };
+
+            await usersController.deleteUser(req, res);
+            assert.equal(responseStatus, 403);
+            assert.equal(responseJson?.code, "FORBIDDEN_SELF_DELETION");
+            assert.match(responseJson?.message, /cannot delete their own accounts/i);
+        });
     });
 
     describe("phonesController.deletePhone", () => {

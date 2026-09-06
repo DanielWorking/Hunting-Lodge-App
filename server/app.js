@@ -139,7 +139,7 @@ app.use(
  * @param {import("express").NextFunction} next - Express next middleware function.
  * @returns {void}
  */
-app.get("{*path}", (req, res, next) => {
+app.get("{*path}", async (req, res, next) => {
     // Pass through any unmatched API requests to the 404 handler
     if (req.path.startsWith("/api")) {
         return next();
@@ -147,23 +147,23 @@ app.get("{*path}", (req, res, next) => {
 
     const indexPath = path.join(staticPath, "index.html");
 
-    if (fs.existsSync(indexPath)) {
+    try {
+        await fs.promises.access(indexPath, fs.constants.F_OK);
         res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         res.setHeader("Pragma", "no-cache");
         res.setHeader("Expires", "0");
         return res.sendFile(indexPath);
+    } catch {
+        // Informational fallback when client has not been compiled (e.g., API-only dev mode)
+        if (req.path === "/") {
+            return res.json({
+                message: "Hunting Lodge API is running. Build the frontend client bundle to serve the React SPA.",
+                environment: config.env,
+                health: "/api/health",
+            });
+        }
+        return next();
     }
-
-    // Informational fallback when client has not been compiled (e.g., API-only dev mode)
-    if (req.path === "/") {
-        return res.json({
-            message: "Hunting Lodge API is running. Build the frontend client bundle to serve the React SPA.",
-            environment: config.env,
-            health: "/api/health",
-        });
-    }
-
-    return next();
 });
 
 // === Centralized Error Handling & Fallback 404 Middleware ===

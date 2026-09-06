@@ -198,7 +198,9 @@ exports.publishSchedule = async (req, res) => {
         } catch (saveErr) {
             // Rollback any deducted balances if schedule save fails
             for (const userId of deductedUserIds) {
-                await User.findByIdAndUpdate(userId, { $inc: { vacationBalance: 1 } }).catch(() => {});
+                await User.findByIdAndUpdate(userId, { $inc: { vacationBalance: 1 } }).catch((rollbackErr) => {
+                    console.error(`[Schedules] Failed to rollback vacation balance for user ${userId}:`, rollbackErr);
+                });
             }
             throw saveErr;
         }

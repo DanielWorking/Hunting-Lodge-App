@@ -61,16 +61,19 @@ const connectDB = async () => {
 connectDB().catch(console.error);
 
 // Initialize background tasks (Cron Jobs)
-require("./services/cronJobs");
+const { stopCronJobs } = require("./services/cronJobs");
 
 // Start listening for incoming requests
 const server = app.listen(config.port, () => {
     console.log(`🚀 Server is running on port ${config.port} [Environment: ${config.env}]`);
-    if (fs.existsSync(path.join(config.staticFilesPath, "index.html"))) {
-        console.log(`📦 Serving React SPA static assets from: ${config.staticFilesPath}`);
-    } else {
-        console.log(`ℹ️  Static assets directory not found at: ${config.staticFilesPath} (Client UI will not be served)`);
-    }
+    fs.promises
+        .access(path.join(config.staticFilesPath, "index.html"), fs.constants.F_OK)
+        .then(() => {
+            console.log(`📦 Serving React SPA static assets from: ${config.staticFilesPath}`);
+        })
+        .catch(() => {
+            console.log(`ℹ️  Static assets directory not found at: ${config.staticFilesPath} (Client UI will not be served)`);
+        });
 });
 
 /**
@@ -81,6 +84,9 @@ const server = app.listen(config.port, () => {
  */
 const gracefulShutdown = async (signal) => {
     console.log(`\n🛑 ${signal} received. Initiating graceful shutdown...`);
+    if (typeof stopCronJobs === "function") {
+        stopCronJobs();
+    }
     server.close(async () => {
         console.log("🔒 HTTP server closed.");
         try {

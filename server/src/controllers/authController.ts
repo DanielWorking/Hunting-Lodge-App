@@ -34,16 +34,31 @@ async function getClient(): Promise<BaseClient> {
         return client;
     }
 
-    const issuer = await Issuer.discover(ssoConfig.issuerUrl);
+    if (!ssoConfig.issuerUrl || !ssoConfig.clientId) {
+        const missing = [
+            !ssoConfig.issuerUrl ? "SSO_ISSUER_URL" : null,
+            !ssoConfig.clientId ? "SSO_CLIENT_ID" : null,
+        ].filter(Boolean).join(", ");
+        const errorMsg = `SSO Configuration incomplete: Missing required SSO configuration [${missing}]. Failed to connect to SSO server.`;
+        console.error(`❌ [SSO Error] ${errorMsg}`);
+        throw new Error(errorMsg);
+    }
 
-    client = new issuer.Client({
-        client_id: ssoConfig.clientId,
-        client_secret: ssoConfig.clientSecret,
-        redirect_uris: [ssoConfig.redirectUri],
-        response_types: ["code"],
-    });
+    try {
+        const issuer = await Issuer.discover(ssoConfig.issuerUrl);
 
-    return client;
+        client = new issuer.Client({
+            client_id: ssoConfig.clientId,
+            client_secret: ssoConfig.clientSecret,
+            redirect_uris: [ssoConfig.redirectUri],
+            response_types: ["code"],
+        });
+
+        return client;
+    } catch (discoveryError: unknown) {
+        console.error(`❌ [SSO Error] Failed to connect to SSO server at ${ssoConfig.issuerUrl}:`, discoveryError);
+        throw discoveryError;
+    }
 }
 
 /**
@@ -234,10 +249,11 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
         res.json({ user, token });
     } catch (error: unknown) {
         console.error("SSO Login Error:", error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
         res.status(401).json({
             message: "SSO Authentication failed",
-            error: errorMessage,
+            error: config.isProd
+                ? "Invalid authorization code or provider error"
+                : (error instanceof Error ? error.message : String(error)),
         });
     }
 }

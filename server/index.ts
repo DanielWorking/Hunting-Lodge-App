@@ -10,9 +10,9 @@ import path from "path";
 import fs from "fs";
 import http from "http";
 import mongoose from "mongoose";
-import config from "./config";
+import config from "./src/config";
 import app from "./app";
-import { stopCronJobs } from "./services/cronJobs";
+import { stopCronJobs } from "./src/services/cronJobs";
 
 // === Mongoose Connection Lifecycle Event Listeners ===
 mongoose.connection.on("connected", (): void => {

@@ -16,8 +16,8 @@ export const isProd: boolean = nodeEnv === "production";
 export const isDev: boolean = nodeEnv === "development";
 export const isTest: boolean = nodeEnv === "test";
 
-// Base server root directory (one level up from config)
-export const rootServerDir: string = path.resolve(__dirname, "..");
+// Base server root directory (two levels up from src/config)
+export const rootServerDir: string = path.resolve(__dirname, "../..");
 
 // Environment file resolution paths
 const customEnvPath: string | null = process.env.ENV_FILE ? path.resolve(process.env.ENV_FILE) : null;

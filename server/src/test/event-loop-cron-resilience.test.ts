@@ -7,7 +7,7 @@ import path from "node:path";
 import mongoose from "mongoose";
 
 import config from "../config";
-import app from "../app";
+import app from "../../app";
 import * as cronJobs from "../services/cronJobs";
 import Group from "../models/Group";
 import ShiftReport, { type ShiftReportDocument } from "../models/ShiftReport";
@@ -26,9 +26,9 @@ describe("Defect Regression: Event Loop Non-Blocking & Cron/Mongoose Resilience"
 
     describe("1. Static Analysis & Event Loop Blocker Prevention", () => {
         it("should not use synchronous fs methods (e.g. existsSync) in app.ts request paths", () => {
-            const appPath = fs.existsSync(path.join(__dirname, "../app.ts"))
-                ? path.join(__dirname, "../app.ts")
-                : path.join(__dirname, "../app.js");
+            const appPath = fs.existsSync(path.join(__dirname, "../../app.ts"))
+                ? path.join(__dirname, "../../app.ts")
+                : path.join(__dirname, "../../app.js");
             const appCode = fs.readFileSync(appPath, "utf8");
             assert.ok(
                 !appCode.includes("fs.existsSync("),

@@ -33,17 +33,17 @@
   },
   "include": [
     "*.ts",
-    "config/**/*.ts",
-    "controllers/**/*.ts",
-    "middleware/**/*.ts",
-    "models/**/*.ts",
-    "routes/**/*.ts",
-    "services/**/*.ts",
-    "types/**/*.ts",
-    "types/**/*.d.ts",
-    "utils/**/*.ts",
-    "migrations/**/*.ts",
-    "test/**/*.ts"
+    "src/config/**/*.ts",
+    "src/controllers/**/*.ts",
+    "src/middleware/**/*.ts",
+    "src/models/**/*.ts",
+    "src/routes/**/*.ts",
+    "src/services/**/*.ts",
+    "src/types/**/*.ts",
+    "src/types/**/*.d.ts",
+    "src/utils/**/*.ts",
+    "src/migrations/**/*.ts",
+    "src/test/**/*.ts"
   ],
   "exclude": [
     "node_modules"

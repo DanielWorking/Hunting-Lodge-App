@@ -83,7 +83,7 @@ const rawConfig: ServerConfig = {
     },
     staticFilesPath: process.env.STATIC_FILES_PATH
         ? path.resolve(process.env.STATIC_FILES_PATH)
-        : path.resolve(__dirname, "../../client/dist"),
+        : path.resolve(__dirname, "../../../client/dist"),
 };
 
 type ExportedServerConfig = ServerConfig & {

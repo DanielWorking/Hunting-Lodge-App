@@ -82,6 +82,7 @@ export const protect: RequestHandler = async (
                 });
                 return;
             }
+            console.error("JWT Verification Error:", jwtError);
             res.status(401).json({
                 message: "Unauthorized: Invalid token signature",
                 code: "INVALID_TOKEN",

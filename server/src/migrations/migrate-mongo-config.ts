@@ -15,17 +15,20 @@ const nodeEnv: string = process.env.NODE_ENV || "development";
 const isDev: boolean = nodeEnv === "development";
 const isProd: boolean = nodeEnv === "production";
 
+// Base server root directory (two levels up from src/migrations)
+const serverRootDir: string = path.resolve(__dirname, "../..");
+
 // Load environment variables matching server configuration hierarchy
 const customEnvPath: string | null = process.env.ENV_FILE ? path.resolve(process.env.ENV_FILE) : null;
-const devEnvPath: string = path.join(__dirname, ".env.development");
-const prodEnvPath: string = path.join(__dirname, ".env.production");
-const standardEnvPath: string = path.join(__dirname, ".env");
+const devEnvPath: string = path.join(serverRootDir, ".env.development");
+const prodEnvPath: string = path.join(serverRootDir, ".env.production");
+const standardEnvPath: string = path.join(serverRootDir, ".env");
 
 if (customEnvPath && fs.existsSync(customEnvPath)) {
     dotenv.config({ path: customEnvPath });
 } else if (isDev && fs.existsSync(devEnvPath)) {
     dotenv.config({ path: devEnvPath });
-    const localDevEnvPath: string = path.join(__dirname, ".env.development.local");
+    const localDevEnvPath: string = path.join(serverRootDir, ".env.development.local");
     if (fs.existsSync(localDevEnvPath)) {
         dotenv.config({ path: localDevEnvPath, override: true });
     }
@@ -49,6 +52,8 @@ interface MigrateMongoConfiguration {
     migrationFileExtension: string;
     useFileHash: boolean;
     moduleSystem: "commonjs" | "esm";
+    up?: () => Promise<void>;
+    down?: () => Promise<void>;
 }
 
 const config: MigrateMongoConfiguration = {
@@ -58,7 +63,7 @@ const config: MigrateMongoConfiguration = {
     },
 
     // The migrations dir, can be a relative or absolute path.
-    migrationsDir: path.join(__dirname, "migrations"),
+    migrationsDir: __dirname,
 
     // The MongoDB collection where the applied migrations are stored.
     changelogCollectionName: "changelog",
@@ -72,6 +77,13 @@ const config: MigrateMongoConfiguration = {
 
     // CommonJS module system
     moduleSystem: "commonjs",
+
+    // No-op migration hooks in case runner treats config as migration file within migrationsDir
+    up: async (): Promise<void> => {},
+    down: async (): Promise<void> => {},
 };
+
+export const up = async (): Promise<void> => {};
+export const down = async (): Promise<void> => {};
 
 export default config;

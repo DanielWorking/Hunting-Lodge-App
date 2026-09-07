@@ -14,16 +14,16 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import morgan from "morgan";
 import mongoose from "mongoose";
-import config from "./config";
-import authRoutes from "./routes/auth";
-import sitesRoutes from "./routes/sites";
-import phonesRoutes from "./routes/phones";
-import groupsRoutes from "./routes/groups";
-import usersRoutes from "./routes/users";
-import schedulesRoutes from "./routes/schedules";
-import reportsRoutes from "./routes/reports";
-import { notFoundHandler, errorHandler } from "./middleware/errorMiddleware";
-import { stripImmutableFields } from "./middleware/sanitizationMiddleware";
+import config from "./src/config";
+import authRoutes from "./src/routes/auth";
+import sitesRoutes from "./src/routes/sites";
+import phonesRoutes from "./src/routes/phones";
+import groupsRoutes from "./src/routes/groups";
+import usersRoutes from "./src/routes/users";
+import schedulesRoutes from "./src/routes/schedules";
+import reportsRoutes from "./src/routes/reports";
+import { notFoundHandler, errorHandler } from "./src/middleware/errorMiddleware";
+import { stripImmutableFields } from "./src/middleware/sanitizationMiddleware";
 
 const app: Express = express();
 

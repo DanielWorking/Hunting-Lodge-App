@@ -2,7 +2,7 @@ import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import app from "../app";
+import app from "../../app";
 
 describe("SEO & Static Routing Verification", () => {
     let server: http.Server;

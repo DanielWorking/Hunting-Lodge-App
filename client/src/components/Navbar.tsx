@@ -101,25 +101,31 @@ export default function Navbar() {
         navigate("/");
     };
 
-    /**
-     * Resolves a group name from a given ID using the cached groups list.
-     * @param {string} groupId The ID to resolve.
-     * @returns {string} The group name or a placeholder status.
-     */
-    const getGroupName = (groupId: string) => {
-        if (!groups || groups.length === 0) return "Loading...";
-        const group = groups.find((g) => g._id === groupId);
-        return group ? group.name : "Unknown Group";
+    const getGroupName = (groupId: string, fallbackName?: string) => {
+        if (!groups || groups.length === 0) return fallbackName || "Loading...";
+        const group = groups.find((g) => g._id === groupId || g.name === groupId);
+        return group ? group.name : fallbackName || "Unknown Group";
     };
 
     /**
      * Synchronizes user group memberships with existing application groups.
      * Prevents UI errors or "ghost" entries when a group assigned to a user 
-     * no longer exists in the system.
+     * no longer exists in the system. Preserves user memberships during partial/loading states.
      */
-    const validUserGroups = (user?.groups || []).filter((userGroup) =>
-        groups.some((g) => g._id === userGroup.groupId),
-    );
+    const validUserGroups = (user?.groups || []).filter((userGroup) => {
+        if (!groups || groups.length === 0) {
+            return Boolean(userGroup.groupId || userGroup.groupName || userGroup.name);
+        }
+        return (
+            groups.some(
+                (g) =>
+                    g._id === userGroup.groupId ||
+                    g.name === userGroup.groupId ||
+                    g.name === userGroup.groupName ||
+                    g.name === userGroup.name,
+            ) || Boolean(userGroup.groupName || userGroup.name)
+        );
+    });
 
     if (!user) return null;
 
@@ -390,7 +396,7 @@ export default function Navbar() {
                                             <GroupsIcon fontSize="small" />
                                         )}
                                     </ListItemIcon>
-                                    {getGroupName(groupId)}
+                                    {getGroupName(groupId, membership.groupName || membership.name)}
 
                                     {membership.role === "shift_manager" && (
                                         <Typography

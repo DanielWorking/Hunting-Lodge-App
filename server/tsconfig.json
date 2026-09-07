@@ -1,0 +1,51 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": [
+      "ES2022"
+    ],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": [
+      "node",
+      "express",
+      "cors",
+      "morgan"
+    ]
+  },
+  "include": [
+    "*.ts",
+    "config/**/*.ts",
+    "controllers/**/*.ts",
+    "middleware/**/*.ts",
+    "models/**/*.ts",
+    "routes/**/*.ts",
+    "services/**/*.ts",
+    "types/**/*.ts",
+    "types/**/*.d.ts",
+    "utils/**/*.ts",
+    "migrations/**/*.ts",
+    "test/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

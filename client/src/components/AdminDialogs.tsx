@@ -111,10 +111,14 @@ export function UserDialog({
      * Administrative roles have additional protection against being downgraded to standard members.
      */
     const isTargetUserAdmin = formData.groups?.some((membership) => {
-        const groupObj = groups.find(
+        const groupObj = (groups || []).find(
             (g) => g._id === membership.groupId,
         );
-        return groupObj?.name === envConfig.superAdmin.groupName;
+        const resolvedName = groupObj?.name || membership.groupName || (membership as { name?: string }).name;
+        return (
+            resolvedName === envConfig.superAdmin.groupName ||
+            membership.groupId === envConfig.superAdmin.groupName
+        );
     });
 
     /**

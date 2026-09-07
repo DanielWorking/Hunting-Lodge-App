@@ -298,11 +298,17 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             if (targetGroup) {
                 setCurrentGroup(targetGroup);
             } else {
+                const resolvedName =
+                    membership?.groupName ||
+                    membership?.name ||
+                    (groupId === envConfig.superAdmin.groupName
+                        ? envConfig.superAdmin.groupName
+                        : groupId);
                 setCurrentGroup((prev) => {
-                    if (prev && prev._id === groupId) return prev;
+                    if (prev && prev._id === groupId && prev.name === resolvedName) return prev;
                     return {
                         _id: groupId,
-                        name: groupId,
+                        name: resolvedName,
                         members: [],
                         createdAt: new Date().toISOString(),
                     } as Group;

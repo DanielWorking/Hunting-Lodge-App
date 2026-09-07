@@ -1,11 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter, useLocation } from "react-router-dom";
-import App from "./App";
-import * as UserContextModule from "./context/UserContext";
-import * as DataContextModule from "./context/DataContext";
-import * as NotificationContextModule from "./context/NotificationContext";
-import type { Group } from "./types";
+import App from "../App";
+import * as UserContextModule from "../context/UserContext";
+import * as DataContextModule from "../context/DataContext";
+import * as NotificationContextModule from "../context/NotificationContext";
+import type { Group } from "../types";
 
 const LocationDisplay = () => {
     const location = useLocation();
@@ -13,32 +13,32 @@ const LocationDisplay = () => {
 };
 
 // Mock API and dialog components to keep route rendering isolated and lightweight
-vi.mock("./api/usersApi", () => ({
+vi.mock("../api/usersApi", () => ({
     getUsers: vi.fn().mockResolvedValue({ data: [] }),
     updateUser: vi.fn(),
     deleteUser: vi.fn(),
 }));
 
-vi.mock("./api/groupsApi", () => ({
+vi.mock("../api/groupsApi", () => ({
     getGroups: vi.fn().mockResolvedValue({ data: [] }),
     createGroup: vi.fn(),
     updateGroup: vi.fn(),
     deleteGroup: vi.fn(),
 }));
 
-vi.mock("./api/sitesApi", () => ({
+vi.mock("../api/sitesApi", () => ({
     getSites: vi.fn().mockResolvedValue({ data: [] }),
 }));
 
-vi.mock("./api/phonesApi", () => ({
+vi.mock("../api/phonesApi", () => ({
     getPhones: vi.fn().mockResolvedValue({ data: [] }),
 }));
 
-vi.mock("./api/schedulesApi", () => ({
+vi.mock("../api/schedulesApi", () => ({
     getSchedules: vi.fn().mockResolvedValue({ data: [] }),
 }));
 
-vi.mock("./api/reportsApi", () => ({
+vi.mock("../api/reportsApi", () => ({
     getReports: vi.fn().mockResolvedValue({ data: [] }),
 }));
 

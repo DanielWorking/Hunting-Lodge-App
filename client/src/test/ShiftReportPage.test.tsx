@@ -1,12 +1,12 @@
 import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import ShiftReportPage from "./pages/ShiftReportPage";
-import * as UserContextModule from "./context/UserContext";
-import * as DataContextModule from "./context/DataContext";
-import * as NotificationContextModule from "./context/NotificationContext";
-import { getReports, updateReport } from "./api/reportsApi";
-import type { User, Group, ShiftReport } from "./types";
+import ShiftReportPage from "../pages/ShiftReportPage";
+import * as UserContextModule from "../context/UserContext";
+import * as DataContextModule from "../context/DataContext";
+import * as NotificationContextModule from "../context/NotificationContext";
+import { getReports, updateReport } from "../api/reportsApi";
+import type { User, Group, ShiftReport } from "../types";
 import { format } from "date-fns";
 import { AxiosHeaders, type AxiosResponse } from "axios";
 
@@ -21,7 +21,7 @@ const createMockAxiosResponse = <T,>(data: T): AxiosResponse<T> => ({
 });
 
 // Mock external dependencies and APIs
-vi.mock("./api/reportsApi", () => ({
+vi.mock("../api/reportsApi", () => ({
     getReports: vi.fn(),
     createReport: vi.fn(),
     updateReport: vi.fn(),

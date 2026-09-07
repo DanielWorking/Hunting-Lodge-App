@@ -2,13 +2,13 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import React from "react";
-import PhonesPage from "./pages/PhonesPage";
-import * as NotificationContextModule from "./context/NotificationContext";
-import * as UserContextModule from "./context/UserContext";
-import * as phonesApi from "./api/phonesApi";
-import type { PhoneRow, Group, User } from "./types";
+import PhonesPage from "../pages/PhonesPage";
+import * as NotificationContextModule from "../context/NotificationContext";
+import * as UserContextModule from "../context/UserContext";
+import * as phonesApi from "../api/phonesApi";
+import type { PhoneRow, Group, User } from "../types";
 
-vi.mock("./api/phonesApi", () => ({
+vi.mock("../api/phonesApi", () => ({
     getPhones: vi.fn().mockResolvedValue({ data: [] }),
     createPhone: vi.fn().mockResolvedValue({ data: {} }),
     updatePhone: vi.fn().mockResolvedValue({ data: {} }),
@@ -26,7 +26,7 @@ const mockSetPhones = vi.fn((updater: React.SetStateAction<PhoneRow[]>) => {
 });
 const mockRefreshData = vi.fn();
 
-vi.mock("./context/DataContext", () => ({
+vi.mock("../context/DataContext", () => ({
     useData: () => ({
         phones: currentPhones,
         setPhones: mockSetPhones,

@@ -1,11 +1,12 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import Login from "./pages/Login";
-import LoginPage from "./pages/LoginPage";
-import * as authApi from "./api/authApi";
+import Login from "../pages/Login";
+import LoginPage from "../pages/LoginPage";
+import * as authApi from "../api/authApi";
+import type { AxiosResponse } from "axios";
 
-vi.mock("./api/authApi", () => ({
+vi.mock("../api/authApi", () => ({
     getSsoUrl: vi.fn(),
     loginWithCode: vi.fn(),
     getMe: vi.fn(),
@@ -58,7 +59,7 @@ describe("Login and LoginPage Component - Performance & Error Handling", () => {
 
         vi.mocked(authApi.getSsoUrl).mockResolvedValue({
             data: { url: "https://auth.example.com/sso" },
-        } as any);
+        } as unknown as AxiosResponse<{ url: string }>);
 
         render(
             <MemoryRouter>

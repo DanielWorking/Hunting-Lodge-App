@@ -1,17 +1,17 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import PhonesPage from "./pages/PhonesPage";
-import PhoneDialog from "./components/PhoneDialog";
-import PhoneDetailsDialog from "./components/PhoneDetailsDialog";
-import { getDesignTokens } from "./theme/theme";
-import * as UserContextModule from "./context/UserContext";
-import * as DataContextModule from "./context/DataContext";
-import * as NotificationContextModule from "./context/NotificationContext";
-import type { Group, PhoneRow } from "./types";
+import PhonesPage from "../pages/PhonesPage";
+import PhoneDialog from "../components/PhoneDialog";
+import PhoneDetailsDialog from "../components/PhoneDetailsDialog";
+import { getDesignTokens } from "../theme/theme";
+import * as UserContextModule from "../context/UserContext";
+import * as DataContextModule from "../context/DataContext";
+import * as NotificationContextModule from "../context/NotificationContext";
+import type { Group, PhoneRow } from "../types";
 
 // Mock API modules
-vi.mock("./api/phonesApi", () => ({
+vi.mock("../api/phonesApi", () => ({
     getPhones: vi.fn().mockResolvedValue({ data: [] }),
     createPhone: vi.fn().mockResolvedValue({ data: {} }),
     updatePhone: vi.fn().mockResolvedValue({ data: {} }),

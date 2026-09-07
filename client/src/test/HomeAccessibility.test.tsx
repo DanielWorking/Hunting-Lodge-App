@@ -1,16 +1,16 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import SitesPage from "./pages/SitesPage";
-import SiteDialog from "./components/SiteDialog";
-import { getDesignTokens } from "./theme/theme";
-import * as UserContextModule from "./context/UserContext";
-import * as DataContextModule from "./context/DataContext";
-import * as NotificationContextModule from "./context/NotificationContext";
-import type { Group, SiteCard } from "./types";
+import SitesPage from "../pages/SitesPage";
+import SiteDialog from "../components/SiteDialog";
+import { getDesignTokens } from "../theme/theme";
+import * as UserContextModule from "../context/UserContext";
+import * as DataContextModule from "../context/DataContext";
+import * as NotificationContextModule from "../context/NotificationContext";
+import type { Group, SiteCard } from "../types";
 
 // Mock API modules
-vi.mock("./api/sitesApi", () => ({
+vi.mock("../api/sitesApi", () => ({
     getSites: vi.fn().mockResolvedValue({ data: [] }),
     createSite: vi.fn().mockResolvedValue({ data: {} }),
     updateSite: vi.fn().mockResolvedValue({ data: {} }),
@@ -18,7 +18,7 @@ vi.mock("./api/sitesApi", () => ({
     toggleFavoriteSite: vi.fn().mockResolvedValue({ data: {} }),
 }));
 
-vi.mock("./api/groupsApi", () => ({
+vi.mock("../api/groupsApi", () => ({
     getGroups: vi.fn().mockResolvedValue({ data: [] }),
     addGroupTag: vi.fn().mockResolvedValue({ data: {} }),
     renameGroupTag: vi.fn().mockResolvedValue({ data: {} }),

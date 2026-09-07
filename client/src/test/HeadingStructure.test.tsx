@@ -1,24 +1,24 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import ThinkingLoader from "./components/ThinkingLoader";
-import AboutDialog from "./components/AboutDialog";
-import ShiftDatesDialog from "./components/ShiftDatesDialog";
-import PhoneDetailsDialog from "./components/PhoneDetailsDialog";
-import ShiftReportPage from "./pages/ShiftReportPage";
-import SitesPage from "./pages/SitesPage";
-import GroupSettingsPage from "./pages/GroupSettingsPage";
-import NotFoundPage from "./pages/NotFoundPage";
-import LoginPage from "./pages/LoginPage";
-import GuestPage from "./pages/GuestPage";
-import AdminPage from "./pages/AdminPage";
-import * as UserContextModule from "./context/UserContext";
-import * as DataContextModule from "./context/DataContext";
-import * as NotificationContextModule from "./context/NotificationContext";
-import type { Group, PhoneRow, ShiftType, TimeSlot, SiteCard } from "./types";
+import ThinkingLoader from "../components/ThinkingLoader";
+import AboutDialog from "../components/AboutDialog";
+import ShiftDatesDialog from "../components/ShiftDatesDialog";
+import PhoneDetailsDialog from "../components/PhoneDetailsDialog";
+import ShiftReportPage from "../pages/ShiftReportPage";
+import SitesPage from "../pages/SitesPage";
+import GroupSettingsPage from "../pages/GroupSettingsPage";
+import NotFoundPage from "../pages/NotFoundPage";
+import LoginPage from "../pages/LoginPage";
+import GuestPage from "../pages/GuestPage";
+import AdminPage from "../pages/AdminPage";
+import * as UserContextModule from "../context/UserContext";
+import * as DataContextModule from "../context/DataContext";
+import * as NotificationContextModule from "../context/NotificationContext";
+import type { Group, PhoneRow, ShiftType, TimeSlot, SiteCard } from "../types";
 
 // Mock external dependencies and APIs
-vi.mock("./api/reportsApi", () => ({
+vi.mock("../api/reportsApi", () => ({
     getReports: vi.fn().mockResolvedValue({
         data: [
             {
@@ -38,31 +38,31 @@ vi.mock("./api/reportsApi", () => ({
     deleteReport: vi.fn(),
 }));
 
-vi.mock("./api/usersApi", () => ({
+vi.mock("../api/usersApi", () => ({
     getUsers: vi.fn().mockResolvedValue({ data: [] }),
     updateUser: vi.fn(),
     deleteUser: vi.fn(),
 }));
 
-vi.mock("./api/groupsApi", () => ({
+vi.mock("../api/groupsApi", () => ({
     getGroups: vi.fn().mockResolvedValue({ data: [] }),
     createGroup: vi.fn(),
     updateGroup: vi.fn(),
     deleteGroup: vi.fn(),
 }));
 
-vi.mock("./api/sitesApi", () => ({
+vi.mock("../api/sitesApi", () => ({
     getSites: vi.fn().mockResolvedValue({ data: [] }),
     createSite: vi.fn(),
     updateSite: vi.fn(),
     deleteSite: vi.fn(),
 }));
 
-vi.mock("./api/phonesApi", () => ({
+vi.mock("../api/phonesApi", () => ({
     getPhones: vi.fn().mockResolvedValue({ data: [] }),
 }));
 
-vi.mock("./api/schedulesApi", () => ({
+vi.mock("../api/schedulesApi", () => ({
     getSchedules: vi.fn().mockResolvedValue({ data: [] }),
 }));
 

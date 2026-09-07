@@ -31,6 +31,7 @@ export interface CreateReportRequestBody {
     title?: string;
     startTime?: string;
     endTime?: string;
+    currentTasks?: string;
     [key: string]: unknown;
 }
 
@@ -132,14 +133,15 @@ export async function createReport(req: Request, res: Response, next?: NextFunct
             return;
         }
 
-        // Inherit tasks from the most recent report of the same group
-        const lastReport = await ShiftReport.findOne({
-            groupId: group._id,
-        }).sort({ startTime: -1 });
-        const previousTasks = lastReport ? lastReport.currentTasks || "" : "";
-
         let attendees: IShiftReportAttendee[] = [];
         const reportStart = new Date(typeof startTime === "string" ? startTime : Date.now());
+
+        // Inherit tasks from the most recent report of the same group prior to this shift
+        const lastReport = await ShiftReport.findOne({
+            groupId: group._id,
+            date: { $lte: reportStart },
+        }).sort({ date: -1, startTime: -1 });
+        const previousTasks = lastReport ? lastReport.currentTasks || "" : "";
 
         // Attempt to pull attendees automatically from the published schedule
         const schedule = await ShiftSchedule.findOne({
@@ -194,7 +196,7 @@ export async function createReport(req: Request, res: Response, next?: NextFunct
             endTime: typeof endTime === "string" ? endTime : "",
             previousTasks,
             attendees,
-            currentTasks: "",
+            currentTasks: typeof body.currentTasks === "string" ? body.currentTasks : "",
         });
 
         const savedReport = await newReport.save();

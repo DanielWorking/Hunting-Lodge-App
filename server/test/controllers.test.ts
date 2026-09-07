@@ -463,6 +463,90 @@ describe("Controller Cascading & Validation Rules", () => {
                 groupHolder.findById = originalGroupFindById;
             }
         });
+
+        it("reportsController.createReport should inherit previousTasks from preceding report using bounded temporal query and { date: -1, startTime: -1 } sort", async () => {
+            const reportHolder = ShiftReport as unknown as Record<string, unknown>;
+            const groupHolder = Group as unknown as Record<string, unknown>;
+            const scheduleHolder = ShiftSchedule as unknown as Record<string, unknown>;
+
+            const originalFindOne = reportHolder.findOne;
+            const originalGroupFindById = groupHolder.findById;
+            const originalScheduleFindOne = scheduleHolder.findOne;
+            const originalReportSave = ShiftReport.prototype.save;
+
+            const groupId = new mongoose.Types.ObjectId();
+            const shiftStartTime = "2026-09-08T08:00:00.000Z";
+            groupHolder.findById = async () => ({
+                _id: groupId,
+                settings: {},
+            });
+            scheduleHolder.findOne = async () => null;
+
+            let capturedQuery: { groupId?: unknown; date?: { $lte?: unknown } } | null = null;
+            let capturedSort: Record<string, number> | null = null;
+
+            reportHolder.findOne = (query: { groupId?: unknown; date?: { $lte?: unknown } }) => {
+                capturedQuery = query;
+                return {
+                    sort: (sortObj: Record<string, number>) => {
+                        capturedSort = sortObj;
+                        return Promise.resolve({
+                            _id: new mongoose.Types.ObjectId(),
+                            currentTasks: "Report A ongoing tasks",
+                        });
+                    },
+                };
+            };
+
+            let savedInstance: Record<string, unknown> | null = null;
+            ShiftReport.prototype.save = async function (this: unknown) {
+                savedInstance = this as Record<string, unknown>;
+                return this;
+            };
+
+            const req = {
+                user: { groups: [{ groupId: groupId.toString() }] },
+                body: {
+                    groupId: groupId.toString(),
+                    title: "Morning Shift",
+                    startTime: shiftStartTime,
+                    endTime: "2026-09-08T16:00:00.000Z",
+                },
+            } as unknown as Request;
+
+            const res = createMockRes();
+
+            try {
+                await reportsController.createReport(req, res as unknown as Response);
+                assert.equal(res.statusCode, 201);
+                assert.ok(capturedQuery, "Preceding report query must be executed");
+                const nonNullQuery = capturedQuery as { groupId?: unknown; date?: { $lte?: unknown } };
+                assert.deepEqual(nonNullQuery.groupId, groupId);
+                assert.ok(nonNullQuery.date?.$lte instanceof Date, "$lte must be a Date");
+                assert.equal(
+                    (nonNullQuery.date.$lte as Date).toISOString(),
+                    shiftStartTime,
+                );
+                assert.deepEqual(capturedSort, { date: -1, startTime: -1 });
+                assert.ok(savedInstance, "New report must be saved");
+                const nonNullSaved = savedInstance as Record<string, unknown>;
+                assert.equal(
+                    nonNullSaved.previousTasks,
+                    "Report A ongoing tasks",
+                    "New report previousTasks must inherit previous currentTasks",
+                );
+                assert.equal(
+                    nonNullSaved.currentTasks,
+                    "",
+                    "New report currentTasks must be initialized empty",
+                );
+            } finally {
+                reportHolder.findOne = originalFindOne;
+                groupHolder.findById = originalGroupFindById;
+                scheduleHolder.findOne = originalScheduleFindOne;
+                ShiftReport.prototype.save = originalReportSave;
+            }
+        });
     });
 
     describe("Concurrency & Vacation Deduction Invariants", () => {

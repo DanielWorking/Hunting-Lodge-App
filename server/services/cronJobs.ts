@@ -338,8 +338,11 @@ export async function processGroupSlot(
 
     // Parallelize previous report and published schedule lookups with lean()
     const [lastReport, schedule] = await Promise.all([
-        ShiftReport.findOne({ groupId: group._id })
-            .sort({ startTime: -1 })
+        ShiftReport.findOne({
+            groupId: group._id,
+            date: { $lte: now },
+        })
+            .sort({ date: -1, startTime: -1 })
             .lean() as Promise<IShiftReport | null>,
         ShiftSchedule.findOne({
             groupId: group._id,

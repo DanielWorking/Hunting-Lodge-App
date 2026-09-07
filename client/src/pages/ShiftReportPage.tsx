@@ -78,7 +78,7 @@ import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
  * @param {boolean}  props.readOnly     If true, the editor is in read-only mode.
  * @returns {JSX.Element | null} The rendered editor or null if not initialized.
  */
-const TiptapEditor = ({
+export const TiptapEditor = ({
     value,
     onChange,
     placeholder,
@@ -117,6 +117,24 @@ const TiptapEditor = ({
             onChange(editor.getHTML());
         },
     });
+
+    useEffect(() => {
+        if (!editor) return;
+        const currentHTML = editor.getHTML();
+        const isSame =
+            (value || "") === currentHTML ||
+            (!value && (editor.isEmpty || currentHTML === "<p></p>"));
+        if (!isSame && !editor.isFocused) {
+            editor.commands.setContent(value || "", { emitUpdate: false });
+        }
+    }, [value, editor]);
+
+    useEffect(() => {
+        if (!editor) return;
+        if (editor.isEditable === readOnly) {
+            editor.setEditable(!readOnly, false);
+        }
+    }, [readOnly, editor]);
 
     if (!editor) {
         return null;
@@ -682,6 +700,7 @@ export default function ShiftReportPage() {
      */
     const handleDiscardChanges = () => {
         if (!selectedReport) return;
+        (document.activeElement as HTMLElement)?.blur?.();
         const original = reports.find((r) => r._id === selectedReport._id);
         if (original) {
             setSelectedReport({ ...original });
@@ -1177,6 +1196,7 @@ export default function ShiftReportPage() {
                                 </Typography>
 
                                 <TiptapEditor
+                                    key={`${selectedReport._id}-previousTasks`}
                                     value={selectedReport.previousTasks || ""}
                                     onChange={(value) => {
                                         setSelectedReport((prev) => {
@@ -1281,6 +1301,7 @@ export default function ShiftReportPage() {
                                     }}
                                 >
                                     <TiptapEditor
+                                        key={`${selectedReport._id}-currentTasks`}
                                         value={
                                             selectedReport.currentTasks || ""
                                         }

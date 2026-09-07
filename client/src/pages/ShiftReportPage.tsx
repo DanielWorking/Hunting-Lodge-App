@@ -7,7 +7,7 @@
  * archive sidebar organized by date.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, type SyntheticEvent } from "react";
 import {
     Container,
     Paper,
@@ -40,6 +40,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import { getReports, createReport, updateReport, deleteReport } from "../api/reportsApi";
 import { format } from "date-fns";
 import ThinkingLoader from "../components/ThinkingLoader";
+import type { ShiftReport, ShiftReportAttendee, User } from "../types";
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -441,9 +442,23 @@ export default function ShiftReportPage() {
     const { showNotification } = useNotification();
     const { users, groups } = useData();
 
-    const [reports, setReports] = useState<any[]>([]);
-    const [selectedReport, setSelectedReport] = useState<any>(null);
+    const [reports, setReports] = useState<ShiftReport[]>([]);
+    const [selectedReport, setSelectedReport] = useState<ShiftReport | null>(null);
+    const [isDirty, setIsDirty] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [pendingSwitchReport, setPendingSwitchReport] = useState<ShiftReport | null>(null);
+
+    const isDirtyRef = useRef(false);
+    const selectedReportRef = useRef<ShiftReport | null>(null);
+
+    // Keep synchronization refs up-to-date with current state
+    useEffect(() => {
+        isDirtyRef.current = isDirty;
+    }, [isDirty]);
+
+    useEffect(() => {
+        selectedReportRef.current = selectedReport;
+    }, [selectedReport]);
 
     // Tree navigation state for the archive sidebar
     const [openYears, setOpenYears] = useState<{ [key: string]: boolean }>({});
@@ -461,53 +476,87 @@ export default function ShiftReportPage() {
         ),
     );
 
-    useEffect(() => {
-        if (currentGroup) {
-            // 1. Initial foreground fetch (with loader)
-            fetchReports(false);
-
-            // 2. Set up background polling every 30 seconds
-            const intervalId = setInterval(() => {
-                fetchReports(true); // true = silent background load
-            }, 30000);
-
-            // 3. Cleanup timer on unmount or group change
-            return () => clearInterval(intervalId);
-        }
-    }, [currentGroup]);
+    const groupId = currentGroup?._id;
 
     /**
      * Fetches reports from the server.
      *
+     * Shields active edits: if the user has unsaved modifications (isDirty),
+     * background polling updates the archive list without overwriting the active report draft.
+     *
      * @param {boolean} [isBackground=false] If true, suppresses the UI loading indicator.
      */
-    const fetchReports = async (isBackground = false) => {
-        try {
-            if (!isBackground) setLoading(true);
+    const fetchReports = useCallback(
+        async (isBackground = false) => {
+            if (!groupId) return;
+            try {
+                if (!isBackground) setLoading(true);
 
-            const res = await getReports({ groupId: currentGroup?._id });
+                const res = await getReports({ groupId });
+                const incomingReports: ShiftReport[] = Array.isArray(res.data)
+                    ? res.data
+                    : [];
 
-            // Check if a new report was added (for notification purposes)
-            setReports((prevReports) => {
-                if (
-                    res.data.length > prevReports.length &&
-                    prevReports.length > 0
-                ) {
-                    showNotification("New shift report received", "info");
+                // Check if a new report was added (for notification purposes)
+                setReports((prevReports) => {
+                    if (
+                        incomingReports.length > prevReports.length &&
+                        prevReports.length > 0
+                    ) {
+                        showNotification("New shift report received", "info");
+                    }
+                    return incomingReports;
+                });
+
+                // Auto-select the most recent report ONLY if none is currently active
+                if (!selectedReportRef.current && incomingReports.length > 0) {
+                    setSelectedReport(incomingReports[0]);
+                    selectedReportRef.current = incomingReports[0];
+                    setIsDirty(false);
+                    isDirtyRef.current = false;
+                } else if (selectedReportRef.current && !isDirtyRef.current) {
+                    // If a report is selected and NOT dirty, synchronize with latest server data
+                    const updated = incomingReports.find(
+                        (r) => r._id === selectedReportRef.current?._id,
+                    );
+                    if (updated) {
+                        setSelectedReport(updated);
+                        selectedReportRef.current = updated;
+                    }
                 }
-                return res.data;
-            });
-
-            // Auto-select the most recent report if none is currently active
-            if (res.data.length > 0 && !selectedReport) {
-                setSelectedReport(res.data[0]);
+                // When isDirtyRef.current is true, incoming polling results are shielded:
+                // selectedReport remains untouched so user edits are not reverted.
+            } catch (error) {
+                console.error(error);
+            } finally {
+                if (!isBackground) setLoading(false);
             }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            if (!isBackground) setLoading(false);
-        }
-    };
+        },
+        [groupId, showNotification],
+    );
+
+    useEffect(() => {
+        if (!groupId) return;
+        let isMounted = true;
+
+        const loadReports = async () => {
+            await fetchReports(false);
+        };
+        void loadReports();
+
+        // Set up background polling every 30 seconds
+        const intervalId = setInterval(() => {
+            if (isMounted) {
+                void fetchReports(true); // true = silent background load
+            }
+        }, 30000);
+
+        // Cleanup timer on unmount or group change
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
+    }, [groupId, fetchReports]);
 
     /**
      * Identifies the current shift slot based on the system time.
@@ -590,13 +639,16 @@ export default function ShiftReportPage() {
             const newReport = res.data;
             setReports([newReport, ...reports]);
             setSelectedReport(newReport);
+            selectedReportRef.current = newReport;
+            setIsDirty(false);
+            isDirtyRef.current = false;
 
             const workersCount = newReport.attendees?.length || 0;
             showNotification(
                 `New Report Created! (${workersCount} workers added)`,
                 "success",
             );
-        } catch (error) {
+        } catch {
             showNotification("Error creating report", "error");
         }
     };
@@ -613,12 +665,14 @@ export default function ShiftReportPage() {
                 attendees: selectedReport.attendees,
             });
             showNotification("Report saved successfully", "success");
+            setIsDirty(false);
+            isDirtyRef.current = false;
             setReports((prev) =>
                 prev.map((r) =>
                     r._id === selectedReport._id ? selectedReport : r,
                 ),
             );
-        } catch (error) {
+        } catch {
             showNotification("Error saving report", "error");
         }
     };
@@ -627,9 +681,13 @@ export default function ShiftReportPage() {
      * Reverts unsaved modifications to the currently selected report.
      */
     const handleDiscardChanges = () => {
+        if (!selectedReport) return;
         const original = reports.find((r) => r._id === selectedReport._id);
         if (original) {
             setSelectedReport({ ...original });
+            selectedReportRef.current = original;
+            setIsDirty(false);
+            isDirtyRef.current = false;
             showNotification("Changes discarded", "info");
         }
     };
@@ -642,9 +700,14 @@ export default function ShiftReportPage() {
         try {
             await deleteReport(deleteReportId);
             setReports((prev) => prev.filter((r) => r._id !== deleteReportId));
-            if (selectedReport?._id === deleteReportId) setSelectedReport(null);
+            if (selectedReport?._id === deleteReportId) {
+                setSelectedReport(null);
+                selectedReportRef.current = null;
+                setIsDirty(false);
+                isDirtyRef.current = false;
+            }
             showNotification("Report deleted", "success");
-        } catch (error) {
+        } catch {
             showNotification("Error deleting", "error");
         } finally {
             setDeleteReportId(null);
@@ -652,25 +715,69 @@ export default function ShiftReportPage() {
     };
 
     /**
-     * Updates the attendance list for the active report.
+     * Handles selecting a report from the archive sidebar, shielding unsaved changes.
      *
-     * @param {any}   _event   The event source.
-     * @param {any[]} newValue The selected users from Autocomplete.
+     * @param {ShiftReport} rep The report to select.
      */
-    const handleAttendanceChange = (_event: any, newValue: any[]) => {
+    const handleSelectReport = (rep: ShiftReport) => {
+        if (selectedReport?._id === rep._id) {
+            setMobileSidebarOpen(false);
+            return;
+        }
+
+        if (isDirty) {
+            setPendingSwitchReport(rep);
+        } else {
+            setSelectedReport(rep);
+            selectedReportRef.current = rep;
+            setMobileSidebarOpen(false);
+        }
+    };
+
+    const confirmSwitchReport = () => {
+        if (pendingSwitchReport) {
+            setSelectedReport(pendingSwitchReport);
+            selectedReportRef.current = pendingSwitchReport;
+            setIsDirty(false);
+            isDirtyRef.current = false;
+            setPendingSwitchReport(null);
+            setMobileSidebarOpen(false);
+        }
+    };
+
+    const cancelSwitchReport = () => {
+        setPendingSwitchReport(null);
+    };
+
+    /**
+     * Updates the attendance list for the active report and marks draft state dirty.
+     *
+     * @param {SyntheticEvent} _event   The event source.
+     * @param {User[]}         newValue The selected users from Autocomplete.
+     */
+    const handleAttendanceChange = (
+        _event: SyntheticEvent,
+        newValue: User[],
+    ) => {
         if (!selectedReport) return;
-        const newAttendees = newValue.map((u) => ({
+        const newAttendees: ShiftReportAttendee[] = newValue.map((u) => ({
             userId: u._id,
-            name: u.username,
+            name: u.displayName || u.username,
             isManual: true,
         }));
-        setSelectedReport({ ...selectedReport, attendees: newAttendees });
+        const updated = { ...selectedReport, attendees: newAttendees };
+        setSelectedReport(updated);
+        selectedReportRef.current = updated;
+        setIsDirty(true);
+        isDirtyRef.current = true;
     };
 
     // Organize reports into a hierarchical structure for the archive tree
-    const organizedReports = reports.reduce((acc: any, report) => {
+    const organizedReports = reports.reduce<
+        Record<string, Record<string, Record<string, ShiftReport[]>>>
+    >((acc, report) => {
         const date = new Date(report.startTime);
-        const year = date.getFullYear();
+        const year = String(date.getFullYear());
         const month = date.toLocaleString("default", { month: "long" });
         const day = format(date, "dd/MM/yyyy");
 
@@ -913,7 +1020,7 @@ export default function ShiftReportPage() {
                                                                                                 day
                                                                                             ].map(
                                                                                                 (
-                                                                                                    rep: any,
+                                                                                                    rep: ShiftReport,
                                                                                                 ) => (
                                                                                                     <ListItemButton
                                                                                                         key={
@@ -927,10 +1034,7 @@ export default function ShiftReportPage() {
                                                                                                                     ? "action.selected"
                                                                                                                     : "inherit",
                                                                                                         }}
-                                                                                                        onClick={() => {
-                                                                                                            setSelectedReport(rep);
-                                                                                                            setMobileSidebarOpen(false);
-                                                                                                        }}
+                                                                                                        onClick={() => handleSelectReport(rep)}
                                                                                                     >
                                                                                                         <ListItemText
                                                                                                             primary={
@@ -1016,13 +1120,22 @@ export default function ShiftReportPage() {
                                     >
                                         {selectedReport.title}
                                     </Typography>
+                                    {isDirty && (
+                                        <Chip
+                                            label="Unsaved Changes"
+                                            size="small"
+                                            color="warning"
+                                            variant="outlined"
+                                            sx={{ ml: 2 }}
+                                        />
+                                    )}
                                 </Box>
                                 <Box>
                                     <Button
                                         variant="outlined"
                                         startIcon={<UndoIcon />}
                                         onClick={handleDiscardChanges}
-                                        disabled={selectedReport.isLocked}
+                                        disabled={selectedReport.isLocked || !isDirty}
                                         sx={{ mr: 2 }}
                                     >
                                         Discard
@@ -1065,12 +1178,20 @@ export default function ShiftReportPage() {
 
                                 <TiptapEditor
                                     value={selectedReport.previousTasks || ""}
-                                    onChange={(value) =>
-                                        setSelectedReport({
-                                            ...selectedReport,
-                                            previousTasks: value,
-                                        })
-                                    }
+                                    onChange={(value) => {
+                                        setSelectedReport((prev) => {
+                                            const next = prev
+                                                ? {
+                                                      ...prev,
+                                                      previousTasks: value,
+                                                  }
+                                                : null;
+                                            selectedReportRef.current = next;
+                                            return next;
+                                        });
+                                        setIsDirty(true);
+                                        isDirtyRef.current = true;
+                                    }}
                                     readOnly={selectedReport.isLocked}
                                     placeholder="No tasks from previous shift"
                                 />
@@ -1085,32 +1206,34 @@ export default function ShiftReportPage() {
                                 >
                                     Shift Attendance
                                 </Typography>
-                                <Autocomplete
+                                <Autocomplete<User, true, false, false>
                                     multiple
                                     options={groupUsers}
                                     getOptionLabel={(option) =>
-                                        option.displayName
+                                        option.displayName || option.username
                                     }
                                     value={selectedReport.attendees
-                                        .map((a: any) =>
-                                            groupUsers.find(
-                                                (u) =>
-                                                    u._id ===
-                                                    (a.userId?._id || a.userId),
-                                            ),
+                                        .map((a: ShiftReportAttendee) =>
+                                            groupUsers.find((u) => {
+                                                const attendeeId =
+                                                    typeof a.userId === "object" &&
+                                                    a.userId !== null
+                                                        ? (a.userId as { _id?: string })._id
+                                                        : a.userId;
+                                                return u._id === attendeeId;
+                                            }),
                                         )
-                                        .filter(Boolean)}
+                                        .filter((u): u is User => Boolean(u))}
                                     onChange={handleAttendanceChange}
                                     disabled={selectedReport.isLocked}
                                     renderTags={(value, getTagProps) =>
                                         value.map((option, index) => {
-                                            // Extract the key from tagProps to avoid duplicate keys warning
                                             const { key, ...tagProps } =
                                                 getTagProps({ index });
                                             return (
                                                 <Chip
                                                     key={key}
-                                                    label={option?.displayName}
+                                                    label={option?.displayName || option?.username}
                                                     {...tagProps}
                                                 />
                                             );
@@ -1161,12 +1284,20 @@ export default function ShiftReportPage() {
                                         value={
                                             selectedReport.currentTasks || ""
                                         }
-                                        onChange={(value) =>
-                                            setSelectedReport({
-                                                ...selectedReport,
-                                                currentTasks: value,
-                                            })
-                                        }
+                                        onChange={(value) => {
+                                            setSelectedReport((prev) => {
+                                                const next = prev
+                                                    ? {
+                                                          ...prev,
+                                                          currentTasks: value,
+                                                      }
+                                                    : null;
+                                                selectedReportRef.current = next;
+                                                return next;
+                                            });
+                                            setIsDirty(true);
+                                            isDirtyRef.current = true;
+                                        }}
                                         readOnly={selectedReport.isLocked}
                                         placeholder="Enter event details and tasks here..."
                                     />
@@ -1218,6 +1349,14 @@ export default function ShiftReportPage() {
                 content="Are you sure you want to delete this shift report?"
                 onCancel={() => setDeleteReportId(null)}
                 onConfirm={handleDeleteReport}
+            />
+
+            <ConfirmDialog
+                open={!!pendingSwitchReport}
+                title="Unsaved Changes"
+                content="You have unsaved changes in this shift report. Do you want to discard your changes and switch to another report?"
+                onCancel={cancelSwitchReport}
+                onConfirm={confirmSwitchReport}
             />
         </Container>
     );

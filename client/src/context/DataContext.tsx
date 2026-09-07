@@ -74,6 +74,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
 
     const isFetchingRef = useRef(false);
+    const pendingFetchRef = useRef(false);
     const lastLoadedGroupIdRef = useRef<string | null>(null);
     const lastFetchedUserIdRef = useRef<string | null>(null);
 
@@ -103,7 +104,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        if (isFetchingRef.current) return;
+        if (isFetchingRef.current) {
+            pendingFetchRef.current = true;
+            return;
+        }
         isFetchingRef.current = true;
 
         try {
@@ -149,7 +153,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
             if (!targetGroup && storedGroupId) {
                 targetGroup = fetchedGroups.find(
-                    (g) => g._id === storedGroupId,
+                    (g) => g._id === storedGroupId || g.name === storedGroupId,
                 );
             }
 
@@ -166,15 +170,39 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
             if (targetGroup) {
                 setCurrentGroup(targetGroup);
+                if (targetGroup._id) {
+                    localStorage.setItem("hunting_groupId", targetGroup._id);
+                }
+            }
+
+            // If non-admin and initial users were empty, but targetGroup was resolved now, fetch scoped users
+            if (
+                !isAdminRef.current &&
+                (!usersRes?.data || usersRes.data.length === 0) &&
+                targetGroup?._id
+            ) {
+                try {
+                    const scopedRes = await getUsers(targetGroup._id);
+                    if (scopedRes?.data) {
+                        setUsers(scopedRes.data);
+                    }
+                } catch (err) {
+                    console.error("Error fetching users for resolved group:", err);
+                }
             }
 
             const activeGroupId = targetGroup?._id || storedGroupId || activeGroupIdToFetch;
             lastLoadedGroupIdRef.current = isAdminRef.current ? "admin" : (activeGroupId || null);
+            lastFetchedUserIdRef.current = userRef.current?._id || currentUser?._id || null;
         } catch (error: unknown) {
             console.error("Error fetching data:", error);
         } finally {
             setLoading(false);
             isFetchingRef.current = false;
+            if (pendingFetchRef.current) {
+                pendingFetchRef.current = false;
+                fetchData();
+            }
         }
     }, [setCurrentGroup]);
 
@@ -183,14 +211,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const storedToken = localStorage.getItem("hunting_token");
         const storedUserId = localStorage.getItem("hunting_userId");
 
-        if (storedToken && storedUserId) {
-            if (!user || lastFetchedUserIdRef.current !== user._id) {
-                if (user) {
-                    lastFetchedUserIdRef.current = user._id;
-                }
+        // Wait until session restoration finishes so user and groups are properly identified
+        if (isRestoringSession) {
+            return;
+        }
+
+        if (storedToken && storedUserId && user) {
+            if (lastFetchedUserIdRef.current !== user._id) {
                 fetchData();
             }
-        } else if (!isRestoringSession && !user) {
+        } else if (!user) {
             lastFetchedUserIdRef.current = null;
             lastLoadedGroupIdRef.current = null;
             setSites([]);
@@ -203,6 +233,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
     // Dynamically update users when the active group or admin role switches
     useEffect(() => {
+        let isCurrent = true;
         const activeGroupId = currentGroup?._id;
         if (!user || isRestoringSession || !activeGroupId) return;
 
@@ -214,18 +245,27 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             try {
                 if (isAdmin) {
                     const usersRes = await getUsers();
+                    if (!isCurrent) return;
                     setUsers(usersRes?.data || []);
                 } else {
                     const usersRes = await getUsers(activeGroupId);
+                    if (!isCurrent) return;
                     setUsers(usersRes?.data || []);
                 }
-                lastLoadedGroupIdRef.current = currentKey;
+                if (isCurrent) {
+                    lastLoadedGroupIdRef.current = currentKey;
+                }
             } catch (error: unknown) {
-                console.error("Error fetching scoped users for group:", error);
+                if (isCurrent) {
+                    console.error("Error fetching scoped users for group:", error);
+                }
             }
         };
 
         fetchScopedUsers();
+        return () => {
+            isCurrent = false;
+        };
     }, [currentGroup?._id, user, isAdmin, isRestoringSession]);
 
     return (

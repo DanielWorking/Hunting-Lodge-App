@@ -7,6 +7,7 @@
  */
 
 import apiClient from "./apiClient";
+import type { PhoneRow } from "../types";
 
 /**
  * Retrieves all phone directory contacts accessible to the current user.
@@ -16,7 +17,7 @@ import apiClient from "./apiClient";
  *
  * @returns {Promise<import("axios").AxiosResponse<import("../types").PhoneRow[]>>} Axios promise resolving to the list of phone directory entries.
  */
-export const getPhones = () => apiClient.get("/phones");
+export const getPhones = () => apiClient.get<PhoneRow[]>("/phones");
 
 /**
  * Creates a new phone contact entry in the shared directory.
@@ -24,21 +25,21 @@ export const getPhones = () => apiClient.get("/phones");
  * Validates on the backend that the provided phone numbers do not conflict
  * with existing directory entries before saving.
  *
- * @param  {Object|Partial<import("../types").PhoneRow>} phoneData  The contact payload containing name, numbers, type, and description.
- * @returns {Promise<import("axios").AxiosResponse<import("../types").PhoneRow>>} Axios promise resolving to the newly created phone record.
+ * @param  {Partial<PhoneRow>} phoneData  The contact payload containing name, numbers, type, and description.
+ * @returns {Promise<import("axios").AxiosResponse<PhoneRow>>} Axios promise resolving to the newly created phone record.
  */
-export const createPhone = (phoneData: any) => apiClient.post("/phones", phoneData);
+export const createPhone = (phoneData: Partial<PhoneRow>) => apiClient.post<PhoneRow>("/phones", phoneData);
 
 /**
  * Updates an existing phone contact entry by its unique identifier.
  *
  * Checks for phone number uniqueness across all other contacts before applying updates.
  *
- * @param  {string}                                     id         The unique identifier of the phone contact to update.
- * @param  {Object|Partial<import("../types").PhoneRow>} phoneData  The updated phone contact fields (name, numbers, type, description).
- * @returns {Promise<import("axios").AxiosResponse<import("../types").PhoneRow>>} Axios promise resolving to the updated phone record.
+ * @param  {string}            id         The unique identifier of the phone contact to update.
+ * @param  {Partial<PhoneRow>} phoneData  The updated phone contact fields (name, numbers, type, description).
+ * @returns {Promise<import("axios").AxiosResponse<PhoneRow>>} Axios promise resolving to the updated phone record.
  */
-export const updatePhone = (id: string, phoneData: any) => apiClient.put(`/phones/${id}`, phoneData);
+export const updatePhone = (id: string, phoneData: Partial<PhoneRow>) => apiClient.put<PhoneRow>(`/phones/${id}`, phoneData);
 
 /**
  * Deletes a phone contact entry from the directory by its unique identifier.

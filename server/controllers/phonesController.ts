@@ -12,6 +12,7 @@ import { Types } from "mongoose";
 import Phone, { IPhone, PhoneType } from "../models/Phone";
 import User from "../models/User";
 import { AuthUser } from "../utils/authHelpers";
+import { invalidateUserCache } from "../middleware/authMiddleware";
 
 function extractParamId(param: string | string[] | undefined): string {
     if (!param) return "";
@@ -201,10 +202,15 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
         if (index === -1) {
             user.favoritePhones.push(Types.ObjectId.isValid(phoneId) ? new Types.ObjectId(phoneId) : phoneId);
         } else {
-            user.favoritePhones.splice(index, 1);
+            user.favoritePhones = (user.favoritePhones as (Types.ObjectId | string)[]).filter(
+                (id) => (id ? id.toString() : "") !== phoneId,
+            ) as Types.ObjectId[];
         }
 
         await user.save();
+        if (userId) {
+            invalidateUserCache(userId);
+        }
         res.json({ favoritePhones: user.favoritePhones });
     } catch (err: unknown) {
         if (typeof next === "function") {
@@ -229,6 +235,7 @@ export async function deletePhone(req: Request, res: Response, next?: NextFuncti
             { favoritePhones: phoneId },
             { $pull: { favoritePhones: phoneId } },
         );
+        invalidateUserCache();
 
         res.json({ message: "Phone deleted" });
     } catch (err: unknown) {

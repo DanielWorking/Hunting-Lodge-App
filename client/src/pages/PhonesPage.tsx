@@ -31,8 +31,9 @@ import ThinkingLoader from "../components/ThinkingLoader";
  * @returns {JSX.Element} The rendered PhonesPage component.
  */
 export default function PhonesPage() {
-    const { phones, refreshData, loading } = useData();
+    const { phones, setPhones, refreshData, loading } = useData();
     const { showNotification } = useNotification();
+    const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
 
     // === State Management ===
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -137,20 +138,45 @@ export default function PhonesPage() {
      * @param {PhoneRow} phone The phone record to toggle.
      */
     const handleToggleFavorite = async (phone: PhoneRow) => {
+        const targetId = phone._id;
+        if (togglingIds.has(targetId)) return;
+
+        setTogglingIds((prev) => new Set(prev).add(targetId));
+        const previousStatus = phone.isFavorite;
+        const newStatus = !previousStatus;
+
+        // Optimistically update the UI state immediately
+        setPhones((prevPhones) =>
+            prevPhones.map((item) =>
+                item._id === targetId ? { ...item, isFavorite: newStatus } : item,
+            ),
+        );
+
         try {
             // Call the server endpoint to toggle favorite status
-            await toggleFavoritePhone(phone._id);
+            await toggleFavoritePhone(targetId);
 
-            // Trigger data refresh to sync the UI
-            refreshData();
-
-            const newStatus = !phone.isFavorite;
             showNotification(
                 newStatus ? "Added to favorites" : "Removed from favorites",
                 "success",
             );
+
+            // Synchronize server state
+            await refreshData();
         } catch {
+            // Revert optimistic update on failure to previous status
+            setPhones((prevPhones) =>
+                prevPhones.map((item) =>
+                    item._id === targetId ? { ...item, isFavorite: previousStatus } : item,
+                ),
+            );
             showNotification("Failed to update favorite", "error");
+        } finally {
+            setTogglingIds((prev) => {
+                const next = new Set(prev);
+                next.delete(targetId);
+                return next;
+            });
         }
     };
 

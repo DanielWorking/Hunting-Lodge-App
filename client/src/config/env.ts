@@ -13,6 +13,8 @@ export interface ClientConfig {
     isDev: boolean;
     /** The active Vite mode string (e.g. 'development', 'production'). */
     mode: string;
+    /** The client application package version. */
+    appVersion: string;
     /** The base API endpoint URL (defaults to relative '/api'). */
     apiUrl: string;
     /** Super admin configuration. */
@@ -31,6 +33,7 @@ const mode = import.meta.env.MODE;
 const superAdminId = (import.meta.env.VITE_SUPER_ADMIN_ID as string) || "10001";
 const superAdminGroupName = (import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME as string) || "ADMINISTRATORS";
 const apiUrl = (import.meta.env.VITE_API_URL as string) || "/api";
+const appVersion = (import.meta.env.VITE_APP_VERSION as string) || "1.0.0";
 
 if (isDev) {
     if (!import.meta.env.VITE_SUPER_ADMIN_ID) {
@@ -49,6 +52,7 @@ export const envConfig: ClientConfig = Object.freeze({
     isProd,
     isDev,
     mode,
+    appVersion,
     apiUrl,
     superAdmin: {
         id: superAdminId,

@@ -1,8 +1,19 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import fs from 'node:fs'
+
+const packageJson = JSON.parse(
+  fs.readFileSync(new URL('./package.json', import.meta.url), 'utf-8')
+)
+const appVersion = packageJson.version || '1.0.0'
+
+process.env.VITE_APP_VERSION = appVersion
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+  },
   plugins: [react()],
   server: {
     proxy: {

@@ -1,8 +1,8 @@
 /**
  * @module AboutDialog
  *
- * Displays information about the application, including developer attribution
- * and support contact details for the NOC Tacti team.
+ * Displays information about the application, including developer attribution,
+ * support contact details for the NOC Tacti team, and the application version.
  */
 
 import {
@@ -18,6 +18,7 @@ import {
 import InfoIcon from "@mui/icons-material/Info";
 import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import CodeIcon from "@mui/icons-material/Code";
+import { envConfig } from "../config/env";
 
 /**
  * Props for the {@link AboutDialog} component.
@@ -30,17 +31,32 @@ interface AboutDialogProps {
 }
 
 /**
- * Renders a modal dialog with developer credits and support contact information.
+ * Renders a lightweight modal dialog with developer credits, support contact information,
+ * and the build version pin. Utilizes pure backdrop clicks for dismissal without extra action buttons.
  *
- * Provides a central location for users to see who built the system and
- * how to get help or provide feedback.
- *
- * @param {AboutDialogProps} props  The properties for the component.
- * @returns {JSX.Element}           The rendered dialog component.
+ * @param {AboutDialogProps} props The properties for the component.
+ * @returns {JSX.Element} The rendered dialog component.
  */
 export default function AboutDialog({ open, onClose }: AboutDialogProps) {
+    const clientVersion =
+        import.meta.env.VITE_APP_VERSION || envConfig.appVersion || "1.0.0";
+
+    const handleDialogClose = (
+        _event: object,
+        reason?: "backdropClick" | "escapeKeyDown",
+    ) => {
+        if (!reason || reason === "backdropClick" || reason === "escapeKeyDown") {
+            onClose();
+        }
+    };
+
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+        <Dialog
+            open={open}
+            onClose={handleDialogClose}
+            maxWidth="xs"
+            fullWidth
+        >
             <DialogTitle
                 sx={{
                     display: "flex",
@@ -53,7 +69,7 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
                 About & Support
             </DialogTitle>
 
-            <DialogContent sx={{ mt: 2 }}>
+            <DialogContent sx={{ mt: 2, pb: 2.5 }}>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     {/* Credits Section */}
                     <Box>
@@ -130,6 +146,17 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
                             </Typography>
                         </Box>
                     </Box>
+
+                    {/* Dynamic Version Pin */}
+                    <Typography
+                        variant="caption"
+                        component="p"
+                        align="center"
+                        color="text.secondary"
+                        sx={{ mt: 1, fontWeight: 500, letterSpacing: 0.5 }}
+                    >
+                        {`v${clientVersion}`}
+                    </Typography>
                 </Box>
             </DialogContent>
 

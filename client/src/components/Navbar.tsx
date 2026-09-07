@@ -416,6 +416,19 @@ export default function Navbar() {
                         <Divider />
 
                         <MenuItem
+                            onClick={() => {
+                                handleClose();
+                                setAboutOpen(true);
+                            }}
+                            aria-label="About & Support"
+                        >
+                            <ListItemIcon>
+                                <HelpOutlineIcon fontSize="small" />
+                            </ListItemIcon>
+                            About & Support
+                        </MenuItem>
+
+                        <MenuItem
                             onClick={handleLogout}
                             sx={{ color: "error.main" }}
                         >

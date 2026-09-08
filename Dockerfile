@@ -25,7 +25,24 @@ ENV VITE_API_URL=${VITE_API_URL} \
 RUN npm run build
 
 # ==============================================================================
-# Stage 2: Production Runtime (OpenShift / Kubernetes v1.33+ Compliant)
+# Stage 2: Build the Backend TypeScript Application
+# ==============================================================================
+FROM node:22-alpine AS server-builder
+
+WORKDIR /app/server
+
+# Install all backend dependencies (including devDependencies for TypeScript compiler)
+COPY server/package.json server/package-lock.json ./
+RUN npm ci
+
+# Copy server source code and TypeScript build configuration
+COPY server/ ./
+
+# Compile TypeScript into JavaScript in /app/server/dist
+RUN npm run build
+
+# ==============================================================================
+# Stage 3: Production Runtime (OpenShift / Kubernetes v1.33+ Compliant)
 # ==============================================================================
 FROM node:22-alpine
 
@@ -36,14 +53,15 @@ WORKDIR /app
 
 # Set default production environment variables
 ENV NODE_ENV=production \
-    PORT=5000
+    PORT=5000 \
+    STATIC_FILES_PATH=/app/client/dist
 
 # Install backend production dependencies only
 COPY server/package.json server/package-lock.json ./server/
 RUN cd server && npm ci --omit=dev --ignore-scripts
 
-# Copy backend application source code
-COPY server/ ./server/
+# Copy compiled backend JavaScript application from Stage 2 into /app/server
+COPY --from=server-builder /app/server/dist ./server
 
 # Copy compiled frontend SPA bundle from Stage 1 into /app/client/dist
 COPY --from=client-builder /app/client/dist ./client/dist

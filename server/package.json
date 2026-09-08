@@ -5,6 +5,7 @@
     "main": "index.ts",
     "scripts": {
         "dev": "nodemon --exec tsx index.ts",
+        "build": "tsc -p tsconfig.build.json",
         "start": "tsx index.ts",
         "seed": "tsx seed.ts",
         "migrate:up": "tsx ../node_modules/migrate-mongo/bin/migrate-mongo.js up -f src/migrations/migrate-mongo-config.ts",
@@ -38,6 +39,7 @@
         "@types/jsonwebtoken": "^9.0.10",
         "@types/morgan": "^1.9.10",
         "@types/node": "^26.4.1",
-        "nodemon": "^3.1.11"
+        "nodemon": "^3.1.11",
+        "typescript": "^5.9.3"
     }
 }

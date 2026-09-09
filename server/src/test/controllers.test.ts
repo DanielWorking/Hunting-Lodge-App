@@ -585,8 +585,8 @@ describe("Controller Cascading & Validation Rules", () => {
                 save: async () => true,
             });
 
-            let capturedUserFilter: { vacationBalance?: { $gt?: number } } | null = null;
-            userHolder.findOneAndUpdate = async (filter: { vacationBalance?: { $gt?: number } }) => {
+            let capturedUserFilter: { vacationBalance?: { $gte?: number; $gt?: number } } | null = null;
+            userHolder.findOneAndUpdate = async (filter: { vacationBalance?: { $gte?: number; $gt?: number } }) => {
                 capturedUserFilter = filter;
                 return { _id: userId, vacationBalance: 5 };
             };
@@ -601,8 +601,8 @@ describe("Controller Cascading & Validation Rules", () => {
             try {
                 await schedulesController.publishSchedule(req, res as unknown as Response);
                 assert.ok(capturedUserFilter, "User.findOneAndUpdate must be called");
-                const filter = capturedUserFilter as { vacationBalance?: { $gt?: number } };
-                assert.deepEqual(filter.vacationBalance, { $gt: 0 }, "Must enforce vacationBalance > 0 precondition");
+                const filter = capturedUserFilter as { vacationBalance?: { $gte?: number; $gt?: number } };
+                assert.deepEqual(filter.vacationBalance, { $gte: 1 }, "Must enforce vacationBalance >= 1 precondition");
             } finally {
                 scheduleHolder.findById = originalScheduleFindById;
                 userHolder.findOneAndUpdate = originalUserFindOneAndUpdate;

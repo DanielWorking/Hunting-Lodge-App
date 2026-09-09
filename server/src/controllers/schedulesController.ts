@@ -129,21 +129,41 @@ export async function saveSchedule(req: Request, res: Response, next?: NextFunct
                 .map((t) => t._id?.toString() || "");
 
             if (vacationTypeIds.length > 0) {
+                const balanceAdjustments: Promise<unknown>[] = [];
+
                 for (const oldShift of oldSchedule.shifts) {
                     if (oldShift.vacationDeducted) {
-                        const stillExistsAsVacation = (shifts || []).find(
+                        const matchingNewShift = (shifts || []).find(
                             (newShift) =>
                                 String(newShift.userId) === String(oldShift.userId) &&
                                 new Date(newShift.date).toISOString() === new Date(oldShift.date).toISOString() &&
                                 vacationTypeIds.includes(String(newShift.shiftTypeId)),
                         );
 
-                        if (!stillExistsAsVacation) {
-                            await User.findByIdAndUpdate(oldShift.userId, {
-                                $inc: { vacationBalance: 1 },
-                            });
+                        const oldVal = oldShift.vacationValue !== undefined ? oldShift.vacationValue : 1;
+
+                        if (!matchingNewShift) {
+                            balanceAdjustments.push(
+                                User.findByIdAndUpdate(oldShift.userId, {
+                                    $inc: { vacationBalance: oldVal },
+                                }),
+                            );
+                        } else {
+                            const newVal = matchingNewShift.vacationValue !== undefined ? matchingNewShift.vacationValue : 1;
+                            const diff = oldVal - newVal;
+                            if (diff !== 0) {
+                                balanceAdjustments.push(
+                                    User.findByIdAndUpdate(oldShift.userId, {
+                                        $inc: { vacationBalance: diff },
+                                    }),
+                                );
+                            }
                         }
                     }
+                }
+
+                if (balanceAdjustments.length > 0) {
+                    await Promise.all(balanceAdjustments);
                 }
             }
 
@@ -216,7 +236,7 @@ export async function publishSchedule(req: Request, res: Response, next?: NextFu
             .filter((t) => Boolean(t.isVacation))
             .map((t) => t._id?.toString() || "");
 
-        const deductedUserIds: (Types.ObjectId | string)[] = [];
+        const deductedRecords: { userId: Types.ObjectId | string; amount: number }[] = [];
 
         if (vacationTypeIds.length > 0) {
             for (let i = 0; i < schedule.shifts.length; i++) {
@@ -224,10 +244,13 @@ export async function publishSchedule(req: Request, res: Response, next?: NextFu
                 const shiftTypeIdStr = String(shift.shiftTypeId);
 
                 if (vacationTypeIds.includes(shiftTypeIdStr) && !shift.vacationDeducted) {
-                    // Atomically decrement only if user has a positive balance to prevent negative balance underflow
+                    const vacationVal = shift.vacationValue !== undefined ? shift.vacationValue : 1;
+                    const balanceFilter = { $gte: vacationVal };
+
+                    // Atomically decrement only if user has sufficient balance to prevent underflow
                     const updatedUser = await User.findOneAndUpdate(
-                        { _id: shift.userId, vacationBalance: { $gt: 0 } },
-                        { $inc: { vacationBalance: -1 } },
+                        { _id: shift.userId, vacationBalance: balanceFilter },
+                        { $inc: { vacationBalance: -vacationVal } },
                         { returnDocument: "after" },
                     );
 
@@ -243,9 +266,9 @@ export async function publishSchedule(req: Request, res: Response, next?: NextFu
                         } else {
                             userIdVal = String(rawShiftUserId);
                         }
-                        deductedUserIds.push(userIdVal);
+                        deductedRecords.push({ userId: userIdVal, amount: vacationVal });
                     } else {
-                        console.warn(`[PublishSchedule] User ${String(shift.userId)} has 0 vacation balance; balance deduction skipped to prevent underflow.`);
+                        console.warn(`[PublishSchedule] User ${String(shift.userId)} has insufficient vacation balance; balance deduction skipped to prevent underflow.`);
                     }
                 }
             }
@@ -256,12 +279,14 @@ export async function publishSchedule(req: Request, res: Response, next?: NextFu
             schedule.markModified("shifts");
             await schedule.save();
         } catch (saveErr: unknown) {
-            // Rollback any deducted balances if schedule save fails
-            for (const userId of deductedUserIds) {
-                await User.findByIdAndUpdate(userId, { $inc: { vacationBalance: 1 } }).catch((rollbackErr: unknown) => {
-                    console.error(`[Schedules] Failed to rollback vacation balance for user ${String(userId)}:`, rollbackErr);
-                });
-            }
+            // Rollback any deducted balances with exact amounts concurrently if schedule save fails
+            await Promise.all(
+                deductedRecords.map((record) =>
+                    User.findByIdAndUpdate(record.userId, { $inc: { vacationBalance: record.amount } }).catch((rollbackErr: unknown) => {
+                        console.error(`[Schedules] Failed to rollback vacation balance for user ${String(record.userId)}:`, rollbackErr);
+                    }),
+                ),
+            );
             throw saveErr;
         }
 

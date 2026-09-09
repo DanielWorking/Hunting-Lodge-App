@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @module App
  *
  * Express application configuration and middleware pipeline for Hunting Lodge.
@@ -22,6 +22,7 @@ import groupsRoutes from "./src/routes/groups";
 import usersRoutes from "./src/routes/users";
 import schedulesRoutes from "./src/routes/schedules";
 import reportsRoutes from "./src/routes/reports";
+import vacationsRoutes from "./src/routes/vacationRoutes";
 import { notFoundHandler, errorHandler } from "./src/middleware/errorMiddleware";
 import { stripImmutableFields } from "./src/middleware/sanitizationMiddleware";
 
@@ -116,6 +117,7 @@ app.use("/api/groups", groupsRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/schedules", schedulesRoutes);
 app.use("/api/reports", reportsRoutes);
+app.use("/api/vacations", vacationsRoutes);
 
 // SSO Authentication Routes
 app.use("/api/auth", authRoutes);

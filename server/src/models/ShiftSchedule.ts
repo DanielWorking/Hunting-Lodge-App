@@ -18,6 +18,7 @@ export interface IShiftAssignment {
     date: Date;
     shiftTypeId: Types.ObjectId;
     vacationDeducted?: boolean;
+    vacationValue?: 0.5 | 1.0;
 }
 
 /**
@@ -54,6 +55,14 @@ const ShiftAssignmentSchema = new Schema<IShiftAssignment>(
         vacationDeducted: {
             type: Boolean,
             default: false,
+        },
+        vacationValue: {
+            type: Number,
+            enum: {
+                values: [0.5, 1.0],
+                message: "vacationValue must be either 0.5 or 1.0",
+            },
+            default: 1.0,
         },
     },
     { _id: true },

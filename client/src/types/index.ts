@@ -170,6 +170,8 @@ export interface ShiftReport {
     updatedAt?: string;
 }
 
+export type VacationValue = 0.5 | 1.0;
+
 /**
  * Represents an individual shift assignment in a schedule.
  */
@@ -184,6 +186,32 @@ export interface ShiftAssignment {
     shiftTypeId: string;
     /** Tracks if this assignment has already deducted a vacation day. */
     vacationDeducted?: boolean;
+    /** Day consumption value: 0.5 (half day) or 1.0 (full day). */
+    vacationValue?: VacationValue;
+}
+
+/**
+ * Represents a formal vacation request submitted by an employee.
+ */
+export interface VacationRequest {
+    /** Unique identifier for the vacation request. */
+    _id: string;
+    /** Reference to the requesting user. */
+    userId: string;
+    /** Reference to the target group. */
+    groupId: string;
+    /** Date of the requested leave. */
+    date: string | Date;
+    /** Day consumption value: 0.5 (half day) or 1.0 (full day). */
+    vacationValue: VacationValue;
+    /** Approval status. */
+    status: 'pending' | 'approved' | 'rejected';
+    /** Optional notes or justification. */
+    notes?: string;
+    /** ISO timestamp of creation. */
+    createdAt?: string;
+    /** ISO timestamp of last update. */
+    updatedAt?: string;
 }
 
 /**

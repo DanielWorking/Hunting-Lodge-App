@@ -34,6 +34,8 @@ interface LocalShift {
     shiftTypeId: string;
     /** Whether this shift was deducted from the user's vacation balance. */
     vacationDeducted?: boolean;
+    /** Fractional day duration for vacation shifts (0.5 for half day, 1.0 for full day). */
+    vacationValue?: 0.5 | 1.0;
 }
 
 /**
@@ -197,12 +199,33 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
                                         <TableCell
                                             key={day.toISOString()}
                                             align="center"
+                                            role={isShiftManager ? "button" : undefined}
+                                            tabIndex={isShiftManager ? 0 : undefined}
+                                            aria-label={
+                                                isShiftManager
+                                                    ? `${user.name} - ${format(day, "EEEE dd/MM/yyyy")}${shiftType ? `: ${shiftType.name}` : ""}`
+                                                    : undefined
+                                            }
                                             onClick={(e) =>
                                                 onCellClick(
                                                     e,
                                                     user._id,
                                                     day,
                                                 )
+                                            }
+                                            onKeyDown={
+                                                isShiftManager
+                                                    ? (e) => {
+                                                          if (e.key === "Enter" || e.key === " ") {
+                                                              e.preventDefault();
+                                                              onCellClick(
+                                                                  e as unknown as React.MouseEvent<HTMLTableCellElement>,
+                                                                  user._id,
+                                                                  day,
+                                                              );
+                                                          }
+                                                      }
+                                                    : undefined
                                             }
                                             sx={{
                                                 cursor: isShiftManager
@@ -218,7 +241,11 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
                                         >
                                             {shiftType ? (
                                                 <Chip
-                                                    label={shiftType.name}
+                                                    label={
+                                                        shiftType.isVacation && shift?.vacationValue === 0.5
+                                                            ? `${shiftType.name} (0.5)`
+                                                            : shiftType.name
+                                                    }
                                                     size="small"
                                                     sx={{
                                                         bgcolor:

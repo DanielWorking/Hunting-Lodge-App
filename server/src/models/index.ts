@@ -21,3 +21,9 @@ export { default as ShiftReport } from "./ShiftReport";
 
 export * from "./Phone";
 export { default as Phone } from "./Phone";
+
+export * from "./Shift";
+export { default as Shift } from "./Shift";
+
+export * from "./VacationRequest";
+export { default as VacationRequest } from "./VacationRequest";

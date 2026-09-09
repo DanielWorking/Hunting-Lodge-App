@@ -5,7 +5,7 @@
  * Includes features for weekly navigation, draft saving, and full-screen visualization.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
     Container,
     Typography,
@@ -46,7 +46,7 @@ import { useUser } from "../context/UserContext";
 import { useData } from "../context/DataContext";
 import { useNotification } from "../context/NotificationContext";
 import ConfirmDialog from "../components/ConfirmDialog";
-import type { ShiftType } from "../types";
+import type { ShiftType, ShiftAssignment, VacationValue } from "../types";
 import ThinkingLoader from "../components/ThinkingLoader";
 import ScheduleTable from "../components/ScheduleTable";
 
@@ -55,6 +55,7 @@ interface LocalShift {
     date: Date;
     shiftTypeId: string;
     vacationDeducted?: boolean;
+    vacationValue?: VacationValue;
 }
 
 const Transition = React.forwardRef(function Transition(
@@ -85,43 +86,87 @@ export default function ShiftSchedulePage() {
     const tableRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
-    const weekDays = Array.from({ length: 7 }).map((_, i) =>
-        addDays(weekStart, i),
+    const weekStart = useMemo(
+        () => startOfWeek(currentDate, { weekStartsOn: 0 }),
+        [currentDate],
+    );
+    const weekDays = useMemo(
+        () => Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i)),
+        [weekStart],
     );
 
-    const groupSettings = groups.find(
-        (g) => g._id === currentGroup?._id,
-    )?.settings;
-    const shiftTypes = groupSettings?.shiftTypes || [];
+    const shiftTypes = useMemo(() => {
+        const groupSettings = groups.find(
+            (g) => g._id === currentGroup?._id,
+        )?.settings;
+        return groupSettings?.shiftTypes || [];
+    }, [groups, currentGroup?._id]);
 
-    const activeUsers = users
-        .filter((u) => {
-            if (!u.isActive) return false;
-            return u.groups.some(
-                (g) => g.groupId === currentGroup?._id,
-            );
-        })
-        .sort((a, b) => {
-            const orderA =
-                a.groups.find(
-                    (g) =>
-                        g.groupId === currentGroup?._id,
-                )?.order || 0;
-            const orderB =
-                b.groups.find(
-                    (g) =>
-                        g.groupId === currentGroup?._id,
-                )?.order || 0;
-            return orderA - orderB;
-        });
+    const activeUsers = useMemo(() => {
+        return users
+            .filter((u) => {
+                if (!u.isActive) return false;
+                return u.groups.some(
+                    (g) => g.groupId === currentGroup?._id,
+                );
+            })
+            .sort((a, b) => {
+                const orderA =
+                    a.groups.find(
+                        (g) =>
+                            g.groupId === currentGroup?._id,
+                    )?.order || 0;
+                const orderB =
+                    b.groups.find(
+                        (g) =>
+                            g.groupId === currentGroup?._id,
+                    )?.order || 0;
+                return orderA - orderB;
+            });
+    }, [users, currentGroup?._id]);
+
+    /**
+     * Fetches the schedule for the current week and group from the server.
+     * 
+     * Updates the local state with the fetched schedule data and shifts.
+     * 
+     * @returns {Promise<void>}
+     */
+    const fetchSchedule = useCallback(async () => {
+        try {
+            setLoading(true);
+            const groupId = currentGroup?._id;
+
+            const response = await getSchedule({ groupId, date: weekStart.toISOString() });
+
+            const data = response.data;
+            setScheduleData(data);
+
+            if (data && data.shifts) {
+                const parsedShifts: LocalShift[] = data.shifts.map((s: ShiftAssignment) => ({
+                    userId: String(s.userId),
+                    shiftTypeId: String(s.shiftTypeId),
+                    date: parseISO(typeof s.date === "string" ? s.date : (s.date as Date).toISOString()),
+                    vacationDeducted: s.vacationDeducted,
+                    vacationValue: s.vacationValue,
+                }));
+                setShifts(parsedShifts);
+            } else {
+                setShifts([]);
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification("Error loading schedule", "error");
+        } finally {
+            setLoading(false);
+        }
+    }, [currentGroup?._id, weekStart, showNotification]);
 
     useEffect(() => {
         if (currentGroup) {
             fetchSchedule();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentGroup, weekStart.toISOString()]);
+    }, [currentGroup, fetchSchedule]);
 
     useEffect(() => {
         if (isFullScreen && tableRef.current && containerRef.current) {
@@ -139,42 +184,6 @@ export default function ShiftSchedulePage() {
             }
         }
     }, [isFullScreen, activeUsers, shifts]);
-
-    /**
-     * Fetches the schedule for the current week and group from the server.
-     * 
-     * Updates the local state with the fetched schedule data and shifts.
-     * 
-     * @returns {Promise<void>}
-     */
-    const fetchSchedule = async () => {
-        try {
-            setLoading(true);
-            const groupId = currentGroup?._id;
-
-            const response = await getSchedule({ groupId, date: weekStart.toISOString() });
-
-            const data = response.data;
-            setScheduleData(data);
-
-            if (data && data.shifts) {
-                const parsedShifts = data.shifts.map((s: any) => ({
-                    userId: s.userId,
-                    shiftTypeId: s.shiftTypeId,
-                    date: parseISO(s.date),
-                    vacationDeducted: s.vacationDeducted,
-                }));
-                setShifts(parsedShifts);
-            } else {
-                setShifts([]);
-            }
-        } catch (error) {
-            console.error(error);
-            showNotification("Error loading schedule", "error");
-        } finally {
-            setLoading(false);
-        }
-    };
 
     /**
      * Handles clicking on a table cell to select a shift.
@@ -202,8 +211,9 @@ export default function ShiftSchedulePage() {
      * Updates the local shifts state with the selected shift type for a specific cell.
      * 
      * @param {ShiftType | null} type The shift type to assign, or null to clear.
+     * @param {0.5 | 1.0} [vacationValue=1.0] Duration in days for vacation shifts.
      */
-    const handleSelectShift = (type: ShiftType | null) => {
+    const handleSelectShift = (type: ShiftType | null, vacationValue: 0.5 | 1.0 = 1.0) => {
         if (!selectedCell) return;
 
         setShifts((prev) => {
@@ -223,6 +233,7 @@ export default function ShiftSchedulePage() {
                         date: selectedCell.date,
                         shiftTypeId: type._id,
                         vacationDeducted: false,
+                        vacationValue: type.isVacation ? vacationValue : undefined,
                     },
                 ];
             }
@@ -499,17 +510,41 @@ export default function ShiftSchedulePage() {
                 >
                     <em>Clear Shift</em>
                 </MenuItem>
-                {shiftTypes.map((type) => (
-                    <MenuItem
-                        key={type._id}
-                        onClick={() => handleSelectShift(type)}
-                    >
-                        <CircleIcon
-                            sx={{ color: type.color, mr: 1, fontSize: 16 }}
-                        />
-                        {type.name}
-                    </MenuItem>
-                ))}
+                {shiftTypes.map((type) => {
+                    if (type.isVacation) {
+                        return (
+                            <React.Fragment key={type._id}>
+                                <MenuItem
+                                    onClick={() => handleSelectShift(type, 1.0)}
+                                >
+                                    <CircleIcon
+                                        sx={{ color: type.color, mr: 1, fontSize: 16 }}
+                                    />
+                                    {type.name} (1.0)
+                                </MenuItem>
+                                <MenuItem
+                                    onClick={() => handleSelectShift(type, 0.5)}
+                                >
+                                    <CircleIcon
+                                        sx={{ color: type.color, mr: 1, fontSize: 16, opacity: 0.7 }}
+                                    />
+                                    {type.name} (0.5)
+                                </MenuItem>
+                            </React.Fragment>
+                        );
+                    }
+                    return (
+                        <MenuItem
+                            key={type._id}
+                            onClick={() => handleSelectShift(type)}
+                        >
+                            <CircleIcon
+                                sx={{ color: type.color, mr: 1, fontSize: 16 }}
+                            />
+                            {type.name}
+                        </MenuItem>
+                    );
+                })}
             </Menu>
 
             <ConfirmDialog

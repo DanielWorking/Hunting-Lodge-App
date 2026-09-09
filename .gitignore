@@ -15,3 +15,7 @@ build/
 *.local
 *.log
 .DS_Store
+
+# Database seed files
+server/seed.ts
+seed.ts

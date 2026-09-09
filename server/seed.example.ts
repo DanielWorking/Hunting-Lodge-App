@@ -109,28 +109,10 @@ const NOC_TIME_SLOTS: readonly TimeSlotSeed[] = [
         linkedShiftTypes: [shiftTypeNightId],
     },
     {
-        name: "After Shift",
-        startTime: "08:00",
-        endTime: "08:00",
-        linkedShiftTypes: [shiftTypeAfterId],
-    },
-    {
         name: "Weekend Shift",
         startTime: "08:00",
         endTime: "08:00",
         linkedShiftTypes: [shiftTypeWeekendId],
-    },
-    {
-        name: "Vacation",
-        startTime: "08:00",
-        endTime: "08:00",
-        linkedShiftTypes: [shiftTypeVacationId],
-    },
-    {
-        name: "Leave",
-        startTime: "08:00",
-        endTime: "08:00",
-        linkedShiftTypes: [shiftTypeLeaveId],
     },
     {
         name: "Middle Shift",

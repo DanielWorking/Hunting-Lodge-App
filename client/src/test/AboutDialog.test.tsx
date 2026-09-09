@@ -119,7 +119,24 @@ describe("Navbar About Dialog Integration", () => {
         });
     });
 
-    it("opens AboutDialog from the user account menu trigger", async () => {
+    it("opens AboutDialog from the standalone navbar icon button trigger", async () => {
+        render(
+            <MemoryRouter>
+                <Navbar />
+            </MemoryRouter>,
+        );
+
+        // Click the standalone About & Support button in the navbar toolbar
+        const aboutButton = screen.getByRole("button", { name: "About & Support" });
+        expect(aboutButton).toBeInTheDocument();
+        fireEvent.click(aboutButton);
+
+        // AboutDialog should now be open
+        expect(screen.getByRole("heading", { name: /About & Support/i })).toBeInTheDocument();
+        expect(screen.getByText(/^v\d+\.\d+\.\d+/)).toBeInTheDocument();
+    });
+
+    it("does not render About & Support in the account menu to avoid duplicate links", async () => {
         render(
             <MemoryRouter>
                 <Navbar />
@@ -130,15 +147,13 @@ describe("Navbar About Dialog Integration", () => {
         const avatarButton = screen.getByLabelText("Account menu and group switcher");
         fireEvent.click(avatarButton);
 
-        // Find and click the About & Support menu item in the popover menu
-        const aboutMenuItem = await screen.findByRole("menuitem", { name: /About & Support/i });
-        expect(aboutMenuItem).toBeInTheDocument();
+        const accountMenu = await screen.findByRole("menu");
+        expect(accountMenu).toBeInTheDocument();
 
-        fireEvent.click(aboutMenuItem);
-
-        // AboutDialog should now be open
-        expect(screen.getByRole("heading", { name: /About & Support/i })).toBeInTheDocument();
-        expect(screen.getByText(/^v\d+\.\d+\.\d+/)).toBeInTheDocument();
+        // About & Support should NOT be in the account menu
+        expect(
+            within(accountMenu).queryByRole("menuitem", { name: /About & Support/i }),
+        ).not.toBeInTheDocument();
     });
 
     it("does not render About & Support in the mobile menu to avoid duplicate links with navbar icon", async () => {

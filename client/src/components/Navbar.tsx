@@ -150,7 +150,7 @@ export default function Navbar() {
                             src="/images/hunting-lodge-image-50.png"
                             srcSet="/images/hunting-lodge-image-50.png 1x, /images/hunting-lodge-image-100.png 2x, /images/hunting-lodge-image.png 225w"
                             sizes="50px"
-                            alt="Logo"
+                            alt="Hunting Lodge Logo"
                             width={50}
                             height={50}
                             decoding="async"
@@ -180,8 +180,9 @@ export default function Navbar() {
                         <IconButton
                             size="large"
                             aria-label="Open navigation menu"
-                            aria-controls="mobile-menu"
+                            aria-controls={isMobileMenuOpen ? "mobile-menu" : undefined}
                             aria-haspopup="true"
+                            aria-expanded={isMobileMenuOpen ? "true" : undefined}
                             onClick={handleMobileMenuOpen}
                             color="inherit"
                         >
@@ -291,6 +292,9 @@ export default function Navbar() {
                             size="small"
                             sx={{ ml: 2 }}
                             aria-label="Account menu and group switcher"
+                            aria-controls={open ? "account-menu" : undefined}
+                            aria-haspopup="true"
+                            aria-expanded={open ? "true" : undefined}
                         >
                             <Badge
                                 color="secondary"
@@ -415,18 +419,6 @@ export default function Navbar() {
 
                         <Divider />
 
-                        <MenuItem
-                            onClick={() => {
-                                handleClose();
-                                setAboutOpen(true);
-                            }}
-                            aria-label="About & Support"
-                        >
-                            <ListItemIcon>
-                                <HelpOutlineIcon fontSize="small" />
-                            </ListItemIcon>
-                            About & Support
-                        </MenuItem>
 
                         <MenuItem
                             onClick={handleLogout}

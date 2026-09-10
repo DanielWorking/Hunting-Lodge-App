@@ -79,7 +79,10 @@ export async function getSchedule(req: Request, res: Response, next?: NextFuncti
             scheduleFilter.isPublished = true;
         }
 
-        const schedule = await ShiftSchedule.findOne(scheduleFilter);
+        const scheduleQuery = ShiftSchedule.findOne(scheduleFilter);
+        const schedule = await (typeof (scheduleQuery as any).lean === "function"
+            ? (scheduleQuery as any).lean()
+            : scheduleQuery);
         res.json(schedule);
     } catch (err: unknown) {
         if (typeof next === "function") {
@@ -117,10 +120,17 @@ export async function saveSchedule(req: Request, res: Response, next?: NextFunct
             return;
         }
 
-        const oldSchedule = await ShiftSchedule.findOne({
+        let oldScheduleQuery: any = ShiftSchedule.findOne({
             groupId: group._id,
             startDate,
         });
+        if (typeof oldScheduleQuery?.select === "function") {
+            const selected = oldScheduleQuery.select("isPublished shifts");
+            if (selected) oldScheduleQuery = selected;
+        }
+        const oldSchedule = await (typeof oldScheduleQuery?.lean === "function"
+            ? oldScheduleQuery.lean()
+            : oldScheduleQuery);
 
         if (oldSchedule && oldSchedule.isPublished) {
             const shiftTypes = (group.settings as { shiftTypes?: IShiftType[] })?.shiftTypes || [];
@@ -168,8 +178,8 @@ export async function saveSchedule(req: Request, res: Response, next?: NextFunct
             }
 
             (shifts || []).forEach((newShift) => {
-                const matchingOldShift = oldSchedule.shifts.find(
-                    (old) =>
+                const matchingOldShift = (oldSchedule.shifts || []).find(
+                    (old: any) =>
                         String(old.userId) === String(newShift.userId) &&
                         new Date(old.date).toISOString() === new Date(newShift.date).toISOString() &&
                         String(old.shiftTypeId) === String(newShift.shiftTypeId),
@@ -181,11 +191,14 @@ export async function saveSchedule(req: Request, res: Response, next?: NextFunct
             });
         }
 
-        const schedule = await ShiftSchedule.findOneAndUpdate(
+        const scheduleQuery = ShiftSchedule.findOneAndUpdate(
             { groupId: group._id, startDate },
             { groupId: group._id, startDate, endDate, shifts },
             { returnDocument: "after", upsert: true },
         );
+        const schedule = await (typeof (scheduleQuery as any).lean === "function"
+            ? (scheduleQuery as any).lean()
+            : scheduleQuery);
 
         res.json(schedule);
     } catch (err: unknown) {
@@ -327,7 +340,10 @@ export async function getAllSchedules(req: Request, res: Response, next?: NextFu
             scheduleFilter.isPublished = true;
         }
 
-        const schedules = await ShiftSchedule.find(scheduleFilter);
+        const schedulesQuery = ShiftSchedule.find(scheduleFilter);
+        const schedules = await (typeof (schedulesQuery as any).lean === "function"
+            ? (schedulesQuery as any).lean()
+            : schedulesQuery);
         res.json(schedules);
     } catch (err: unknown) {
         if (typeof next === "function") {

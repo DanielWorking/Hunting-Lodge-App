@@ -4,6 +4,7 @@
  */
 
 export interface DatabaseOptions {
+    readonly autoIndex?: boolean;
     readonly maxPoolSize: number;
     readonly minPoolSize: number;
     readonly serverSelectionTimeoutMS: number;
@@ -78,6 +79,7 @@ export interface ServerProcessEnv {
     readonly ENV_FILE?: string;
     readonly PORT?: string;
     readonly MONGO_URI?: string;
+    readonly MONGO_AUTO_INDEX?: string;
     readonly MONGO_MAX_POOL_SIZE?: string;
     readonly MONGO_MIN_POOL_SIZE?: string;
     readonly MONGO_SERVER_SELECTION_TIMEOUT_MS?: string;

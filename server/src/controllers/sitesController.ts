@@ -64,7 +64,10 @@ export async function getSites(req: Request, res: Response, next?: NextFunction)
                 return;
             }
 
-            const sites = await Site.find({ groupId: group._id });
+            const sitesQuery = Site.find({ groupId: group._id });
+            const sites = await (typeof (sitesQuery as any).lean === "function"
+                ? (sitesQuery as any).lean()
+                : sitesQuery);
             res.json(sites);
             return;
         }
@@ -80,7 +83,10 @@ export async function getSites(req: Request, res: Response, next?: NextFunction)
             })
             .filter((id): id is Types.ObjectId | string => Boolean(id));
 
-        const sites = await Site.find({ groupId: { $in: userGroupIds } });
+        const sitesQuery = Site.find({ groupId: { $in: userGroupIds } });
+        const sites = await (typeof (sitesQuery as any).lean === "function"
+            ? (sitesQuery as any).lean()
+            : sitesQuery);
         res.json(sites);
     } catch (err: unknown) {
         if (typeof next === "function") {
@@ -120,7 +126,14 @@ export async function createSite(req: Request, res: Response, next?: NextFunctio
         }
 
         // --- Duplicate Check ---
-        const existingSite = await Site.findOne({ url, groupId: group._id });
+        let existingSiteQuery: any = Site.findOne({ url, groupId: group._id });
+        if (typeof existingSiteQuery?.select === "function") {
+            const selected = existingSiteQuery.select("_id");
+            if (selected) existingSiteQuery = selected;
+        }
+        const existingSite = await (typeof existingSiteQuery?.lean === "function"
+            ? existingSiteQuery.lean()
+            : existingSiteQuery);
         if (existingSite) {
             res.status(400).json({ message: "A resource with this link already exists in this group." });
             return;
@@ -149,7 +162,14 @@ export async function createSite(req: Request, res: Response, next?: NextFunctio
 export async function updateSite(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
         const siteId = extractParamId(req.params.id);
-        const currentSite = await Site.findById(siteId);
+        let currentSiteQuery: any = Site.findById(siteId);
+        if (typeof currentSiteQuery?.select === "function") {
+            const selected = currentSiteQuery.select("groupId url");
+            if (selected) currentSiteQuery = selected;
+        }
+        const currentSite = await (typeof currentSiteQuery?.lean === "function"
+            ? currentSiteQuery.lean()
+            : currentSiteQuery);
         if (!currentSite) {
             res.status(404).json({ message: "Site not found" });
             return;
@@ -200,11 +220,18 @@ export async function updateSite(req: Request, res: Response, next?: NextFunctio
         // If updating the URL or transferring groups, perform duplicate check within the target group
         const urlToCheck = typeof body.url === "string" ? body.url.trim() : currentSite.url;
         if (body.url !== undefined || body.groupId) {
-            const duplicateSite = await Site.findOne({
+            let duplicateSiteQuery: any = Site.findOne({
                 url: urlToCheck,
                 groupId: targetGroupId,
                 _id: { $ne: siteId },
             });
+            if (typeof duplicateSiteQuery?.select === "function") {
+                const selected = duplicateSiteQuery.select("_id");
+                if (selected) duplicateSiteQuery = selected;
+            }
+            const duplicateSite = await (typeof duplicateSiteQuery?.lean === "function"
+                ? duplicateSiteQuery.lean()
+                : duplicateSiteQuery);
 
             if (duplicateSite) {
                 res.status(400).json({
@@ -223,11 +250,14 @@ export async function updateSite(req: Request, res: Response, next?: NextFunctio
         if (tag !== undefined) updateData.tag = typeof tag === "string" ? tag.trim() : tag;
         if (body.groupId) updateData.groupId = targetGroupId;
 
-        const updatedSite = await Site.findByIdAndUpdate(
+        const updatedSiteQuery = Site.findByIdAndUpdate(
             siteId,
             { $set: updateData },
             { returnDocument: "after", runValidators: true },
         );
+        const updatedSite = await (typeof (updatedSiteQuery as any).lean === "function"
+            ? (updatedSiteQuery as any).lean()
+            : updatedSiteQuery);
         res.json(updatedSite);
     } catch (err: unknown) {
         if (typeof next === "function") {
@@ -241,7 +271,14 @@ export async function updateSite(req: Request, res: Response, next?: NextFunctio
 export async function deleteSite(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
         const siteId = extractParamId(req.params.id);
-        const currentSite = await Site.findById(siteId);
+        let currentSiteQuery: any = Site.findById(siteId);
+        if (typeof currentSiteQuery?.select === "function") {
+            const selected = currentSiteQuery.select("groupId");
+            if (selected) currentSiteQuery = selected;
+        }
+        const currentSite = await (typeof currentSiteQuery?.lean === "function"
+            ? currentSiteQuery.lean()
+            : currentSiteQuery);
         if (!currentSite) {
             res.status(404).json({ message: "Site not found" });
             return;

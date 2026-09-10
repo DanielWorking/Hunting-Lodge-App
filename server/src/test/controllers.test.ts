@@ -399,9 +399,13 @@ describe("Controller Cascading & Validation Rules", () => {
             let capturedQuery: { date?: { $gte?: unknown; $lte?: unknown } } | null = null;
             reportHolder.find = (query: { date?: { $gte?: unknown; $lte?: unknown } }) => {
                 capturedQuery = query;
-                return {
-                    sort: () => Promise.resolve([]),
+                const stub: any = {
+                    sort: () => stub,
+                    limit: () => stub,
+                    lean: () => Promise.resolve([]),
+                    then: (resolve: any) => Promise.resolve([]).then(resolve),
                 };
+                return stub;
             };
 
             const req = {
@@ -487,15 +491,20 @@ describe("Controller Cascading & Validation Rules", () => {
 
             reportHolder.findOne = (query: { groupId?: unknown; date?: { $lte?: unknown } }) => {
                 capturedQuery = query;
-                return {
+                const reportResult = {
+                    _id: new mongoose.Types.ObjectId(),
+                    currentTasks: "Report A ongoing tasks",
+                };
+                const stub: any = {
                     sort: (sortObj: Record<string, number>) => {
                         capturedSort = sortObj;
-                        return Promise.resolve({
-                            _id: new mongoose.Types.ObjectId(),
-                            currentTasks: "Report A ongoing tasks",
-                        });
+                        return stub;
                     },
+                    select: () => stub,
+                    lean: () => Promise.resolve(reportResult),
+                    then: (resolve: any) => Promise.resolve(reportResult).then(resolve),
                 };
+                return stub;
             };
 
             let savedInstance: Record<string, unknown> | null = null;

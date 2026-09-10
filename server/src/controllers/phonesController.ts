@@ -166,11 +166,14 @@ export async function updatePhone(req: Request, res: Response, next?: NextFuncti
             updateData.description = typeof description === "string" ? description.trim() : description;
         }
 
-        const updatedPhone = await Phone.findByIdAndUpdate(
+        const updatedPhoneQuery = Phone.findByIdAndUpdate(
             phoneId,
             { $set: updateData },
             { returnDocument: "after", runValidators: true },
         );
+        const updatedPhone = await (typeof (updatedPhoneQuery as any).lean === "function"
+            ? (updatedPhoneQuery as any).lean()
+            : updatedPhoneQuery);
         if (!updatedPhone) {
             res.status(404).json({ message: "Phone contact not found" });
             return;
@@ -189,29 +192,41 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
     try {
         const requestingUser = req.user as AuthUser | undefined;
         const userId = requestingUser?._id || req.user?.id;
-        const user = await User.findById(userId);
-        if (!user) {
-            res.status(404).json({ message: "User not found" });
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
             return;
         }
 
         const phoneId = extractParamId(req.params.id);
-        const favoritePhones = (user.favoritePhones || []).map((id) => (id ? id.toString() : ""));
+        const phoneObjId = Types.ObjectId.isValid(phoneId) ? new Types.ObjectId(phoneId) : phoneId;
 
-        const index = favoritePhones.indexOf(phoneId);
-        if (index === -1) {
-            user.favoritePhones.push(Types.ObjectId.isValid(phoneId) ? new Types.ObjectId(phoneId) : phoneId);
-        } else {
-            user.favoritePhones = (user.favoritePhones as (Types.ObjectId | string)[]).filter(
-                (id) => (id ? id.toString() : "") !== phoneId,
-            ) as Types.ObjectId[];
+        // Atomic conditional pull if already favorited
+        const pulled = await User.findOneAndUpdate(
+            { _id: userId, favoritePhones: phoneObjId },
+            { $pull: { favoritePhones: phoneObjId } },
+            { returnDocument: "after", select: "favoritePhones" }
+        );
+
+        if (pulled) {
+            invalidateUserCache(userId.toString());
+            res.json({ favoritePhones: pulled.favoritePhones || [] });
+            return;
         }
 
-        await user.save();
-        if (userId) {
-            invalidateUserCache(userId);
+        // Atomic addToSet if not favorited
+        const added = await User.findByIdAndUpdate(
+            userId,
+            { $addToSet: { favoritePhones: phoneObjId } },
+            { returnDocument: "after", select: "favoritePhones" }
+        );
+
+        if (!added) {
+            res.status(404).json({ message: "User not found" });
+            return;
         }
-        res.json({ favoritePhones: user.favoritePhones });
+
+        invalidateUserCache(userId.toString());
+        res.json({ favoritePhones: added.favoritePhones || [] });
     } catch (err: unknown) {
         if (typeof next === "function") {
             next(err);

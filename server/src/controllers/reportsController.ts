@@ -24,6 +24,9 @@ export interface GetReportsRequestQuery {
     year?: string;
     month?: string;
     day?: string;
+    limit?: string | number;
+    cursorDate?: string;
+    cursorId?: string;
 }
 
 export interface CreateReportRequestBody {
@@ -46,9 +49,12 @@ export interface UpdateReportRequestBody {
 export interface ReportFilterCriteria {
     groupId: Types.ObjectId | string;
     date?: {
-        $gte: Date;
-        $lte: Date;
+        $gte?: Date;
+        $lte?: Date;
     };
+    $or?: Array<Record<string, unknown>>;
+    $and?: Array<Record<string, unknown>>;
+    [key: string]: unknown;
 }
 
 export async function getReports(req: Request, res: Response, next?: NextFunction): Promise<void> {
@@ -96,7 +102,57 @@ export async function getReports(req: Request, res: Response, next?: NextFunctio
             reportFilter.date = { $gte: startDate, $lte: endDate };
         }
 
-        const reports = await ShiftReport.find(reportFilter).sort({ date: -1, startTime: -1 });
+        const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+
+        if (req.query.cursorDate && req.query.cursorId) {
+            const rawCursorDate = String(req.query.cursorDate);
+            const rawCursorId = String(req.query.cursorId);
+            const parsedDate = new Date(rawCursorDate);
+
+            // Guard against malformed cursor parameters
+            if (!isNaN(parsedDate.getTime()) && Types.ObjectId.isValid(rawCursorId)) {
+                const pId = new Types.ObjectId(rawCursorId);
+                const cursorCondition = {
+                    $or: [
+                        { date: { $lt: parsedDate } },
+                        { date: parsedDate, _id: { $lt: pId } },
+                    ],
+                };
+                if (reportFilter.$or) {
+                    reportFilter.$and = reportFilter.$and || [];
+                    reportFilter.$and.push(cursorCondition);
+                } else {
+                    Object.assign(reportFilter, cursorCondition);
+                }
+            }
+        }
+
+        let reportQuery: any = ShiftReport.find(reportFilter);
+        if (typeof reportQuery.sort === "function") {
+            const sorted = reportQuery.sort({ date: -1, _id: -1 });
+            if (sorted) reportQuery = sorted;
+        }
+        if (typeof reportQuery.limit === "function") {
+            const limited = reportQuery.limit(limit + 1);
+            if (limited) reportQuery = limited;
+        }
+
+        const rawReports = await (typeof reportQuery.lean === "function"
+            ? reportQuery.lean()
+            : reportQuery);
+
+        const hasMore = Array.isArray(rawReports) && rawReports.length > limit;
+        const reports = hasMore ? rawReports.slice(0, limit) : rawReports;
+
+        res.setHeader("X-Has-More", hasMore ? "true" : "false");
+        if (hasMore && Array.isArray(reports) && reports.length > 0) {
+            const lastItem = reports[reports.length - 1];
+            const lastDate = lastItem.date instanceof Date ? lastItem.date.toISOString() : String(lastItem.date);
+            const lastId = lastItem._id ? lastItem._id.toString() : "";
+            res.setHeader("X-Next-Cursor-Date", lastDate);
+            res.setHeader("X-Next-Cursor-Id", lastId);
+        }
+
         res.json(reports);
     } catch (err: unknown) {
         if (typeof next === "function") {
@@ -137,19 +193,37 @@ export async function createReport(req: Request, res: Response, next?: NextFunct
         const reportStart = new Date(typeof startTime === "string" ? startTime : Date.now());
 
         // Inherit tasks from the most recent report of the same group prior to this shift
-        const lastReport = await ShiftReport.findOne({
+        let lastReportQuery: any = ShiftReport.findOne({
             groupId: group._id,
             date: { $lte: reportStart },
-        }).sort({ date: -1, startTime: -1 });
+        });
+        if (typeof lastReportQuery.sort === "function") {
+            const sorted = lastReportQuery.sort({ date: -1, startTime: -1 });
+            if (sorted) lastReportQuery = sorted;
+        }
+        if (typeof lastReportQuery.select === "function") {
+            const selected = lastReportQuery.select("currentTasks");
+            if (selected) lastReportQuery = selected;
+        }
+        const lastReport = await (typeof lastReportQuery.lean === "function"
+            ? lastReportQuery.lean()
+            : lastReportQuery);
         const previousTasks = lastReport ? lastReport.currentTasks || "" : "";
 
         // Attempt to pull attendees automatically from the published schedule
-        const schedule = await ShiftSchedule.findOne({
+        let schedQuery: any = ShiftSchedule.findOne({
             groupId: group._id,
             isPublished: true,
             startDate: { $lte: reportStart },
             endDate: { $gte: reportStart },
         });
+        if (typeof schedQuery.select === "function") {
+            const selected = schedQuery.select("shifts");
+            if (selected) schedQuery = selected;
+        }
+        const schedule = await (typeof schedQuery.lean === "function"
+            ? schedQuery.lean()
+            : schedQuery);
 
         const timeSlots = (group.settings as { timeSlots?: ITimeSlot[] })?.timeSlots;
         if (schedule && Array.isArray(timeSlots)) {
@@ -170,7 +244,7 @@ export async function createReport(req: Request, res: Response, next?: NextFunct
                 : null;
 
             // Filter shifts that match the date and optionally the shift type
-            const shiftsToday = schedule.shifts.filter((s) => {
+            const shiftsToday = (schedule.shifts || []).filter((s: any) => {
                 const isSameDate = new Date(s.date).toDateString() === reportStart.toDateString();
                 const isRelevantType = relevantShiftTypeIds
                     ? relevantShiftTypeIds.includes(s.shiftTypeId.toString())
@@ -178,10 +252,13 @@ export async function createReport(req: Request, res: Response, next?: NextFunct
                 return isSameDate && isRelevantType;
             });
 
-            const userIds = shiftsToday.map((s) => s.userId);
-            const users = await User.find({ _id: { $in: userIds } });
+            const userIds = shiftsToday.map((s: any) => s.userId);
+            const usersQuery = User.find({ _id: { $in: userIds } }).select("_id username");
+            const users = await (typeof (usersQuery as any).lean === "function"
+                ? (usersQuery as any).lean()
+                : usersQuery);
 
-            attendees = users.map((u) => ({
+            attendees = (users || []).map((u: any) => ({
                 userId: u._id,
                 name: u.username,
                 isManual: false,
@@ -214,7 +291,14 @@ export async function createReport(req: Request, res: Response, next?: NextFunct
 export async function updateReport(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
         const reportId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-        const report = await ShiftReport.findById(reportId);
+        let reportQuery: any = ShiftReport.findById(reportId);
+        if (typeof reportQuery?.select === "function") {
+            const selected = reportQuery.select("groupId isLocked");
+            if (selected) reportQuery = selected;
+        }
+        const report = await (typeof reportQuery?.lean === "function"
+            ? reportQuery.lean()
+            : reportQuery);
         if (!report) {
             res.status(404).json({ message: "Report not found" });
             return;
@@ -249,11 +333,14 @@ export async function updateReport(req: Request, res: Response, next?: NextFunct
         if (isLocked !== undefined) updateData.isLocked = isLocked;
         if (previousTasks !== undefined) updateData.previousTasks = previousTasks;
 
-        const updatedReport = await ShiftReport.findByIdAndUpdate(
+        const updatedReportQuery = ShiftReport.findByIdAndUpdate(
             reportId,
             { $set: updateData },
             { returnDocument: "after", runValidators: true },
         );
+        const updatedReport = await (typeof (updatedReportQuery as any).lean === "function"
+            ? (updatedReportQuery as any).lean()
+            : updatedReportQuery);
 
         res.json(updatedReport);
     } catch (err: unknown) {
@@ -268,7 +355,14 @@ export async function updateReport(req: Request, res: Response, next?: NextFunct
 export async function deleteReport(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
         const reportId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-        const report = await ShiftReport.findById(reportId);
+        let reportQuery: any = ShiftReport.findById(reportId);
+        if (typeof reportQuery?.select === "function") {
+            const selected = reportQuery.select("groupId");
+            if (selected) reportQuery = selected;
+        }
+        const report = await (typeof reportQuery?.lean === "function"
+            ? reportQuery.lean()
+            : reportQuery);
         if (!report) {
             res.status(404).json({ message: "Report not found" });
             return;

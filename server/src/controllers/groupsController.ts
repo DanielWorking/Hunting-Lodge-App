@@ -87,6 +87,7 @@ export async function getGroups(req: Request, res: Response, next?: NextFunction
                 const groupIds = groups.map((g) => g._id);
                 const userCounts = await User.aggregate<{ _id: Types.ObjectId | string | null; count: number }>([
                     { $match: { "groups.groupId": { $in: groupIds } } },
+                    { $project: { "groups.groupId": 1 } },
                     { $unwind: "$groups" },
                     { $match: { "groups.groupId": { $in: groupIds } } },
                     { $group: { _id: "$groups.groupId", count: { $sum: 1 } } },

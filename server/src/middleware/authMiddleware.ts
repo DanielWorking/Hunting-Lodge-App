@@ -104,7 +104,10 @@ export const protect: RequestHandler = async (
 
         if (!user) {
             // Verify the user exists and is active in the database
-            const dbUser = await User.findById(decoded.userId).populate("groups.groupId");
+            const userQuery = User.findById(decoded.userId).populate("groups.groupId");
+            const dbUser = await (typeof (userQuery as any).lean === "function"
+                ? (userQuery as any).lean()
+                : userQuery);
             if (!dbUser || dbUser.isActive === false) {
                 if (userIdStr) {
                     userCache.delete(userIdStr);
@@ -115,7 +118,7 @@ export const protect: RequestHandler = async (
                 });
                 return;
             }
-            user = dbUser;
+            user = dbUser as UserDocument;
             if (userIdStr) {
                 userCache.set(userIdStr, { user, timestamp: Date.now() });
             }

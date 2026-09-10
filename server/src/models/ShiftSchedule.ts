@@ -103,6 +103,9 @@ ShiftScheduleSchema.index({ groupId: 1, startDate: 1 }, { unique: true });
 // Optimizes queries looking for active published schedules covering a specific date range
 ShiftScheduleSchema.index({ groupId: 1, isPublished: 1, startDate: 1, endDate: 1 });
 
+// Multikey index for shift assignment lookup and vacation balance calculations
+ShiftScheduleSchema.index({ groupId: 1, isPublished: 1, "shifts.userId": 1 });
+
 const ShiftSchedule: ShiftScheduleModel =
     (mongoose.models.ShiftSchedule as ShiftScheduleModel) ||
     mongoose.model<IShiftSchedule, ShiftScheduleModel>("ShiftSchedule", ShiftScheduleSchema);

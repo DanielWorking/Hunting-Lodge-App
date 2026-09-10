@@ -136,9 +136,12 @@ export async function getUsers(req: Request, res: Response, next?: NextFunction)
                 }
             }
 
-            const users = await User.find({
+            const usersQuery = User.find({
                 "groups.groupId": group._id,
             });
+            const users = await (typeof (usersQuery as any).lean === "function"
+                ? (usersQuery as any).lean()
+                : usersQuery);
             res.json(users);
             return;
         }
@@ -153,7 +156,10 @@ export async function getUsers(req: Request, res: Response, next?: NextFunction)
             return;
         }
 
-        const users = await User.find();
+        const usersQuery = User.find();
+        const users = await (typeof (usersQuery as any).lean === "function"
+            ? (usersQuery as any).lean()
+            : usersQuery);
         res.json(users);
     } catch (err: unknown) {
         console.error("Get users error:", err);
@@ -207,15 +213,24 @@ export async function reorderUsers(req: Request, res: Response, next?: NextFunct
             return;
         }
 
-        const promises = updates.map((update) => {
+        const bulkOps = updates.map((update) => {
             const sanitizedUserId = update.userId.trim();
-            return User.updateOne(
-                { _id: sanitizedUserId, "groups.groupId": group._id },
-                { $set: { "groups.$.order": update.order } },
-            );
+            return {
+                updateOne: {
+                    filter: { _id: sanitizedUserId, "groups.groupId": group._id },
+                    update: { $set: { "groups.$.order": update.order } },
+                },
+            };
         });
 
-        await Promise.all(promises);
+        if (typeof (User as any).bulkWrite === "function") {
+            await User.bulkWrite(bulkOps, { ordered: false });
+        } else {
+            await Promise.all(
+                bulkOps.map((op) => User.updateOne(op.updateOne.filter, op.updateOne.update))
+            );
+        }
+
         res.json({ message: "Order updated" });
     } catch (err: unknown) {
         console.error("Reorder users error:", err);
@@ -242,7 +257,10 @@ export async function updateUser(req: Request, res: Response, _next?: NextFuncti
         }
 
         // 2. Fetch target user
-        const oldUser = await User.findById(targetUserId);
+        const oldUserQuery = User.findById(targetUserId);
+        const oldUser = await (typeof (oldUserQuery as any).lean === "function"
+            ? (oldUserQuery as any).lean()
+            : oldUserQuery);
         if (!oldUser) {
             res.status(404).json({ message: "User not found" });
             return;
@@ -268,36 +286,39 @@ export async function updateUser(req: Request, res: Response, _next?: NextFuncti
         if (favoritePhones !== undefined && Array.isArray(favoritePhones)) updateFields.favoritePhones = favoritePhones;
 
         // 4. Update user with schema validators
-        const updatedUser = await User.findByIdAndUpdate(
+        const updatedUserQuery = User.findByIdAndUpdate(
             targetUserId,
             { $set: updateFields },
             { returnDocument: "after", runValidators: true },
         );
+        const updatedUser = await (typeof (updatedUserQuery as any).lean === "function"
+            ? (updatedUserQuery as any).lean()
+            : updatedUserQuery);
 
         // 5. Group membership synchronization logic
         if (body.groups && updatedUser) {
-            const oldGroupIds = (oldUser.groups || [])
-                .map((g) => {
+            const oldGroupIds = ((oldUser.groups || []) as any[])
+                .map((g: any) => {
                     const gid = g.groupId;
                     if (gid && typeof gid === "object" && "_id" in gid) {
                         return (gid as { _id?: unknown })._id?.toString();
                     }
                     return gid?.toString();
                 })
-                .filter((id): id is string => Boolean(id));
+                .filter((id: any): id is string => Boolean(id));
 
-            const newGroupIds = (updatedUser.groups || [])
-                .map((g) => {
+            const newGroupIds = ((updatedUser.groups || []) as any[])
+                .map((g: any) => {
                     const gid = g.groupId;
                     if (gid && typeof gid === "object" && "_id" in gid) {
                         return (gid as { _id?: unknown })._id?.toString();
                     }
                     return gid?.toString();
                 })
-                .filter((id): id is string => Boolean(id));
+                .filter((id: any): id is string => Boolean(id));
 
-            const groupsToRemove = oldGroupIds.filter((id) => !newGroupIds.includes(id));
-            const groupsToAdd = newGroupIds.filter((id) => !oldGroupIds.includes(id));
+            const groupsToRemove = oldGroupIds.filter((id: string) => !newGroupIds.includes(id));
+            const groupsToAdd = newGroupIds.filter((id: string) => !oldGroupIds.includes(id));
 
             const syncPromises: PromiseLike<unknown>[] = [];
             if (groupsToRemove.length > 0) {
@@ -353,7 +374,10 @@ export async function deleteUser(req: Request, res: Response, next?: NextFunctio
         }
 
         const targetUserId = paramId;
-        const userToDelete = await User.findById(targetUserId);
+        const userToDeleteQuery = User.findById(targetUserId);
+        const userToDelete = await (typeof (userToDeleteQuery as any).lean === "function"
+            ? (userToDeleteQuery as any).lean()
+            : userToDeleteQuery);
         if (!userToDelete) {
             res.status(404).json({ message: "User not found" });
             return;

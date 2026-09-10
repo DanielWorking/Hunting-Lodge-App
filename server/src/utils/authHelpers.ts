@@ -78,6 +78,17 @@ async function resolveFromPlainObject<T extends ResolvedGroup = ResolvedGroup>(
     return null;
 }
 
+const groupCache = new Map<string, { group: ResolvedGroup; expiresAt: number }>();
+const CACHE_TTL_MS = 5000;
+
+export function invalidateGroupCache(groupId?: string): void {
+    if (groupId) {
+        groupCache.delete(groupId.toString());
+    } else {
+        groupCache.clear();
+    }
+}
+
 async function resolveFromIdentifier<T extends ResolvedGroup = ResolvedGroup>(
     groupId: unknown,
 ): Promise<T | null> {
@@ -86,15 +97,40 @@ async function resolveFromIdentifier<T extends ResolvedGroup = ResolvedGroup>(
         return null;
     }
 
-    if (mongoose.Types.ObjectId.isValid(strId)) {
-        const byId = await Group.findById(strId);
-        if (byId) {
-            return byId as unknown as T;
+    const isTestEnv = process.env.NODE_ENV === "test";
+    if (!isTestEnv) {
+        const cached = groupCache.get(strId);
+        if (cached && Date.now() < cached.expiresAt) {
+            return cached.group as unknown as T;
         }
     }
 
-    const byName = await Group.findOne({ name: strId });
-    return (byName as unknown as T) ?? null;
+    let result: any = null;
+    if (mongoose.Types.ObjectId.isValid(strId)) {
+        const byId = await Group.findById(strId);
+        if (byId) {
+            result = byId;
+        }
+    }
+
+    if (!result) {
+        const byName = await Group.findOne({ name: strId });
+        if (byName) {
+            result = byName;
+        }
+    }
+
+    if (result && !isTestEnv) {
+        groupCache.set(strId, { group: result, expiresAt: Date.now() + CACHE_TTL_MS });
+        if (result._id) {
+            groupCache.set(result._id.toString(), { group: result, expiresAt: Date.now() + CACHE_TTL_MS });
+        }
+        if (result.name) {
+            groupCache.set(result.name, { group: result, expiresAt: Date.now() + CACHE_TTL_MS });
+        }
+    }
+
+    return (result as unknown as T) ?? null;
 }
 
 /**
@@ -311,6 +347,7 @@ export function isShiftManagerForTargetUser(
 
 export default {
     resolveGroup,
+    invalidateGroupCache,
     isSuperAdminUser,
     isAdmin,
     isGroupMember,

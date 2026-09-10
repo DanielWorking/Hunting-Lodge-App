@@ -26,6 +26,9 @@ export const getReportsQuerySchema = z.object({
     year: z.string().optional(),
     month: z.string().optional(),
     day: z.string().optional(),
+    limit: z.coerce.number().min(1).max(100).optional(),
+    cursorDate: z.string().optional(),
+    cursorId: z.string().optional(),
 });
 
 export const createReportSchema = z.object({

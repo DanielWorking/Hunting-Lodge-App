@@ -53,7 +53,14 @@ export async function createVacationRequest(req: Request, res: Response, next?: 
             return;
         }
 
-        const userDoc = await User.findById(authUser._id);
+        let userDocQuery: any = User.findById(authUser._id);
+        if (typeof userDocQuery?.select === "function") {
+            const selected = userDocQuery.select("vacationBalance");
+            if (selected) userDocQuery = selected;
+        }
+        const userDoc = await (typeof userDocQuery?.lean === "function"
+            ? userDocQuery.lean()
+            : userDocQuery);
         if (!userDoc) {
             res.status(404).json({ message: "User not found" });
             return;
@@ -70,11 +77,18 @@ export async function createVacationRequest(req: Request, res: Response, next?: 
         }
 
         const requestDate = new Date(date);
-        const existingRequest = await VacationRequest.findOne({
+        let existingRequestQuery: any = VacationRequest.findOne({
             userId: userDoc._id,
             date: requestDate,
             status: { $in: ["pending", "approved"] },
         });
+        if (typeof existingRequestQuery?.select === "function") {
+            const selected = existingRequestQuery.select("_id");
+            if (selected) existingRequestQuery = selected;
+        }
+        const existingRequest = await (typeof existingRequestQuery?.lean === "function"
+            ? existingRequestQuery.lean()
+            : existingRequestQuery);
 
         if (existingRequest) {
             res.status(409).json({
@@ -136,10 +150,14 @@ export async function getVacationRequests(req: Request, res: Response, next?: Ne
             filter.userId = userId;
         }
 
-        const requests = await VacationRequest.find(filter)
+        const requestsQuery = VacationRequest.find(filter)
             .populate("userId", "username displayName")
             .populate("reviewedBy", "username displayName")
             .sort({ date: 1 });
+
+        const requests = await (typeof (requestsQuery as any).lean === "function"
+            ? (requestsQuery as any).lean()
+            : requestsQuery);
 
         res.json(requests);
     } catch (err: unknown) {
@@ -233,7 +251,10 @@ export async function aggregateVacationBalance(req: Request, res: Response, next
             return;
         }
 
-        const userDoc = await User.findById(userId);
+        const userDocQuery = User.findById(userId).select("_id vacationBalance");
+        const userDoc = await (typeof (userDocQuery as any).lean === "function"
+            ? (userDocQuery as any).lean()
+            : userDocQuery);
         if (!userDoc) {
             res.status(404).json({ message: "User not found" });
             return;
@@ -241,29 +262,35 @@ export async function aggregateVacationBalance(req: Request, res: Response, next
 
         // Aggregate deducted days from published ShiftSchedules and approved requests concurrently
         const [schedules, approvedRequests] = await Promise.all([
-            ShiftSchedule.find({
-                groupId,
-                isPublished: true,
-                "shifts.userId": userDoc._id,
-            }),
-            VacationRequest.find({
-                groupId,
-                userId: userDoc._id,
-                status: "approved",
-            }),
+            (async () => {
+                const q = ShiftSchedule.find({
+                    groupId,
+                    isPublished: true,
+                    "shifts.userId": userDoc._id,
+                }).select("shifts");
+                return (typeof (q as any).lean === "function" ? (q as any).lean() : q);
+            })(),
+            (async () => {
+                const q = VacationRequest.find({
+                    groupId,
+                    userId: userDoc._id,
+                    status: "approved",
+                }).select("vacationValue");
+                return (typeof (q as any).lean === "function" ? (q as any).lean() : q);
+            })(),
         ]);
 
         let totalDeductedFromShifts = 0;
-        for (const sched of schedules) {
-            for (const shift of sched.shifts) {
+        for (const sched of (schedules || [])) {
+            for (const shift of (sched.shifts || [])) {
                 if (String(shift.userId) === String(userDoc._id) && shift.vacationDeducted) {
                     totalDeductedFromShifts += shift.vacationValue !== undefined ? shift.vacationValue : 1.0;
                 }
             }
         }
 
-        const totalDeductedFromRequests = approvedRequests.reduce(
-            (acc, curr) => acc + (curr.vacationValue !== undefined ? curr.vacationValue : 1.0),
+        const totalDeductedFromRequests = (approvedRequests || []).reduce(
+            (acc: number, curr: any) => acc + (curr.vacationValue !== undefined ? curr.vacationValue : 1.0),
             0,
         );
 

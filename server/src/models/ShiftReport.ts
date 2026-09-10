@@ -104,6 +104,8 @@ const ShiftReportSchema = new Schema<IShiftReport>(
 );
 
 // Compound indexes for temporal report filtering, latest report inheritance, and cron idempotency
+ShiftReportSchema.index({ groupId: 1, date: -1, startTime: -1 });
+ShiftReportSchema.index({ groupId: 1, date: -1, _id: -1 });
 ShiftReportSchema.index({ groupId: 1, date: -1 });
 ShiftReportSchema.index({ groupId: 1, startTime: -1 });
 ShiftReportSchema.index({ groupId: 1, title: 1 });

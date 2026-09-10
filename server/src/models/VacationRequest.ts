@@ -83,6 +83,8 @@ export const VacationRequestSchema = new Schema<IVacationRequest>(
 );
 
 // Optimize lookups and prevent overlapping duplicate requests for the same date/user
+VacationRequestSchema.index({ groupId: 1, status: 1, date: 1 });
+VacationRequestSchema.index({ groupId: 1, userId: 1, status: 1 });
 VacationRequestSchema.index({ groupId: 1, date: 1 });
 VacationRequestSchema.index({ userId: 1, status: 1 });
 VacationRequestSchema.index({ userId: 1, date: 1 });

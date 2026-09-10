@@ -14,10 +14,13 @@ if (!isProd && !process.env.MONGO_URI) {
 }
 
 const options: DatabaseOptions = {
+    autoIndex: process.env.MONGO_AUTO_INDEX !== undefined
+        ? process.env.MONGO_AUTO_INDEX === "true"
+        : !isProd,
     maxPoolSize: parseInt(process.env.MONGO_MAX_POOL_SIZE || (isProd ? "50" : "20"), 10),
-    minPoolSize: parseInt(process.env.MONGO_MIN_POOL_SIZE || (isProd ? "5" : "2"), 10),
+    minPoolSize: parseInt(process.env.MONGO_MIN_POOL_SIZE || (isProd ? "10" : "2"), 10),
     serverSelectionTimeoutMS: parseInt(process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS || "30000", 10),
-    socketTimeoutMS: parseInt(process.env.MONGO_SOCKET_TIMEOUT_MS || "45000", 10),
+    socketTimeoutMS: parseInt(process.env.MONGO_SOCKET_TIMEOUT_MS || "30000", 10),
     heartbeatFrequencyMS: parseInt(process.env.MONGO_HEARTBEAT_FREQUENCY_MS || "10000", 10),
     connectTimeoutMS: parseInt(process.env.MONGO_CONNECT_TIMEOUT_MS || "30000", 10),
     maxIdleTimeMS: parseInt(process.env.MONGO_MAX_IDLE_TIME_MS || "60000", 10),

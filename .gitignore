@@ -19,3 +19,6 @@ build/
 # Database seed files
 server/seed.ts
 seed.ts
+
+# Load test scripts with local tokens
+load-test-auth.js

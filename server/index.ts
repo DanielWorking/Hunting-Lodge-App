@@ -69,6 +69,11 @@ const server: http.Server = app.listen(config.port, (): void => {
         });
 });
 
+// Configure keep-alive and headers timeout for reverse-proxy alignment (ALB / Nginx / OpenShift Router)
+server.keepAliveTimeout = 65000; // 65 seconds
+server.headersTimeout = 66000;   // 66 seconds (must exceed keepAliveTimeout)
+server.requestTimeout = 30000;   // 30 seconds
+
 /**
  * Gracefully shuts down the HTTP server and database connection.
  * Essential for OpenShift / Kubernetes rolling updates and zero-downtime deployments.

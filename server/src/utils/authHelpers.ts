@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import config from "../config";
+import { BoundedLRUCache } from "./lruCache";
 
 /**
  * Common shape for Mongoose Group documents.
@@ -78,8 +79,16 @@ async function resolveFromPlainObject<T extends ResolvedGroup = ResolvedGroup>(
     return null;
 }
 
-const groupCache = new Map<string, { group: ResolvedGroup; expiresAt: number }>();
 const CACHE_TTL_MS = 5000;
+
+export const groupCache = new BoundedLRUCache<string, ResolvedGroup>({
+    max: 500,
+    ttl: CACHE_TTL_MS,
+});
+
+export function clearGroupCache(): void {
+    groupCache.clear();
+}
 
 export function invalidateGroupCache(groupId?: string): void {
     if (groupId) {
@@ -100,12 +109,12 @@ async function resolveFromIdentifier<T extends ResolvedGroup = ResolvedGroup>(
     const isTestEnv = process.env.NODE_ENV === "test";
     if (!isTestEnv) {
         const cached = groupCache.get(strId);
-        if (cached && Date.now() < cached.expiresAt) {
-            return cached.group as unknown as T;
+        if (cached) {
+            return cached as unknown as T;
         }
     }
 
-    let result: any = null;
+    let result: IGroupDocument | null = null;
     if (mongoose.Types.ObjectId.isValid(strId)) {
         const byId = await Group.findById(strId);
         if (byId) {
@@ -121,12 +130,12 @@ async function resolveFromIdentifier<T extends ResolvedGroup = ResolvedGroup>(
     }
 
     if (result && !isTestEnv) {
-        groupCache.set(strId, { group: result, expiresAt: Date.now() + CACHE_TTL_MS });
+        groupCache.set(strId, result as ResolvedGroup);
         if (result._id) {
-            groupCache.set(result._id.toString(), { group: result, expiresAt: Date.now() + CACHE_TTL_MS });
+            groupCache.set(result._id.toString(), result as ResolvedGroup);
         }
         if (result.name) {
-            groupCache.set(result.name, { group: result, expiresAt: Date.now() + CACHE_TTL_MS });
+            groupCache.set(result.name, result as ResolvedGroup);
         }
     }
 

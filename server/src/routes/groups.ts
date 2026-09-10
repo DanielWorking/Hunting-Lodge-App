@@ -135,8 +135,9 @@ router.delete(
  */
 router.put(
     "/:id/settings",
-    validateRequest({ params: groupIdParamSchema, body: updateSettingsSchema }),
+    validateRequest({ params: groupIdParamSchema }),
     requireShiftManager((req: Request) => req.params.id),
+    validateRequest({ body: updateSettingsSchema }),
     groupsController.updateSettings,
 );
 

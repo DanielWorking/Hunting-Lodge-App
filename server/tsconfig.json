@@ -29,7 +29,8 @@
       "express",
       "cors",
       "morgan"
-    ]
+    ],
+    "jsx": "preserve"
   },
   "include": [
     "*.ts",
@@ -43,7 +44,8 @@
     "src/types/**/*.d.ts",
     "src/utils/**/*.ts",
     "src/migrations/**/*.ts",
-    "src/test/**/*.ts"
+    "src/test/**/*.ts",
+    "src/test/**/*.tsx"
   ],
   "exclude": [
     "node_modules"

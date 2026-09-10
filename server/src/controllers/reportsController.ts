@@ -192,38 +192,39 @@ export async function createReport(req: Request, res: Response, next?: NextFunct
         let attendees: IShiftReportAttendee[] = [];
         const reportStart = new Date(typeof startTime === "string" ? startTime : Date.now());
 
-        // Inherit tasks from the most recent report of the same group prior to this shift
-        let lastReportQuery: any = ShiftReport.findOne({
-            groupId: group._id,
-            date: { $lte: reportStart },
-        });
-        if (typeof lastReportQuery.sort === "function") {
-            const sorted = lastReportQuery.sort({ date: -1, startTime: -1 });
-            if (sorted) lastReportQuery = sorted;
-        }
-        if (typeof lastReportQuery.select === "function") {
-            const selected = lastReportQuery.select("currentTasks");
-            if (selected) lastReportQuery = selected;
-        }
-        const lastReport = await (typeof lastReportQuery.lean === "function"
-            ? lastReportQuery.lean()
-            : lastReportQuery);
-        const previousTasks = lastReport ? lastReport.currentTasks || "" : "";
+        // Inherit tasks and schedule attendees concurrently
+        const [lastReport, schedule] = await Promise.all([
+            (async () => {
+                let lastReportQuery: any = ShiftReport.findOne({
+                    groupId: group._id,
+                    date: { $lte: reportStart },
+                });
+                if (typeof lastReportQuery.sort === "function") {
+                    const sorted = lastReportQuery.sort({ date: -1, startTime: -1 });
+                    if (sorted) lastReportQuery = sorted;
+                }
+                if (typeof lastReportQuery.select === "function") {
+                    const selected = lastReportQuery.select("currentTasks");
+                    if (selected) lastReportQuery = selected;
+                }
+                return (typeof lastReportQuery.lean === "function" ? lastReportQuery.lean() : lastReportQuery);
+            })(),
+            (async () => {
+                let schedQuery: any = ShiftSchedule.findOne({
+                    groupId: group._id,
+                    isPublished: true,
+                    startDate: { $lte: reportStart },
+                    endDate: { $gte: reportStart },
+                });
+                if (typeof schedQuery.select === "function") {
+                    const selected = schedQuery.select("shifts");
+                    if (selected) schedQuery = selected;
+                }
+                return (typeof schedQuery.lean === "function" ? schedQuery.lean() : schedQuery);
+            })(),
+        ]);
 
-        // Attempt to pull attendees automatically from the published schedule
-        let schedQuery: any = ShiftSchedule.findOne({
-            groupId: group._id,
-            isPublished: true,
-            startDate: { $lte: reportStart },
-            endDate: { $gte: reportStart },
-        });
-        if (typeof schedQuery.select === "function") {
-            const selected = schedQuery.select("shifts");
-            if (selected) schedQuery = selected;
-        }
-        const schedule = await (typeof schedQuery.lean === "function"
-            ? schedQuery.lean()
-            : schedQuery);
+        const previousTasks = lastReport ? lastReport.currentTasks || "" : "";
 
         const timeSlots = (group.settings as { timeSlots?: ITimeSlot[] })?.timeSlots;
         if (schedule && Array.isArray(timeSlots)) {

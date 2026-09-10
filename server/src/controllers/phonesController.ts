@@ -73,13 +73,13 @@ export async function getPhones(req: Request, res: Response, next?: NextFunction
         const phones = await Phone.find().sort({ name: 1 }).lean();
         const requestingUser = req.user;
 
-        const userFavorites = (requestingUser?.favoritePhones || []).map((id: Types.ObjectId | string) =>
-            id ? id.toString() : "",
+        const userFavorites = new Set<string>(
+            (requestingUser?.favoritePhones || []).map((id: Types.ObjectId | string) => (id ? id.toString() : "")),
         );
 
         const phonesWithFavorites: PhoneWithFavorite[] = phones.map((phone) => ({
             ...phone,
-            isFavorite: userFavorites.includes(phone._id.toString()),
+            isFavorite: userFavorites.has(phone._id.toString()),
         }));
 
         res.json(phonesWithFavorites);

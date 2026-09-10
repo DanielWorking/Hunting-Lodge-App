@@ -15,14 +15,14 @@ export const IMMUTABLE_SSO_FIELDS: readonly string[] = ["displayName", "sub", "o
  *
  * @param target - Target object or array to sanitize.
  */
-export function sanitizePayload(target: unknown): void {
-    if (!target || typeof target !== "object") {
+export function sanitizePayload(target: unknown, depth: number = 0): void {
+    if (!target || typeof target !== "object" || depth > 10) {
         return;
     }
 
     if (Array.isArray(target)) {
         for (let i = 0; i < target.length; i++) {
-            sanitizePayload(target[i]);
+            sanitizePayload(target[i], depth + 1);
         }
         return;
     }
@@ -38,7 +38,7 @@ export function sanitizePayload(target: unknown): void {
     for (const key of Object.keys(record)) {
         const val = record[key];
         if (val && typeof val === "object") {
-            sanitizePayload(val);
+            sanitizePayload(val, depth + 1);
         }
     }
 }
@@ -60,12 +60,4 @@ export const stripImmutableFields: RequestHandler = (
 };
 
 export default stripImmutableFields;
-
-// CommonJS compatibility
-module.exports = {
-    stripImmutableFields,
-    sanitizePayload,
-    IMMUTABLE_SSO_FIELDS,
-};
-module.exports.default = stripImmutableFields;
 

@@ -12,6 +12,7 @@ import { z } from "zod";
 import * as phonesController from "../controllers/phonesController";
 import { protect } from "../middleware/authMiddleware";
 import { validateRequest } from "../middleware/validationMiddleware";
+import { httpCache } from "../middleware/cacheMiddleware";
 
 const router = Router();
 
@@ -50,7 +51,7 @@ router.use(protect);
  * Dynamically adds an `isFavorite` flag based on the current user's preferences.
  * Authorization: Requires valid JWT.
  */
-router.get("/", phonesController.getPhones);
+router.get("/", httpCache(60, 300), phonesController.getPhones);
 
 /**
  * POST /

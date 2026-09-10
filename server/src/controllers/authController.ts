@@ -7,8 +7,9 @@
  * Migrated to strict TypeScript with zero `any` and robust claim resolution.
  */
 
+import https from "https";
 import { Request, Response, NextFunction } from "express";
-import { Issuer, BaseClient, TokenSet } from "openid-client";
+import { Issuer, BaseClient, TokenSet, custom } from "openid-client";
 import User from "../models/User";
 import Group from "../models/Group";
 import config from "../config";
@@ -16,6 +17,18 @@ import ssoConfig from "../config/sso";
 import { generateToken } from "../utils/jwt";
 import { isSuperAdminUser } from "../utils/authHelpers";
 import type { SsoLoginInput } from "../routes/auth";
+
+// Configure outbound HTTP keep-alive connection pooling for OIDC token exchanges and discovery
+const ssoHttpsAgent = new https.Agent({
+    keepAlive: true,
+    maxSockets: 50,
+    keepAliveMsecs: 30000,
+    timeout: 10000,
+});
+custom.setHttpOptionsDefaults({
+    agent: ssoHttpsAgent,
+    timeout: 10000,
+});
 
 /** Cached OIDC client instance to avoid repeated dynamic discoveries. */
 let client: BaseClient | null = null;

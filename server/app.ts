@@ -7,11 +7,11 @@
  */
 
 import path from "path";
-import fs from "fs";
 import express, { Express, Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import compression from "compression";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import config from "./src/config";
@@ -30,6 +30,13 @@ const app: Express = express();
 
 // Configure reverse proxy trust for correct client IP resolution behind proxies (OpenShift Router, Nginx, ALB)
 app.set("trust proxy", config.security.trustProxy);
+
+// Response payload compression for payloads > 1KB (gzip / deflate)
+app.use(
+    compression({
+        threshold: 1024,
+    })
+);
 
 // Global Middleware setup
 app.use(morgan(config.logging.morganFormat)); // HTTP request logger (dev vs combined)
@@ -64,11 +71,16 @@ if (config.security.corsOrigin === true) {
 app.use(express.json());
 app.use(stripImmutableFields);
 
-// Apply rate limiting to all requests based on environment configuration
+// Apply rate limiting to API requests; skip auth paths that enforce stricter dedicated rate limiters
 const limiter = rateLimit({
     windowMs: config.security.rateLimitWindowMs,
     max: config.security.rateLimitMax,
     message: "Too many requests from this IP, please try again after 15 minutes",
+    skip: (req) =>
+        req.path.startsWith("/api/auth") ||
+        req.path === "/api/users/login" ||
+        req.path === "/api/health" ||
+        req.path === "/healthz",
 });
 app.use(limiter);
 
@@ -146,7 +158,7 @@ app.use(
  * Uses Express 5 compatible wildcard routing syntax.
  * Unmatched /api routes are forwarded to the centralized notFoundHandler.
  */
-app.get("{*path}", async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+app.get("{*path}", (req: Request, res: Response, next: NextFunction): void => {
     // Pass through any unmatched API requests to the 404 handler
     if (req.path.startsWith("/api")) {
         return next();
@@ -154,24 +166,24 @@ app.get("{*path}", async (req: Request, res: Response, next: NextFunction): Prom
 
     const indexPath: string = path.join(staticPath, "index.html");
 
-    try {
-        await fs.promises.access(indexPath, fs.constants.F_OK);
-        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
-        res.sendFile(indexPath);
-    } catch {
-        // Informational fallback when client has not been compiled (e.g., API-only dev mode)
-        if (req.path === "/") {
-            res.json({
-                message: "Hunting Lodge API is running. Build the frontend client bundle to serve the React SPA.",
-                environment: config.env,
-                health: "/api/health",
-            });
-            return;
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
+    res.sendFile(indexPath, (err?: Error) => {
+        if (err) {
+            // Informational fallback when client has not been compiled (e.g., API-only dev mode)
+            if (req.path === "/") {
+                res.json({
+                    message: "Hunting Lodge API is running. Build the frontend client bundle to serve the React SPA.",
+                    environment: config.env,
+                    health: "/api/health",
+                });
+                return;
+            }
+            return next();
         }
-        return next();
-    }
+    });
 });
 
 // === Centralized Error Handling & Fallback 404 Middleware ===

@@ -12,6 +12,7 @@ import { z } from "zod";
 import * as sitesController from "../controllers/sitesController";
 import { protect, requireGroupMember } from "../middleware/authMiddleware";
 import { validateRequest } from "../middleware/validationMiddleware";
+import { httpCache } from "../middleware/cacheMiddleware";
 
 const router = Router();
 
@@ -58,6 +59,7 @@ router.use(protect);
 router.get(
     "/",
     validateRequest({ query: getSitesQuerySchema }),
+    httpCache(60, 300),
     sitesController.getSites,
 );
 

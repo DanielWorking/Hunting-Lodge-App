@@ -12,7 +12,7 @@
         "migrate:down": "tsx ../node_modules/migrate-mongo/bin/migrate-mongo.js down -f src/migrations/migrate-mongo-config.ts",
         "migrate:status": "tsx ../node_modules/migrate-mongo/bin/migrate-mongo.js status -f src/migrations/migrate-mongo-config.ts",
         "migrate:create": "tsx ../node_modules/migrate-mongo/bin/migrate-mongo.js create -f src/migrations/migrate-mongo-config.ts",
-        "test": "node --import tsx --test src/test/**/*.test.ts",
+        "test": "node --import tsx --test src/test/**/*.test.ts src/test/**/*.test.tsx",
         "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "keywords": [],
@@ -20,12 +20,14 @@
     "license": "ISC",
     "type": "commonjs",
     "dependencies": {
+        "compression": "^1.8.1",
         "cors": "^2.8.5",
         "dotenv": "^17.2.3",
         "express": "^5.1.0",
         "express-rate-limit": "^8.5.2",
         "helmet": "^8.2.0",
         "jsonwebtoken": "^9.0.3",
+        "lru-cache": "^5.1.1",
         "migrate-mongo": "^14.0.7",
         "mongoose": "^9.9.3",
         "morgan": "^1.11.0",
@@ -34,6 +36,7 @@
         "zod": "^4.4.3"
     },
     "devDependencies": {
+        "@types/compression": "^1.8.1",
         "@types/cors": "^2.8.19",
         "@types/express": "^5.0.6",
         "@types/jsonwebtoken": "^9.0.10",

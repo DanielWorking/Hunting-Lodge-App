@@ -252,38 +252,51 @@ export async function publishSchedule(req: Request, res: Response, next?: NextFu
         const deductedRecords: { userId: Types.ObjectId | string; amount: number }[] = [];
 
         if (vacationTypeIds.length > 0) {
+            // Pre-aggregate requested deductions by unique userId to avoid multiple sequential roundtrips and race conditions
+            const userDeductionMap = new Map<string, { totalVal: number; userIdVal: Types.ObjectId | string; shifts: (typeof schedule.shifts)[0][] }>();
+
             for (let i = 0; i < schedule.shifts.length; i++) {
                 const shift = schedule.shifts[i];
                 const shiftTypeIdStr = String(shift.shiftTypeId);
 
                 if (vacationTypeIds.includes(shiftTypeIdStr) && !shift.vacationDeducted) {
                     const vacationVal = shift.vacationValue !== undefined ? shift.vacationValue : 1;
-                    const balanceFilter = { $gte: vacationVal };
-
-                    // Atomically decrement only if user has sufficient balance to prevent underflow
-                    const updatedUser = await User.findOneAndUpdate(
-                        { _id: shift.userId, vacationBalance: balanceFilter },
-                        { $inc: { vacationBalance: -vacationVal } },
-                        { returnDocument: "after" },
-                    );
-
-                    if (updatedUser) {
-                        shift.vacationDeducted = true;
-                        const rawShiftUserId = shift.userId;
-                        let userIdVal: Types.ObjectId | string = "";
-                        if (rawShiftUserId instanceof Types.ObjectId) {
-                            userIdVal = rawShiftUserId;
-                        } else if (rawShiftUserId && typeof rawShiftUserId === "object" && "_id" in rawShiftUserId) {
-                            const idProp = (rawShiftUserId as { _id?: unknown })._id;
-                            userIdVal = idProp instanceof Types.ObjectId ? idProp : String(idProp);
-                        } else {
-                            userIdVal = String(rawShiftUserId);
-                        }
-                        deductedRecords.push({ userId: userIdVal, amount: vacationVal });
+                    const rawShiftUserId = shift.userId;
+                    let userIdVal: Types.ObjectId | string = "";
+                    if (rawShiftUserId instanceof Types.ObjectId) {
+                        userIdVal = rawShiftUserId;
+                    } else if (rawShiftUserId && typeof rawShiftUserId === "object" && "_id" in rawShiftUserId) {
+                        const idProp = (rawShiftUserId as { _id?: unknown })._id;
+                        userIdVal = idProp instanceof Types.ObjectId ? idProp : String(idProp);
                     } else {
-                        console.warn(`[PublishSchedule] User ${String(shift.userId)} has insufficient vacation balance; balance deduction skipped to prevent underflow.`);
+                        userIdVal = String(rawShiftUserId);
                     }
+                    const userKey = userIdVal.toString();
+                    const existing = userDeductionMap.get(userKey) || { totalVal: 0, userIdVal, shifts: [] };
+                    existing.totalVal += vacationVal;
+                    existing.shifts.push(shift);
+                    userDeductionMap.set(userKey, existing);
                 }
+            }
+
+            if (userDeductionMap.size > 0) {
+                // Execute atomic deductions per unique user concurrently
+                const deductionPromises = Array.from(userDeductionMap.values()).map(async ({ totalVal, userIdVal, shifts }) => {
+                    const updatedUser = await User.findOneAndUpdate(
+                        { _id: userIdVal, vacationBalance: { $gte: totalVal } },
+                        { $inc: { vacationBalance: -totalVal } },
+                        { returnDocument: "after" }
+                    );
+                    if (updatedUser) {
+                        for (const shift of shifts) {
+                            shift.vacationDeducted = true;
+                        }
+                        deductedRecords.push({ userId: userIdVal, amount: totalVal });
+                    } else {
+                        console.warn(`[PublishSchedule] User ${String(userIdVal)} has insufficient vacation balance (${totalVal} required); balance deduction skipped.`);
+                    }
+                });
+                await Promise.all(deductionPromises);
             }
         }
 
@@ -340,7 +353,7 @@ export async function getAllSchedules(req: Request, res: Response, next?: NextFu
             scheduleFilter.isPublished = true;
         }
 
-        const schedulesQuery = ShiftSchedule.find(scheduleFilter);
+        const schedulesQuery = ShiftSchedule.find(scheduleFilter).select("-__v");
         const schedules = await (typeof (schedulesQuery as any).lean === "function"
             ? (schedulesQuery as any).lean()
             : schedulesQuery);

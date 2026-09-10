@@ -16,15 +16,51 @@ import {
     isGroupMember,
     isShiftManager,
 } from "../utils/authHelpers";
+import { BoundedLRUCache } from "../utils/lruCache";
 
 export interface CachedUserSession {
     readonly user: UserDocument | Express.User;
     readonly timestamp: number;
 }
 
-// In-memory session cache to avoid per-request database lookups
-const userCache = new Map<string, CachedUserSession>();
+// In-memory bounded session cache to avoid per-request database lookups
 const USER_CACHE_TTL_MS = 30 * 1000; // 30-second TTL
+const userCache = new BoundedLRUCache<string, CachedUserSession>({
+    max: 1000,
+    ttl: USER_CACHE_TTL_MS,
+});
+
+// Bounded token signature cache to avoid per-request synchronous HMAC-SHA256 digests
+const tokenSignatureCache = new BoundedLRUCache<string, DecodedTokenPayload>({
+    max: 5000,
+    ttl: 60 * 1000,
+});
+
+let tokenHits = 0;
+let tokenMisses = 0;
+
+/**
+ * Invalidates the cached token signatures.
+ * @param token - Optional token; clears all if omitted.
+ */
+export const invalidateTokenCache = (token?: string): void => {
+    if (token) {
+        tokenSignatureCache.delete(token);
+    } else {
+        tokenSignatureCache.clear();
+        tokenHits = 0;
+        tokenMisses = 0;
+    }
+};
+
+/**
+ * Returns cache telemetry for token signatures.
+ */
+export const getTokenCacheStats = (): { size: number; hits: number; misses: number } => ({
+    size: tokenSignatureCache.size,
+    hits: tokenHits,
+    misses: tokenMisses,
+});
 
 /**
  * Invalidates the cached user session when profile, roles, or status change.
@@ -71,34 +107,40 @@ export const protect: RequestHandler = async (
             return;
         }
 
-        let decoded: DecodedTokenPayload;
-        try {
-            decoded = verifyToken(token);
-        } catch (jwtError: unknown) {
-            if (jwtError instanceof Error && jwtError.name === "TokenExpiredError") {
+        let decoded: DecodedTokenPayload | undefined = tokenSignatureCache.get(token);
+        if (decoded) {
+            tokenHits++;
+        } else {
+            tokenMisses++;
+            try {
+                decoded = verifyToken(token);
+                const expMs = decoded.exp ? decoded.exp * 1000 - Date.now() : 60_000;
+                const ttl = Math.max(1000, Math.min(60_000, expMs));
+                tokenSignatureCache.set(token, decoded, { ttl });
+            } catch (jwtError: unknown) {
+                if (jwtError instanceof Error && jwtError.name === "TokenExpiredError") {
+                    res.status(401).json({
+                        message: "Unauthorized: Token expired",
+                        code: "TOKEN_EXPIRED",
+                    });
+                    return;
+                }
+                console.error("JWT Verification Error:", jwtError);
                 res.status(401).json({
-                    message: "Unauthorized: Token expired",
-                    code: "TOKEN_EXPIRED",
+                    message: "Unauthorized: Invalid token signature",
+                    code: "INVALID_TOKEN",
                 });
                 return;
             }
-            console.error("JWT Verification Error:", jwtError);
-            res.status(401).json({
-                message: "Unauthorized: Invalid token signature",
-                code: "INVALID_TOKEN",
-            });
-            return;
         }
 
         const userIdStr = decoded.userId ? decoded.userId.toString() : null;
         let user: UserDocument | Express.User | null = null;
 
-        if (userIdStr && userCache.has(userIdStr)) {
+        if (userIdStr) {
             const cached = userCache.get(userIdStr);
             if (cached && Date.now() - cached.timestamp < USER_CACHE_TTL_MS) {
                 user = cached.user;
-            } else {
-                userCache.delete(userIdStr);
             }
         }
 
@@ -240,24 +282,8 @@ export const requireShiftManager = (getGroupId?: GroupIdExtractor): RequestHandl
 export default {
     protect,
     invalidateUserCache,
-    requireAdmin,
-    requireSuperAdmin,
-    requireGroupMember,
-    requireShiftManager,
-};
-
-// CommonJS compatibility
-module.exports = {
-    protect,
-    invalidateUserCache,
-    requireAdmin,
-    requireSuperAdmin,
-    requireGroupMember,
-    requireShiftManager,
-};
-module.exports.default = {
-    protect,
-    invalidateUserCache,
+    invalidateTokenCache,
+    getTokenCacheStats,
     requireAdmin,
     requireSuperAdmin,
     requireGroupMember,

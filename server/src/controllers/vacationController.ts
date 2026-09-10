@@ -41,26 +41,36 @@ export async function createVacationRequest(req: Request, res: Response, next?: 
             return;
         }
 
-        const group = await resolveGroup(groupId);
-        if (!group) {
-            res.status(404).json({ message: "Group not found" });
-            return;
-        }
-
         const authUser = req.user as AuthUser | undefined;
         if (!authUser || !authUser._id) {
             res.status(401).json({ message: "Unauthorized" });
             return;
         }
 
-        let userDocQuery: any = User.findById(authUser._id);
-        if (typeof userDocQuery?.select === "function") {
-            const selected = userDocQuery.select("vacationBalance");
-            if (selected) userDocQuery = selected;
+        const requestDate = new Date(date);
+
+        // Concurrently resolve group, user balance, and existing request conflicts
+        const [group, userDoc, existingRequest] = await Promise.all([
+            resolveGroup(groupId),
+            (async () => {
+                const q = User.findById(authUser._id).select("vacationBalance");
+                return (typeof (q as any).lean === "function" ? (q as any).lean() : q);
+            })(),
+            (async () => {
+                const q = VacationRequest.findOne({
+                    userId: authUser._id,
+                    date: requestDate,
+                    status: { $in: ["pending", "approved"] },
+                }).select("_id");
+                return (typeof (q as any).lean === "function" ? (q as any).lean() : q);
+            })(),
+        ]);
+
+        if (!group) {
+            res.status(404).json({ message: "Group not found" });
+            return;
         }
-        const userDoc = await (typeof userDocQuery?.lean === "function"
-            ? userDocQuery.lean()
-            : userDocQuery);
+
         if (!userDoc) {
             res.status(404).json({ message: "User not found" });
             return;
@@ -75,20 +85,6 @@ export async function createVacationRequest(req: Request, res: Response, next?: 
             });
             return;
         }
-
-        const requestDate = new Date(date);
-        let existingRequestQuery: any = VacationRequest.findOne({
-            userId: userDoc._id,
-            date: requestDate,
-            status: { $in: ["pending", "approved"] },
-        });
-        if (typeof existingRequestQuery?.select === "function") {
-            const selected = existingRequestQuery.select("_id");
-            if (selected) existingRequestQuery = selected;
-        }
-        const existingRequest = await (typeof existingRequestQuery?.lean === "function"
-            ? existingRequestQuery.lean()
-            : existingRequestQuery);
 
         if (existingRequest) {
             res.status(409).json({
@@ -251,34 +247,34 @@ export async function aggregateVacationBalance(req: Request, res: Response, next
             return;
         }
 
-        const userDocQuery = User.findById(userId).select("_id vacationBalance");
-        const userDoc = await (typeof (userDocQuery as any).lean === "function"
-            ? (userDocQuery as any).lean()
-            : userDocQuery);
-        if (!userDoc) {
-            res.status(404).json({ message: "User not found" });
-            return;
-        }
-
-        // Aggregate deducted days from published ShiftSchedules and approved requests concurrently
-        const [schedules, approvedRequests] = await Promise.all([
+        // Query user balance, published schedules, and approved requests concurrently
+        const [userDoc, schedules, approvedRequests] = await Promise.all([
+            (async () => {
+                const q = User.findById(userId).select("_id vacationBalance");
+                return (typeof (q as any).lean === "function" ? (q as any).lean() : q);
+            })(),
             (async () => {
                 const q = ShiftSchedule.find({
                     groupId,
                     isPublished: true,
-                    "shifts.userId": userDoc._id,
+                    "shifts.userId": userId,
                 }).select("shifts");
                 return (typeof (q as any).lean === "function" ? (q as any).lean() : q);
             })(),
             (async () => {
                 const q = VacationRequest.find({
                     groupId,
-                    userId: userDoc._id,
+                    userId,
                     status: "approved",
                 }).select("vacationValue");
                 return (typeof (q as any).lean === "function" ? (q as any).lean() : q);
             })(),
         ]);
+
+        if (!userDoc) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
 
         let totalDeductedFromShifts = 0;
         for (const sched of (schedules || [])) {
@@ -290,7 +286,8 @@ export async function aggregateVacationBalance(req: Request, res: Response, next
         }
 
         const totalDeductedFromRequests = (approvedRequests || []).reduce(
-            (acc: number, curr: any) => acc + (curr.vacationValue !== undefined ? curr.vacationValue : 1.0),
+            (acc: number, curr: { vacationValue?: number }) =>
+                acc + (curr.vacationValue !== undefined ? curr.vacationValue : 1.0),
             0,
         );
 

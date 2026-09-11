@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # ==============================================================================
 # Stage 1: Build the React Client SPA Bundle
 # ==============================================================================
@@ -7,7 +8,7 @@ WORKDIR /app/client
 
 # Install frontend dependencies cleanly using package-lock
 COPY client/package.json client/package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Copy client source files and configuration
 COPY client/ ./
@@ -33,7 +34,7 @@ WORKDIR /app/server
 
 # Install all backend dependencies (including devDependencies for TypeScript compiler)
 COPY server/package.json server/package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Copy server source code and TypeScript build configuration
 COPY server/ ./
@@ -58,7 +59,7 @@ ENV NODE_ENV=production \
 
 # Install backend production dependencies only
 COPY server/package.json server/package-lock.json ./server/
-RUN cd server && npm ci --omit=dev --ignore-scripts
+RUN --mount=type=cache,target=/root/.npm cd server && npm ci --omit=dev --ignore-scripts
 
 # Copy compiled backend JavaScript application from Stage 2 into /app/server
 COPY --from=server-builder /app/server/dist ./server

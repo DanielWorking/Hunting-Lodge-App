@@ -16,12 +16,16 @@
     "migrate:up": "npm run migrate:up --workspace=server",
     "migrate:down": "npm run migrate:down --workspace=server",
     "migrate:status": "npm run migrate:status --workspace=server",
+    "migrate:create": "npm run migrate:create --workspace=server",
+    "typecheck:client": "npm run typecheck --workspace=client",
+    "typecheck:server": "npm run typecheck --workspace=server",
+    "typecheck": "concurrently \"npm:typecheck:client\" \"npm:typecheck:server\"",
     "build:client": "npm run build --workspace=client",
     "build:server": "npm run build --workspace=server",
-    "build": "npm run build:client && npm run build:server",
+    "build": "concurrently \"npm:build:client\" \"npm:build:server\"",
     "test:client": "npm run test --workspace=client",
     "test:server": "npm run test --workspace=server",
-    "test": "npm run test:client && npm run test:server",
+    "test": "concurrently \"npm:test:client\" \"npm:test:server\"",
     "start": "npm run start --workspace=server"
   },
   "repository": {
@@ -39,8 +43,5 @@
   "devDependencies": {
     "concurrently": "^10.0.4",
     "tsx": "^4.23.13"
-  },
-  "dependencies": {
-    "mongoose": "^9.0.0"
   }
 }

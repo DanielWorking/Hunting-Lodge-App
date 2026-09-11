@@ -26,6 +26,9 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
+    reportCompressedSize: false,
+    emptyOutDir: true,
+    assetsInlineLimit: 4096,
     cssCodeSplit: true,
     sourcemap: false,
     chunkSizeWarningLimit: 600,
@@ -48,22 +51,18 @@ export default defineConfig({
             if (normalizedId.includes('@mui/icons-material')) {
               return 'vendor-mui-icons';
             }
-            // Material UI Core component primitives & styling system
+            // Material UI Core & Emotion styling engine
             if (
               normalizedId.includes('@mui/material') ||
               normalizedId.includes('@mui/system') ||
               normalizedId.includes('@mui/base') ||
               normalizedId.includes('@mui/utils') ||
-              normalizedId.includes('@popperjs')
+              normalizedId.includes('@popperjs') ||
+              normalizedId.includes('@emotion') ||
+              normalizedId.includes('clsx') ||
+              normalizedId.includes('stylis')
             ) {
               return 'vendor-mui-core';
-            }
-            // Emotion CSS-in-JS styling engine & class utilities
-            if (
-              normalizedId.includes('@emotion') ||
-              normalizedId.includes('clsx')
-            ) {
-              return 'vendor-emotion';
             }
             // HTTP Networking Client
             if (normalizedId.includes('axios')) {

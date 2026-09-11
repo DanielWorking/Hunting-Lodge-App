@@ -8,10 +8,10 @@
         "build": "tsc -p tsconfig.build.json",
         "start": "tsx index.ts",
         "seed": "tsx seed.ts",
-        "migrate:up": "tsx ../node_modules/migrate-mongo/bin/migrate-mongo.js up -f src/migrations/migrate-mongo-config.ts",
-        "migrate:down": "tsx ../node_modules/migrate-mongo/bin/migrate-mongo.js down -f src/migrations/migrate-mongo-config.ts",
-        "migrate:status": "tsx ../node_modules/migrate-mongo/bin/migrate-mongo.js status -f src/migrations/migrate-mongo-config.ts",
-        "migrate:create": "tsx ../node_modules/migrate-mongo/bin/migrate-mongo.js create -f src/migrations/migrate-mongo-config.ts",
+        "migrate:up": "node --import tsx -e \"const p=require('path');require(p.resolve(p.dirname(require.resolve('migrate-mongo')),'../bin/migrate-mongo.js'))\" up -f src/migrations/migrate-mongo-config.ts",
+        "migrate:down": "node --import tsx -e \"const p=require('path');require(p.resolve(p.dirname(require.resolve('migrate-mongo')),'../bin/migrate-mongo.js'))\" down -f src/migrations/migrate-mongo-config.ts",
+        "migrate:status": "node --import tsx -e \"const p=require('path');require(p.resolve(p.dirname(require.resolve('migrate-mongo')),'../bin/migrate-mongo.js'))\" status -f src/migrations/migrate-mongo-config.ts",
+        "migrate:create": "node --import tsx -e \"const p=require('path');require(p.resolve(p.dirname(require.resolve('migrate-mongo')),'../bin/migrate-mongo.js'))\" create -f src/migrations/migrate-mongo-config.ts",
         "test": "node --import tsx --test src/test/**/*.test.ts src/test/**/*.test.tsx",
         "typecheck": "tsc -p tsconfig.json --noEmit"
     },
@@ -27,7 +27,6 @@
         "express-rate-limit": "^8.5.2",
         "helmet": "^8.2.0",
         "jsonwebtoken": "^9.0.3",
-        "lru-cache": "^5.1.1",
         "migrate-mongo": "^14.0.7",
         "mongoose": "^9.9.3",
         "morgan": "^1.11.0",
@@ -43,6 +42,7 @@
         "@types/morgan": "^1.9.10",
         "@types/node": "^26.4.1",
         "nodemon": "^3.1.11",
+        "tsx": "^4.23.13",
         "typescript": "^5.9.3"
     }
 }

@@ -4,14 +4,15 @@
 # ==============================================================================
 FROM node:22-alpine AS client-builder
 
-WORKDIR /app/client
+WORKDIR /app
 
-# Install frontend dependencies cleanly using package-lock
-COPY client/package.json client/package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+# Install frontend dependencies cleanly using root package-lock and npm workspace
+COPY package.json package-lock.json ./
+COPY client/package.json ./client/
+RUN --mount=type=cache,target=/root/.npm npm ci --workspace=client --include-workspace-root
 
 # Copy client source files and configuration
-COPY client/ ./
+COPY client/ ./client/
 
 # Build arguments for Vite environment variables with enterprise defaults
 ARG VITE_API_URL=/api
@@ -23,24 +24,25 @@ ENV VITE_API_URL=${VITE_API_URL} \
     VITE_SUPER_ADMIN_GROUP_NAME=${VITE_SUPER_ADMIN_GROUP_NAME}
 
 # Compile TypeScript and build production bundle into /app/client/dist
-RUN npm run build
+RUN npm run build --workspace=client
 
 # ==============================================================================
 # Stage 2: Build the Backend TypeScript Application
 # ==============================================================================
 FROM node:22-alpine AS server-builder
 
-WORKDIR /app/server
+WORKDIR /app
 
-# Install all backend dependencies (including devDependencies for TypeScript compiler)
-COPY server/package.json server/package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+# Install backend dependencies (including devDependencies for TypeScript compiler)
+COPY package.json package-lock.json ./
+COPY server/package.json ./server/
+RUN --mount=type=cache,target=/root/.npm npm ci --workspace=server --include-workspace-root
 
 # Copy server source code and TypeScript build configuration
-COPY server/ ./
+COPY server/ ./server/
 
 # Compile TypeScript into JavaScript in /app/server/dist
-RUN npm run build
+RUN npm run build --workspace=server
 
 # ==============================================================================
 # Stage 3: Production Runtime (OpenShift / Kubernetes v1.33+ Compliant)
@@ -57,9 +59,10 @@ ENV NODE_ENV=production \
     PORT=5000 \
     STATIC_FILES_PATH=/app/client/dist
 
-# Install backend production dependencies only
-COPY server/package.json server/package-lock.json ./server/
-RUN --mount=type=cache,target=/root/.npm cd server && npm ci --omit=dev --ignore-scripts
+# Install backend production dependencies only using root package-lock
+COPY package.json package-lock.json ./
+COPY server/package.json ./server/
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --workspace=server --include-workspace-root --ignore-scripts
 
 # Copy compiled backend JavaScript application from Stage 2 into /app/server
 COPY --from=server-builder /app/server/dist ./server

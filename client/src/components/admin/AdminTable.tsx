@@ -57,6 +57,9 @@ interface AdminTableProps {
  * @param {AdminTableProps} props  The properties for the component.
  * @returns {JSX.Element}           The rendered table component.
  */
+const groupsBoxSx = { display: "flex", flexWrap: "wrap", gap: 0.5, alignItems: "center" } as const;
+const userCountBoxSx = { display: "flex", alignItems: "center", gap: 1 } as const;
+
 export default function AdminTable({
     viewMode,
     users,
@@ -101,7 +104,7 @@ export default function AdminTable({
         // Handle missing login data
         if (!dateString) {
             return (
-                <Typography variant="body2" color="error" fontWeight="bold">
+                <Typography variant="body2" color="error" sx={{ fontWeight: "bold" }}>
                     Never
                 </Typography>
             );
@@ -112,7 +115,7 @@ export default function AdminTable({
         // Handle malformed date strings
         if (isNaN(date.getTime())) {
             return (
-                <Typography variant="body2" color="error" fontWeight="bold">
+                <Typography variant="body2" color="error" sx={{ fontWeight: "bold" }}>
                     Never
                 </Typography>
             );
@@ -131,7 +134,7 @@ export default function AdminTable({
         // Flag accounts with no activity in the last 90 days
         if (diffDays > 90) {
             return (
-                <Typography variant="body2" color="error" fontWeight="bold">
+                <Typography variant="body2" color="error" sx={{ fontWeight: "bold" }}>
                     {formatted}
                 </Typography>
             );
@@ -171,7 +174,7 @@ export default function AdminTable({
             <TableRow key={user._id} hover>
                 {/* 1. System ID (Username) */}
                 <TableCell>
-                    <Typography variant="body2" fontFamily="monospace">
+                    <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
                         {user.username}
                     </Typography>
                 </TableCell>
@@ -183,12 +186,7 @@ export default function AdminTable({
 
                 {/* 3. Groups (Max 2 + Chip) */}
                 <TableCell>
-                    <Box
-                        display="flex"
-                        flexWrap="wrap"
-                        gap={0.5}
-                        alignItems="center"
-                    >
+                    <Box sx={groupsBoxSx}>
                         {visibleGroups.length > 0 ? (
                             visibleGroups.map((g) => {
                                 const groupName =
@@ -301,7 +299,7 @@ export default function AdminTable({
                 </TableCell>
 
                 <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
+                    <Box sx={userCountBoxSx}>
                         <PersonIcon fontSize="small" color="action" />
                         <Typography variant="body2">{userCount}</Typography>
                     </Box>

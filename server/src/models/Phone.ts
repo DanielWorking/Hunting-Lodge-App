@@ -72,7 +72,7 @@ export { Phone, PhoneSchema };
 export default Phone;
 
 // CommonJS compatibility for require("../models/Phone")
-module.exports = Phone;
-module.exports.default = Phone;
-module.exports.Phone = Phone;
-module.exports.PhoneSchema = PhoneSchema;
+// 
+// 
+// 
+// 

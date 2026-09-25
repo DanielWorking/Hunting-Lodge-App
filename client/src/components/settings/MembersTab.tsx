@@ -185,7 +185,7 @@ export default function MembersTab() {
     };
 
     return (
-        <Box p={3}>
+        <Box sx={{ p: 3 }}>
 
             {/* --- Members Table Section --- */}
             <Typography variant="h6" component="h2" gutterBottom>
@@ -239,9 +239,7 @@ export default function MembersTab() {
                                 <TableRow key={userId} hover>
                                     {/* Order Arrows */}
                                     <TableCell align="center">
-                                        <Box
-                                            display="flex"
-                                            flexDirection="column"
+                                        <Box sx={{ display: "flex", flexDirection: "column" }}
                                         >
                                             <IconButton
                                                 size="small"
@@ -272,8 +270,7 @@ export default function MembersTab() {
                                     {/* Column 1: System ID*/}
                                     <TableCell>
                                         <Typography
-                                            variant="body2"
-                                            fontFamily="monospace"
+                                            variant="body2" sx={{ fontFamily: "monospace" }}
                                         >
                                             {user.username}
                                         </Typography>
@@ -282,8 +279,7 @@ export default function MembersTab() {
                                     {/* Column 2: Display Name */}
                                     <TableCell>
                                         <Typography
-                                            variant="body2"
-                                            fontWeight="medium"
+                                            variant="body2" sx={{ fontWeight: "medium" }}
                                         >
                                             {user.displayName}
                                         </Typography>
@@ -295,14 +291,14 @@ export default function MembersTab() {
                                         "shift_manager" ? (
                                             <Typography
                                                 variant="caption"
-                                                color="primary"
-                                                fontWeight="bold"
                                                 sx={{
                                                     border: 1,
                                                     borderColor: "primary.main",
                                                     borderRadius: 1,
                                                     px: 1,
                                                     py: 0.5,
+                                                    color: "primary",
+                                                    fontWeight: "bold"
                                                 }}
                                             >
                                                 Shift Manager
@@ -325,15 +321,14 @@ export default function MembersTab() {
                                                     e.target.checked,
                                                 )
                                             }
-                                            inputProps={{
-                                                "aria-label": `Toggle active status for ${user.displayName}`,
-                                            }}
                                             color={
                                                 currentActive
                                                     ? "success"
                                                     : "default"
                                             }
-                                            disabled={isSuperAdmin}
+                                            disabled={isSuperAdmin} slotProps={{ input: {
+                                                                                            "aria-label": `Toggle active status for ${user.displayName}`,
+                                                                                        } }}
                                         />
                                     </TableCell>
 
@@ -344,16 +339,15 @@ export default function MembersTab() {
                                             size="small"
                                             sx={{ width: 80 }}
                                             value={currentVacation}
-                                            inputProps={{
-                                                "aria-label": `Vacation balance for ${user.displayName}`,
-                                            }}
                                             onChange={(e) =>
                                                 handleChange(
                                                     userId,
                                                     "vacation",
                                                     e.target.value,
                                                 )
-                                            }
+                                            } slotProps={{ htmlInput: {
+                                                                                            "aria-label": `Vacation balance for ${user.displayName}`,
+                                                                                        } }}
                                         />
                                     </TableCell>
 

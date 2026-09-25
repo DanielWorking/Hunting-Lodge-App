@@ -111,14 +111,24 @@ export default function SiteDialog({
         });
     }, [initialData, open, currentGroup]);
 
+    const isValidHttpUrl = (val: string): boolean => {
+        try {
+            const parsed = new URL(val);
+            return parsed.protocol === "http:" || parsed.protocol === "https:";
+        } catch {
+            return false;
+        }
+    };
+
     /**
      * Validates required fields and invokes the onSave callback if the form is valid.
      */
     const handleSubmit = () => {
         // Validate all mandatory fields
+        const trimmedUrl = formData.url.trim();
         const newErrors = {
             title: !formData.title.trim(),
-            url: !formData.url.trim(),
+            url: !trimmedUrl || !isValidHttpUrl(trimmedUrl),
             description: !formData.description.trim(),
         };
         setErrors(newErrors);
@@ -152,9 +162,6 @@ export default function SiteDialog({
                             "aria-label": "Site Name",
                         },
                     }}
-                    inputProps={{
-                        "aria-label": "Site Name",
-                    }}
                     onChange={(e) =>
                         setFormData({ ...formData, title: e.target.value })
                     }
@@ -168,14 +175,11 @@ export default function SiteDialog({
                     variant="outlined"
                     value={formData.url}
                     error={errors.url}
-                    helperText={errors.url ? "URL is required" : ""}
+                    helperText={errors.url ? "Valid URL required (http:// or https://)" : ""}
                     slotProps={{
                         htmlInput: {
                             "aria-label": "URL (Link)",
                         },
-                    }}
-                    inputProps={{
-                        "aria-label": "URL (Link)",
                     }}
                     onChange={(e) =>
                         setFormData({ ...formData, url: e.target.value })
@@ -213,9 +217,6 @@ export default function SiteDialog({
                             "aria-label": "Image URL",
                         },
                     }}
-                    inputProps={{
-                        "aria-label": "Image URL",
-                    }}
                     onChange={(e) =>
                         setFormData({ ...formData, imageUrl: e.target.value })
                     }
@@ -237,9 +238,6 @@ export default function SiteDialog({
                         htmlInput: {
                             "aria-label": "Description",
                         },
-                    }}
-                    inputProps={{
-                        "aria-label": "Description",
                     }}
                     onChange={(e) =>
                         setFormData({

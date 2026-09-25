@@ -32,7 +32,7 @@ import Logout from "@mui/icons-material/Logout";
 import GroupsIcon from "@mui/icons-material/Groups";
 import CheckIcon from "@mui/icons-material/Check";
 import SettingsIcon from "@mui/icons-material/Settings";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutlineOutlined";
 import MenuIcon from "@mui/icons-material/Menu";
 import AboutDialog from "./AboutDialog";
 
@@ -151,8 +151,6 @@ export default function Navbar() {
                             srcSet="/images/hunting-lodge-image-50.png 1x, /images/hunting-lodge-image-100.png 2x, /images/hunting-lodge-image.png 225w"
                             sizes="50px"
                             alt="Hunting Lodge Logo"
-                            width={50}
-                            height={50}
                             decoding="async"
                             sx={{
                                 height: 50,
@@ -322,16 +320,6 @@ export default function Navbar() {
                         open={open}
                         onClose={handleClose}
                         onClick={undefined}
-                        PaperProps={{
-                            elevation: 0,
-                            sx: {
-                                overflow: "visible",
-                                filter: (theme) => theme.palette.mode === "dark" ? "drop-shadow(0px 2px 8px rgba(0,0,0,0.5))" : "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
-                                mt: 1.5,
-                                minWidth: 200,
-                                bgcolor: "background.paper",
-                            },
-                        }}
                         transformOrigin={{
                             horizontal: "right",
                             vertical: "top",
@@ -339,7 +327,16 @@ export default function Navbar() {
                         anchorOrigin={{
                             horizontal: "right",
                             vertical: "bottom",
-                        }}
+                        }} slotProps={{ paper: {
+                                                    elevation: 0,
+                                                    sx: {
+                                                        overflow: "visible",
+                                                        filter: (theme) => theme.palette.mode === "dark" ? "drop-shadow(0px 2px 8px rgba(0,0,0,0.5))" : "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
+                                                        mt: 1.5,
+                                                        minWidth: 200,
+                                                        bgcolor: "background.paper",
+                                                    },
+                                                } }}
                     >
                         <MenuItem
                             disabled

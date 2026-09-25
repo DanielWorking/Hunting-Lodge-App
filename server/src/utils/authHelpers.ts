@@ -14,8 +14,7 @@ export interface IGroupDocument {
     readonly [key: string]: unknown;
 }
 
-// Minimal Model interface for Group database operations
-const Group: mongoose.Model<IGroupDocument> = require("../models/Group");
+import Group from "../models/Group";
 
 /**
  * Group document or compatible object shape.
@@ -118,14 +117,14 @@ async function resolveFromIdentifier<T extends ResolvedGroup = ResolvedGroup>(
     if (mongoose.Types.ObjectId.isValid(strId)) {
         const byId = await Group.findById(strId);
         if (byId) {
-            result = byId;
+            result = byId as unknown as IGroupDocument;
         }
     }
 
     if (!result) {
         const byName = await Group.findOne({ name: strId });
         if (byName) {
-            result = byName;
+            result = byName as unknown as IGroupDocument;
         }
     }
 

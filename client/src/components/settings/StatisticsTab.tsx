@@ -148,14 +148,10 @@ export default function StatisticsTab() {
         });
 
     return (
-        <Box p={3}>
-            <Box
-                display="flex"
-                justifyContent="space-between"
-                alignItems="center"
-                mb={2}
+        <Box sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}
             >
-                <Typography variant="h6" component="h2" fontWeight="bold">
+                <Typography variant="h6" component="h2" sx={{ fontWeight: "bold" }}>
                     Yearly Statistics (Published Shifts)
                 </Typography>
             </Box>
@@ -185,10 +181,7 @@ export default function StatisticsTab() {
                                             {u.displayName}
                                         </TableCell>
                                         <TableCell>
-                                            <Box
-                                                display="flex"
-                                                gap={1}
-                                                flexWrap="wrap"
+                                            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}
                                             >
                                                 {Object.entries(
                                                     userStats.byType,

@@ -76,7 +76,7 @@ export { Shift };
 export default Shift;
 
 // CommonJS compatibility
-module.exports = Shift;
-module.exports.default = Shift;
-module.exports.Shift = Shift;
-module.exports.ShiftSchema = ShiftSchema;
+// 
+// 
+// 
+// 

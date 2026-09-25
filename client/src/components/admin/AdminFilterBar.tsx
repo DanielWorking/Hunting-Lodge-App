@@ -99,21 +99,23 @@ export default function AdminFilterBar({
                 size="small"
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
-                inputProps={{
-                    "aria-label":
-                        viewMode === "users" ? "Search Users" : "Search Groups",
+                slotProps={{
+                    htmlInput: {
+                        "aria-label":
+                            viewMode === "users" ? "Search Users" : "Search Groups",
+                    },
+                    input: {
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <SearchIcon color="action" />
+                            </InputAdornment>
+                        ),
+                    },
                 }}
                 sx={{
                     width: "100%",
                     maxWidth: "400px",
                     justifySelf: "center",
-                }}
-                InputProps={{
-                    startAdornment: (
-                        <InputAdornment position="start">
-                            <SearchIcon color="action" />
-                        </InputAdornment>
-                    ),
                 }}
             />
 

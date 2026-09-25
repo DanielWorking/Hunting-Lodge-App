@@ -217,7 +217,7 @@ export default function TimeSlotsTab() {
         const minutes = diff % 60;
 
         return (
-            <Box display="flex" alignItems="center" gap={1} mt={1.5}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1.5 }}>
                 <AccessTimeIcon fontSize="small" sx={{ color }} />
                 <Typography variant="body2" sx={{ color, fontWeight: "bold" }}>
                     Duration: {hours}h {minutes > 0 ? `${minutes}m` : ""}{" "}
@@ -228,9 +228,9 @@ export default function TimeSlotsTab() {
     };
 
     return (
-        <Box p={3}>
-            <Box display="flex" justifyContent="space-between" mb={2}>
-                <Typography variant="h6" component="h2" fontWeight="bold">
+        <Box sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+                <Typography variant="h6" component="h2" sx={{ fontWeight: "bold" }}>
                     Manage Report Time Slots
                 </Typography>
                 <Button
@@ -263,18 +263,14 @@ export default function TimeSlotsTab() {
                                     {/* Quick visual feedback for 24h and overnight slots */}
                                     {slot.startTime === slot.endTime && (
                                         <Typography
-                                            variant="caption"
-                                            display="block"
-                                            color="success.main"
+                                            variant="caption" sx={{ display: "block", color: "success.main" }}
                                         >
                                             (24h)
                                         </Typography>
                                     )}
                                     {slot.endTime < slot.startTime && (
                                         <Typography
-                                            variant="caption"
-                                            display="block"
-                                            color="warning.main"
+                                            variant="caption" sx={{ display: "block", color: "warning.main" }}
                                         >
                                             (Overnight)
                                         </Typography>
@@ -330,7 +326,7 @@ export default function TimeSlotsTab() {
                     {editingSlot ? "Edit Time Slot" : "New Time Slot"}
                 </DialogTitle>
                 <DialogContent>
-                    <Box display="flex" flexDirection="column" gap={2} mt={1}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
                         <TextField
                             label="Slot Name (e.g. Vacation / Morning)"
                             value={formData.name}
@@ -352,23 +348,18 @@ export default function TimeSlotsTab() {
                                 bgcolor: "action.hover",
                             }}
                         >
-                            <Box display="flex" gap={2}>
+                            <Box sx={{ display: "flex", gap: 2 }}>
                                 <TextField
                                     label="Start Time"
                                     type="time"
                                     fullWidth
-                                    InputLabelProps={{ shrink: true }}
-                                    inputProps={{
-                                        style: {
-                                            colorScheme: theme.palette.mode,
-                                        },
-                                    }}
                                     slotProps={{
                                         htmlInput: {
                                             style: {
                                                 colorScheme: theme.palette.mode,
                                             },
                                         },
+                                        inputLabel: { shrink: true }
                                     }}
                                     value={formData.startTime}
                                     onChange={(e) =>
@@ -387,18 +378,13 @@ export default function TimeSlotsTab() {
                                     label="End Time"
                                     type="time"
                                     fullWidth
-                                    InputLabelProps={{ shrink: true }}
-                                    inputProps={{
-                                        style: {
-                                            colorScheme: theme.palette.mode,
-                                        },
-                                    }}
                                     slotProps={{
                                         htmlInput: {
                                             style: {
                                                 colorScheme: theme.palette.mode,
                                             },
                                         },
+                                        inputLabel: { shrink: true }
                                     }}
                                     value={formData.endTime}
                                     onChange={(e) =>

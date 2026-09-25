@@ -88,6 +88,18 @@ export default function SiteCard({
         setIsFlipped(!isFlipped);
     };
 
+    const isSafeUrl = (targetUrl?: string): boolean => {
+        if (!targetUrl) return false;
+        try {
+            const parsed = new URL(targetUrl);
+            return parsed.protocol === "http:" || parsed.protocol === "https:";
+        } catch {
+            return false;
+        }
+    };
+
+    const safeHref = isSafeUrl(url) ? url : undefined;
+
     return (
         <Box
             sx={{
@@ -118,10 +130,10 @@ export default function SiteCard({
                     }}
                 >
                     <CardActionArea
-                        component="a"
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        component={safeHref ? "a" : "div"}
+                        href={safeHref}
+                        target={safeHref ? "_blank" : undefined}
+                        rel={safeHref ? "noopener noreferrer" : undefined}
                         sx={{ flexGrow: 1 }}
                     >
                         <CardMedia
@@ -250,7 +262,7 @@ export default function SiteCard({
                         bgcolor: "action.hover", // Distinct background for the back side
                     }}
                 >
-                    <Box p={1} display="flex" justifyContent="flex-end">
+                    <Box sx={{ p: 1, display: "flex", justifyContent: "flex-end" }}>
                         <IconButton
                             onClick={handleFlip}
                             size="small"

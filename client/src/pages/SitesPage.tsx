@@ -320,16 +320,23 @@ export default function SitesPage() {
             return matchesSearch;
         });
 
-        return [...filtered].sort((a, b) => {
-            if (sortOrder === "a-z") return a.title.localeCompare(b.title);
-            if (sortOrder === "z-a") return b.title.localeCompare(a.title);
-            if (sortOrder === "newest")
-                return b.createdAt.localeCompare(a.createdAt);
-            if (sortOrder === "oldest")
-                return a.createdAt.localeCompare(b.createdAt);
+        return [...filtered]
+            .sort((a, b) => {
+                if (sortOrder === "a-z") return a.title.localeCompare(b.title);
+                if (sortOrder === "z-a") return b.title.localeCompare(a.title);
+                if (sortOrder === "newest")
+                    return b.createdAt.localeCompare(a.createdAt);
+                if (sortOrder === "oldest")
+                    return a.createdAt.localeCompare(b.createdAt);
 
-            return 0;
-        });
+                return 0;
+            })
+            .map((site) => ({
+                ...site,
+                isFavorite: Boolean(
+                    user?._id && site.favoritedBy?.includes(user._id),
+                ),
+            }));
     }, [sites, activeGroup?._id, selectedTag, user?._id, filterFav, searchTerm, sortOrder]);
 
     if (loading && sites.length === 0) {
@@ -361,8 +368,7 @@ export default function SitesPage() {
                 <Stack
                     direction="row"
                     spacing={1}
-                    alignItems="center"
-                    sx={{ flexWrap: "wrap", gap: 1 }}
+                    sx={{ flexWrap: "wrap", gap: 1, alignItems: "center" }}
                 >
                     <Chip
                         label="All Tags"
@@ -476,9 +482,6 @@ export default function SitesPage() {
                             "aria-label": "Search Sites",
                         },
                     }}
-                    inputProps={{
-                        "aria-label": "Search Sites",
-                    }}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
 
@@ -526,16 +529,7 @@ export default function SitesPage() {
                             size={{ xs: 12, sm: 6, md: 4 }}
                         >
                             <SiteCard
-                                data={{
-                                    ...site,
-                                    isFavorite:
-                                        user?._id &&
-                                        site.favoritedBy
-                                            ? site.favoritedBy.includes(
-                                                  user._id,
-                                              )
-                                            : false,
-                                }}
+                                data={site}
                                 onEdit={() => handleEditSiteClick(site)}
                                 onDelete={() => handleDeleteSiteClick(site)}
                                 onToggleFavorite={() =>
@@ -595,9 +589,6 @@ export default function SitesPage() {
                             htmlInput: {
                                 "aria-label": "Tag Name",
                             },
-                        }}
-                        inputProps={{
-                            "aria-label": "Tag Name",
                         }}
                         onChange={(e) => setTagValue(e.target.value)}
                     />

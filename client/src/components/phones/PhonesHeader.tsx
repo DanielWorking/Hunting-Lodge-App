@@ -74,7 +74,7 @@ export default function PhonesHeader({
                 >
                     Phone Directory
                 </Typography>
-                <Typography variant="subtitle1" component="p" color="text.secondary">
+                <Typography variant="subtitle1" component="p" sx={{ color: "text.secondary" }}>
                     Global contact list shared across all teams.
                 </Typography>
             </Box>
@@ -99,11 +99,9 @@ export default function PhonesHeader({
                         id="phone-filter-select"
                         value={filterFav}
                         label="Filter"
-                        inputProps={{
-                            "aria-label": "Filter",
-                        }}
                         sx={{ minHeight: 44 }}
                         onChange={(e) => setFilterFav(e.target.value)}
+                        
                     >
                         <MenuItem value="all">Show All</MenuItem>
                         <MenuItem value="fav">Favorites Only</MenuItem>
@@ -117,11 +115,10 @@ export default function PhonesHeader({
                     variant="outlined"
                     sx={{ flexGrow: 1, minHeight: 44 }}
                     value={searchTerm}
-                    inputProps={{
-                        "aria-label": "Search by name, number, or description",
-                        role: "searchbox",
-                    }}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => setSearchTerm(e.target.value)} slotProps={{ htmlInput: {
+                                            "aria-label": "Search by name, number, or description",
+                                            role: "searchbox",
+                                        } }}
                 />
 
                 <Button

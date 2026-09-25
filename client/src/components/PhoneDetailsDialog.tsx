@@ -97,8 +97,7 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
                     >
                         <Box>
                             <Typography
-                                variant="caption"
-                                color="text.secondary"
+                                variant="caption" sx={{ color: "text.secondary" }}
                             >
                                 Name
                             </Typography>
@@ -123,8 +122,9 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
                     <Box>
                         <Typography
                             variant="caption"
-                            color="text.secondary"
-                            sx={{ mb: 1, display: "block" }}
+                            sx={{ mb: 1, display: "block",
+                                color: "text.secondary"
+                            }}
                         >
                             Phone Numbers ({data.numbers.length})
                         </Typography>
@@ -191,8 +191,9 @@ export default function PhoneDetailsDialog({ open, onClose, data }: Props) {
                     >
                         <Typography
                             variant="caption"
-                            color="text.secondary"
-                            sx={{ display: "block", mb: 1 }}
+                            sx={{ display: "block", mb: 1,
+                                color: "text.secondary"
+                            }}
                         >
                             Description
                         </Typography>

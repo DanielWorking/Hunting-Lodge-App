@@ -13,6 +13,7 @@
         "migrate:status": "node --import tsx -e \"const p=require('path');require(p.resolve(p.dirname(require.resolve('migrate-mongo')),'../bin/migrate-mongo.js'))\" status -f src/migrations/migrate-mongo-config.ts",
         "migrate:create": "node --import tsx -e \"const p=require('path');require(p.resolve(p.dirname(require.resolve('migrate-mongo')),'../bin/migrate-mongo.js'))\" create -f src/migrations/migrate-mongo-config.ts",
         "test": "node --import tsx --test src/test/**/*.test.ts src/test/**/*.test.tsx",
+        "test:auth": "vitest run",
         "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "keywords": [],
@@ -21,28 +22,33 @@
     "type": "commonjs",
     "dependencies": {
         "compression": "^1.8.1",
+        "cookie-parser": "^1.4.7",
         "cors": "^2.8.6",
         "dotenv": "^17.4.2",
         "express": "^5.2.1",
         "express-rate-limit": "^8.7.0",
         "helmet": "^8.3.0",
-        "jsonwebtoken": "^9.0.3",
         "migrate-mongo": "^14.0.7",
         "mongoose": "^9.9.3",
         "morgan": "^1.12.0",
         "node-cron": "^4.6.0",
-        "openid-client": "^6.8.8",
         "zod": "^4.6.1"
     },
     "devDependencies": {
         "@types/compression": "^1.8.1",
+        "@types/cookie-parser": "^1.4.10",
         "@types/cors": "^2.8.19",
         "@types/express": "^5.0.6",
         "@types/jsonwebtoken": "^9.0.10",
         "@types/morgan": "^1.9.10",
         "@types/node": "^26.4.1",
+        "@types/supertest": "^7.2.1",
+        "jsonwebtoken": "^9.0.3",
         "nodemon": "^3.1.14",
+        "openid-client": "^6.8.8",
+        "supertest": "^7.2.2",
         "tsx": "^4.23.13",
-        "typescript": "^7.0.2"
+        "typescript": "^7.0.2",
+        "vitest": "^5.0.0"
     }
 }

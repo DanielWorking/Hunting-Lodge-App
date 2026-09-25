@@ -92,11 +92,11 @@ export default function Login() {
 
     return (
         <Box
-            display="flex"
-            justifyContent="center"
-            alignItems="center"
-            minHeight="100vh"
             sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                minHeight: "100vh",
                 background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
                 position: "relative",
                 overflow: "hidden",
@@ -126,9 +126,9 @@ export default function Login() {
                 <Typography 
                     variant="h3" 
                     component="h1"
-                    fontWeight="900" 
                     color="primary"
                     sx={{ 
+                        fontWeight: "900",
                         letterSpacing: "-0.5px",
                         background: (theme) => `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.warning.main})`,
                         WebkitBackgroundClip: "text",

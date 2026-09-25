@@ -221,8 +221,9 @@ export default function PhonesTable({
                                     <Typography
                                         component="span"
                                         variant="caption"
-                                        color="text.secondary"
-                                        sx={{ ml: 1, fontWeight: "bold" }}
+                                        sx={{ ml: 1, fontWeight: "bold",
+                                            color: "text.secondary"
+                                        }}
                                     >
                                         (+{row.numbers.length - 1})
                                     </Typography>
@@ -347,10 +348,10 @@ export default function PhonesTable({
                                 align="center"
                                 sx={{ py: 6 }}
                             >
-                                <Typography variant="h6" component="p" color="text.secondary" gutterBottom>
+                                <Typography variant="h6" component="p" gutterBottom sx={{ color: "text.secondary" }}>
                                     No phone numbers found.
                                 </Typography>
-                                <Typography variant="body2" color="text.secondary">
+                                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                                     Try adjusting your search or use the Add Phone button to create a new contact.
                                 </Typography>
                             </TableCell>

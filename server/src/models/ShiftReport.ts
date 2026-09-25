@@ -118,8 +118,8 @@ export { ShiftReport, ShiftReportSchema, ShiftReportAttendeeSchema };
 export default ShiftReport;
 
 // CommonJS compatibility for require("../models/ShiftReport")
-module.exports = ShiftReport;
-module.exports.default = ShiftReport;
-module.exports.ShiftReport = ShiftReport;
-module.exports.ShiftReportSchema = ShiftReportSchema;
-module.exports.ShiftReportAttendeeSchema = ShiftReportAttendeeSchema;
+// 
+// 
+// 
+// 
+// 

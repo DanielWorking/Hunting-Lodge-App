@@ -97,7 +97,7 @@ export { VacationRequest };
 export default VacationRequest;
 
 // CommonJS compatibility
-module.exports = VacationRequest;
-module.exports.default = VacationRequest;
-module.exports.VacationRequest = VacationRequest;
-module.exports.VacationRequestSchema = VacationRequestSchema;
+// 
+// 
+// 
+// 

@@ -99,7 +99,7 @@ export default function VacationModal({
                 {title}
             </DialogTitle>
             <DialogContent dividers>
-                <Box display="flex" flexDirection="column" gap={2} my={1}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 2, my: 1 }}>
                     <Typography variant="body2" color="text.secondary">
                         Date: <strong>{format(initialDate, "dd/MM/yyyy")}</strong>
                     </Typography>
@@ -127,7 +127,7 @@ export default function VacationModal({
                         </RadioGroup>
                     </FormControl>
 
-                    <Box bgcolor="action.hover" p={1.5} borderRadius={1}>
+                    <Box sx={{ bgcolor: "action.hover", p: 1.5, borderRadius: 1 }}>
                         <Typography variant="body2">
                             Current balance: <strong>{currentBalance} days</strong>
                         </Typography>

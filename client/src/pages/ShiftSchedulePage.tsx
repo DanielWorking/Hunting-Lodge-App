@@ -342,12 +342,9 @@ export default function ShiftSchedulePage() {
     return (
         <Container maxWidth="xl" sx={{ mt: 2, mb: 2 }}>
             <Box
-                display="flex"
-                justifyContent="space-between"
-                alignItems="center"
-                mb={3}
+                sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}
             >
-                <Box display="flex" alignItems="center" gap={2}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                     <IconButton
                         onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
                         aria-label="Previous week"
@@ -355,8 +352,8 @@ export default function ShiftSchedulePage() {
                         <ArrowBackIosNewIcon />
                     </IconButton>
 
-                    <Box textAlign="center">
-                        <Typography variant="h5" component="h1" fontWeight="bold">
+                    <Box sx={{ textAlign: "center" }}>
+                        <Typography variant="h5" component="h1" sx={{ fontWeight: "bold" }}>
                             {format(weekStart, "dd/MM/yyyy")} -{" "}
                             {format(
                                 endOfWeek(currentDate, { weekStartsOn: 0 }),
@@ -408,7 +405,7 @@ export default function ShiftSchedulePage() {
                 </Box>
 
                 {isShiftManager && (
-                    <Box gap={2} display="flex">
+                    <Box sx={{ gap: 2, display: "flex" }}>
                         <Button
                             variant="outlined"
                             startIcon={<SaveIcon />}
@@ -445,9 +442,9 @@ export default function ShiftSchedulePage() {
                 fullScreen
                 open={isFullScreen}
                 onClose={() => setIsFullScreen(false)}
-                TransitionComponent={Transition}
-                PaperProps={{
-                    sx: { bgcolor: "background.default", overflow: "hidden" },
+                slots={{ transition: Transition }}
+                slotProps={{
+                    paper: { sx: { bgcolor: "background.default", overflow: "hidden" } },
                 }}
             >
                 <AppBar

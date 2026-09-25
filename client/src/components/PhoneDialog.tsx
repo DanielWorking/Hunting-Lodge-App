@@ -24,8 +24,9 @@ import {
     Typography,
     Alert,
 } from "@mui/material";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutlineOutlined";
+import axios from "axios";
 import type { PhoneRow, PhoneType } from "../types";
 
 /**
@@ -203,15 +204,12 @@ function PhoneForm({ initialData, onClose, onSave }: PhoneFormProps) {
             await onSave({ ...formData, numbers: filteredNumbers });
             onClose();
         } catch (err: unknown) {
-            const message =
-                typeof err === "object" &&
-                err !== null &&
-                "response" in err &&
-                typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
-                    ? (err as { response: { data: { message: string } } }).response.data.message
-                    : err instanceof Error
-                      ? err.message
-                      : "Failed to save phone";
+            let message = "Failed to save phone";
+            if (axios.isAxiosError(err)) {
+                message = (err.response?.data as { message?: string })?.message || err.message;
+            } else if (err instanceof Error) {
+                message = err.message;
+            }
             setServerError(message);
         }
     };
@@ -237,10 +235,9 @@ function PhoneForm({ initialData, onClose, onSave }: PhoneFormProps) {
                     value={formData.name}
                     error={errors.name}
                     helperText={errors.name ? "Name is required" : ""}
-                    inputProps={{ "aria-label": "Name" }}
                     onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
-                    }
+                    } slotProps={{ htmlInput: { "aria-label": "Name" } }}
                 />
 
                 <FormControl fullWidth margin="dense">
@@ -250,10 +247,9 @@ function PhoneForm({ initialData, onClose, onSave }: PhoneFormProps) {
                         id="phone-type-select"
                         value={formData.type}
                         label="Phone Type *"
-                        inputProps={{ "aria-label": "Phone Type" }}
                         onChange={(e) =>
                             handleTypeChange(e.target.value as PhoneType)
-                        }
+                        } inputProps={{ "aria-label": "Phone Type" }}
                     >
                         <MenuItem value="Mobile">Mobile (Cellular)</MenuItem>
                         <MenuItem value="Landline">Landline (Fixed)</MenuItem>
@@ -274,12 +270,11 @@ function PhoneForm({ initialData, onClose, onSave }: PhoneFormProps) {
                             size="small"
                             type="tel"
                             value={item.value}
-                            inputProps={{ "aria-label": `Phone number ${index + 1}` }}
                             onChange={(e) =>
                                 handleNumberChange(item.id, e.target.value)
                             }
                             placeholder="Type number..."
-                            error={errors.numbers && !item.value}
+                            error={errors.numbers && !item.value} slotProps={{ htmlInput: { "aria-label": `Phone number ${index + 1}` } }}
                         />
                         <IconButton
                             onClick={() => handleRemoveNumberField(item.id)}
@@ -288,7 +283,7 @@ function PhoneForm({ initialData, onClose, onSave }: PhoneFormProps) {
                             aria-label={`Remove phone number ${index + 1}`}
                             sx={{ minWidth: 44, minHeight: 44, p: 1.25 }}
                         >
-                            <DeleteOutlineIcon />
+                            <DeleteOutlinedIcon />
                         </IconButton>
                     </Box>
                 ))}
@@ -322,13 +317,12 @@ function PhoneForm({ initialData, onClose, onSave }: PhoneFormProps) {
                     helperText={
                         errors.description ? "Description is required" : ""
                     }
-                    inputProps={{ "aria-label": "Description" }}
                     onChange={(e) =>
                         setFormData({
                             ...formData,
                             description: e.target.value,
                         })
-                    }
+                    } slotProps={{ htmlInput: { "aria-label": "Description" } }}
                 />
             </DialogContent>
 

@@ -216,10 +216,11 @@ export function UserDialog({
             <DialogTitle>Edit User</DialogTitle>
             <DialogContent>
                 <Box
-                    display="flex"
-                    flexDirection="column"
-                    gap={2}
-                    sx={{ mt: 1 }}
+                    sx={{ mt: 1,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2
+                    }}
                 >
                     <TextField
                         margin="dense"
@@ -241,7 +242,7 @@ export function UserDialog({
 
                     {isSuperAdminProfile && (
                         <Alert severity="warning" variant="outlined">
-                            <Typography variant="subtitle2" component="p" fontWeight="bold">
+                            <Typography variant="subtitle2" component="p" sx={{ fontWeight: "bold" }}>
                                 Super Administrator
                             </Typography>
                             Core system account. Some restrictions apply.
@@ -288,8 +289,7 @@ export function UserDialog({
                         {formData.groups?.length === 0 && (
                             <Typography
                                 variant="body2"
-                                color="text.secondary"
-                                align="center"
+                                align="center" sx={{ color: "text.secondary" }}
                             >
                                 No groups assigned.
                             </Typography>
@@ -327,16 +327,12 @@ export function UserDialog({
                                     }}
                                 >
                                     <Typography
-                                        variant="body1"
-                                        fontWeight="medium"
+                                        variant="body1" sx={{ fontWeight: "medium" }}
                                     >
                                         {groupObj.name}
                                     </Typography>
 
-                                    <Box
-                                        display="flex"
-                                        alignItems="center"
-                                        gap={1}
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}
                                     >
                                         {!isAdministratorsGroup && (
                                             <FormControlLabel
@@ -361,12 +357,9 @@ export function UserDialog({
                                                 }
                                                 label={
                                                     <Typography
-                                                        variant="caption"
-                                                        color={
-                                                            !canChangeRole
-                                                                ? "text.disabled"
-                                                                : "text.primary"
-                                                        }
+                                                        variant="caption" sx={{ color: !canChangeRole
+                                                                                                                        ? "text.disabled"
+                                                                                                                        : "text.primary" }}
                                                     >
                                                         Shift Manager
                                                     </Typography>
@@ -559,8 +552,7 @@ export function GroupDialog({
                             <Typography
                                 variant="subtitle2"
                                 component="p"
-                                color="text.secondary"
-                                gutterBottom
+                                gutterBottom sx={{ color: "text.secondary" }}
                             >
                                 Members ({groupMembers.length})
                             </Typography>
@@ -605,10 +597,7 @@ export function GroupDialog({
                                                     borderColor: "divider",
                                                 }}
                                             >
-                                                <Box
-                                                    display="flex"
-                                                    alignItems="center"
-                                                    gap={2}
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}
                                                 >
                                                     <Avatar
                                                         sx={{
@@ -622,15 +611,13 @@ export function GroupDialog({
                                                     </Avatar>
                                                     <Box>
                                                         <Typography
-                                                            variant="body2"
-                                                            fontWeight="bold"
+                                                            variant="body2" sx={{ fontWeight: "bold" }}
                                                         >
                                                             {member.displayName ||
                                                                 member.username}
                                                         </Typography>
                                                         <Typography
-                                                            variant="caption"
-                                                            color="text.secondary"
+                                                            variant="caption" sx={{ color: "text.secondary" }}
                                                         >
                                                             {member.username}
                                                         </Typography>
@@ -661,8 +648,9 @@ export function GroupDialog({
                                 ) : (
                                     <Typography
                                         variant="body2"
-                                        color="text.secondary"
-                                        sx={{ p: 2, textAlign: "center" }}
+                                        sx={{ p: 2, textAlign: "center",
+                                            color: "text.secondary"
+                                        }}
                                     >
                                         No members in this group.
                                     </Typography>

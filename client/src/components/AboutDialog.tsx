@@ -76,20 +76,20 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
                         <Typography
                             variant="subtitle2"
                             component="p"
-                            color="text.secondary"
                             gutterBottom
                             sx={{
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 0.5,
+                                color: "text.secondary"
                             }}
                         >
                             <CodeIcon fontSize="small" /> Developed by
                         </Typography>
-                        <Typography variant="h6" component="p" fontWeight="bold">
+                        <Typography variant="h6" component="p" sx={{ fontWeight: "bold" }}>
                             Daniel Reifer
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" sx={{ color: "text.secondary" }}>
                             System Creator & Developer
                         </Typography>
                     </Box>
@@ -101,12 +101,12 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
                         <Typography
                             variant="subtitle2"
                             component="p"
-                            color="text.secondary"
                             gutterBottom
                             sx={{
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 0.5,
+                                color: "text.secondary"
                             }}
                         >
                             <SupportAgentIcon fontSize="small" /> Support &
@@ -152,8 +152,9 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
                         variant="caption"
                         component="p"
                         align="center"
-                        color="text.secondary"
-                        sx={{ mt: 1, fontWeight: 500, letterSpacing: 0.5 }}
+                        sx={{ mt: 1, fontWeight: 500, letterSpacing: 0.5,
+                            color: "text.secondary"
+                        }}
                     >
                         {`v${clientVersion}`}
                     </Typography>

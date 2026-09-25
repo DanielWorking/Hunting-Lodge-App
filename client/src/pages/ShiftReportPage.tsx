@@ -64,6 +64,9 @@ import FormatColorTextIcon from "@mui/icons-material/FormatColorText";
 import HighlightIcon from "@mui/icons-material/Highlight";
 import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
 
+const pl1Sx = { pl: 1 } as const;
+const pl2Sx = { pl: 2 } as const;
+
 /**
  * A customized Tiptap rich-text editor component.
  *
@@ -873,15 +876,12 @@ export default function ShiftReportPage() {
                         }}
                     >
                         <Box
-                            display="flex"
-                            justifyContent="space-between"
-                            alignItems="center"
-                            mb={2}
+                            sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}
                         >
                             <Typography
                                 variant="h6"
                                 component="h2"
-                                fontWeight="bold"
+                                sx={{ fontWeight: "bold" }}
                             >
                                 Reports Archive
                             </Typography>
@@ -914,9 +914,7 @@ export default function ShiftReportPage() {
                                         >
                                             <ListItemText
                                                 primary={year}
-                                                primaryTypographyProps={{
-                                                    fontWeight: "bold",
-                                                }}
+                                                slotProps={{ primary: { sx: { fontWeight: "bold" } } }}
                                             />
                                             {openYears[year] ? (
                                                 <ExpandLess />
@@ -941,7 +939,7 @@ export default function ShiftReportPage() {
                                                     return (
                                                         <Box
                                                             key={monthKey}
-                                                            sx={{ pl: 1 }}
+                                                            sx={pl1Sx}
                                                         >
                                                             <ListItemButton
                                                                 onClick={() =>
@@ -993,9 +991,7 @@ export default function ShiftReportPage() {
                                                                                     key={
                                                                                         dayKey
                                                                                     }
-                                                                                    sx={{
-                                                                                        pl: 2,
-                                                                                    }}
+                                                                                    sx={pl2Sx}
                                                                                 >
                                                                                     <ListItemButton
                                                                                         onClick={() =>
@@ -1118,13 +1114,9 @@ export default function ShiftReportPage() {
                             }}
                         >
                             <Box
-                                display="flex"
-                                justifyContent="space-between"
-                                alignItems="center"
-                                mb={3}
-                                sx={{ direction: "ltr" }}
+                                sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, direction: "ltr" }}
                             >
-                                <Box display="flex" alignItems="center">
+                                <Box sx={{ display: "flex", alignItems: "center" }}>
                                     <IconButton
                                         onClick={() => setMobileSidebarOpen(true)}
                                         aria-label="Open reports archive"
@@ -1135,7 +1127,7 @@ export default function ShiftReportPage() {
                                     <Typography
                                         variant="h4"
                                         component="h2"
-                                        fontWeight="bold"
+                                        sx={{ fontWeight: "bold" }}
                                     >
                                         {selectedReport.title}
                                     </Typography>
@@ -1173,8 +1165,8 @@ export default function ShiftReportPage() {
                             <Divider sx={{ mb: 3 }} />
 
                             <Box
-                                mb={4}
                                 sx={{
+                                    mb: 4,
                                     height: "100%",
                                     bgcolor: "action.hover",
                                     p: 0,
@@ -1188,9 +1180,8 @@ export default function ShiftReportPage() {
                                     variant="subtitle2"
                                     component="h3"
                                     color="text.secondary"
-                                    sx={{ p: 2, pb: 0 }}
+                                    sx={{ p: 2, pb: 0, fontWeight: "bold" }}
                                     gutterBottom
-                                    fontWeight="bold"
                                 >
                                     Tasks from previous shift
                                 </Typography>
@@ -1217,12 +1208,12 @@ export default function ShiftReportPage() {
                                 />
                             </Box>
 
-                            <Box mb={4}>
+                            <Box sx={{ mb: 4 }}>
                                 <Typography
                                     variant="h6"
                                     component="h3"
                                     gutterBottom
-                                    fontWeight="bold"
+                                    sx={{ fontWeight: "bold" }}
                                 >
                                     Shift Attendance
                                 </Typography>
@@ -1246,19 +1237,6 @@ export default function ShiftReportPage() {
                                         .filter((u): u is User => Boolean(u))}
                                     onChange={handleAttendanceChange}
                                     disabled={selectedReport.isLocked}
-                                    renderTags={(value, getTagProps) =>
-                                        value.map((option, index) => {
-                                            const { key, ...tagProps } =
-                                                getTagProps({ index });
-                                            return (
-                                                <Chip
-                                                    key={key}
-                                                    label={option?.displayName || option?.username}
-                                                    {...tagProps}
-                                                />
-                                            );
-                                        })
-                                    }
                                     renderInput={(params) => (
                                         <TextField
                                             {...params}
@@ -1282,7 +1260,7 @@ export default function ShiftReportPage() {
                                     variant="h6"
                                     component="h3"
                                     gutterBottom
-                                    fontWeight="bold"
+                                    sx={{ fontWeight: "bold" }}
                                 >
                                     Operations Log / Ongoing Tasks
                                 </Typography>
@@ -1336,7 +1314,7 @@ export default function ShiftReportPage() {
                                 gap: 2,
                             }}
                         >
-                            <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
+                            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                                 <IconButton
                                     onClick={() => setMobileSidebarOpen(true)}
                                     aria-label="Open reports archive"

@@ -115,7 +115,7 @@ export { User, UserSchema };
 export default User;
 
 // CommonJS compatibility for require("../models/User")
-module.exports = User;
-module.exports.default = User;
-module.exports.User = User;
-module.exports.UserSchema = UserSchema;
+// module.exports = User;
+// module.exports.default = User;
+// module.exports.User = User;
+// module.exports.UserSchema = UserSchema;

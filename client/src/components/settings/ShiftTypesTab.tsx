@@ -176,9 +176,9 @@ export default function ShiftTypesTab() {
     };
 
     return (
-        <Box p={3}>
-            <Box display="flex" justifyContent="space-between" mb={2}>
-                <Typography variant="h6" component="h2" fontWeight="bold">
+        <Box sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+                <Typography variant="h6" component="h2" sx={{ fontWeight: "bold" }}>
                     Manage Shift Types
                 </Typography>
                 <Button
@@ -258,7 +258,7 @@ export default function ShiftTypesTab() {
                     {editingType ? "Edit Shift Type" : "New Shift Type"}
                 </DialogTitle>
                 <DialogContent>
-                    <Box display="flex" flexDirection="column" gap={2} mt={1}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
                         <TextField
                             label="Name"
                             value={formData.name}
@@ -271,7 +271,7 @@ export default function ShiftTypesTab() {
                             fullWidth
                         />
 
-                        <Box display="flex" alignItems="center" gap={2}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                             <label
                                 style={{
                                     display: "flex",

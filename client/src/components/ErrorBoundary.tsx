@@ -202,15 +202,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             // Default branded fallback view
             return (
                 <Box
-                    display="flex"
-                    justifyContent="center"
-                    alignItems="center"
-                    minHeight="100vh"
                     sx={{
                         background: "linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)",
                         color: "#F8FAFC",
                         p: 3,
                         fontFamily: '"Fira Sans", sans-serif',
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        minHeight: "100vh"
                     }}
                 >
                     <Container maxWidth="md">
@@ -226,7 +226,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                                 boxShadow: "0 20px 40px rgba(0, 0, 0, 0.6)",
                             }}
                         >
-                            <Box display="flex" justifyContent="center" mb={2}>
+                            <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
                                 <WarningAmberRoundedIcon
                                     sx={{
                                         fontSize: 72,
@@ -239,12 +239,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                             <Typography
                                 variant="h4"
                                 component="h1"
-                                fontWeight="700"
                                 sx={{
                                     fontFamily: '"Fira Code", monospace',
                                     letterSpacing: "-0.5px",
                                     mb: 1.5,
                                     color: "#F8FAFC",
+                                    fontWeight: "700"
                                 }}
                             >
                                 Application Encountered an Error
@@ -267,8 +267,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                             <Stack
                                 direction={{ xs: "column", sm: "row" }}
                                 spacing={2}
-                                justifyContent="center"
-                                sx={{ mb: 4 }}
+                                sx={{ mb: 4,
+                                    justifyContent: "center"
+                                }}
                             >
                                 <Button
                                     variant="contained"

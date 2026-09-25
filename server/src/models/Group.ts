@@ -144,9 +144,9 @@ export { Group, GroupSchema, ShiftTypeSchema, TimeSlotSchema };
 export default Group;
 
 // CommonJS compatibility for require("../models/Group")
-module.exports = Group;
-module.exports.default = Group;
-module.exports.Group = Group;
-module.exports.GroupSchema = GroupSchema;
-module.exports.ShiftTypeSchema = ShiftTypeSchema;
-module.exports.TimeSlotSchema = TimeSlotSchema;
+// module.exports = Group;
+// module.exports.default = Group;
+// module.exports.Group = Group;
+// module.exports.GroupSchema = GroupSchema;
+// module.exports.ShiftTypeSchema = ShiftTypeSchema;
+// module.exports.TimeSlotSchema = TimeSlotSchema;

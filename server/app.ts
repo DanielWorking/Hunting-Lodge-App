@@ -8,6 +8,7 @@
 
 import path from "path";
 import express, { Express, Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -69,6 +70,7 @@ if (config.security.corsOrigin === true) {
 }
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(stripImmutableFields);
 
 // Apply rate limiting to API requests; skip auth paths that enforce stricter dedicated rate limiters

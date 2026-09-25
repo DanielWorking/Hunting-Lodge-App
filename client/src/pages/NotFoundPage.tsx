@@ -27,11 +27,11 @@ export default function NotFoundPage() {
 
     return (
         <Box
-            display="flex"
-            justifyContent="center"
-            alignItems="center"
-            minHeight="100vh"
             sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                minHeight: "100vh",
                 background: (theme) =>
                     `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.background.default} 100%)`,
                 p: 3,
@@ -56,7 +56,7 @@ export default function NotFoundPage() {
                         },
                     }}
                 >
-                    <Box display="flex" justifyContent="center" mb={2}>
+                    <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
                         <SearchOffIcon
                             sx={{
                                 fontSize: 80,
@@ -72,9 +72,9 @@ export default function NotFoundPage() {
                     <Typography
                         variant="h2"
                         component="h1"
-                        fontWeight="900"
                         color="primary"
                         sx={{
+                            fontWeight: "900",
                             letterSpacing: "-1px",
                             mb: 1,
                             background: (theme) =>
@@ -89,9 +89,9 @@ export default function NotFoundPage() {
                     <Typography
                         variant="h5"
                         component="h2"
-                        fontWeight="700"
                         color="text.primary"
                         gutterBottom
+                        sx={{ fontWeight: "700" }}
                     >
                         Page Not Found
                     </Typography>
@@ -108,7 +108,7 @@ export default function NotFoundPage() {
                     <Stack
                         direction={{ xs: "column", sm: "row" }}
                         spacing={2}
-                        justifyContent="center"
+                        sx={{ justifyContent: "center" }}
                     >
                         {user ? (
                             <Button

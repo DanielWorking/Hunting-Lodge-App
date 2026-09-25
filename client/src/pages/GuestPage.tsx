@@ -22,11 +22,11 @@ export default function GuestPage() {
 
     return (
         <Box
-            display="flex"
-            justifyContent="center"
-            alignItems="center"
-            minHeight="100vh"
             sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                minHeight: "100vh",
                 background: (theme) => `linear-gradient(135deg, ${theme.palette.warning.main} 0%, ${theme.palette.warning.light} 100%)`,
             }}
         >
@@ -46,7 +46,7 @@ export default function GuestPage() {
                         }
                     }}
                 >
-                    <Box display="flex" justifyContent="center" mb={3}>
+                    <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
                         <LockClockIcon
                             sx={{ 
                                 fontSize: 72, 
@@ -60,18 +60,18 @@ export default function GuestPage() {
                         variant="h4"
                         component="h1"
                         gutterBottom
-                        fontWeight="900"
                         color="text.primary"
+                        sx={{ fontWeight: "900" }}
                     >
                         Welcome, {user?.username}
                     </Typography>
 
-                    <Typography variant="subtitle1" component="p" paragraph color="text.secondary" sx={{ mb: 4 }}>
+                    <Typography variant="subtitle1" component="p" color="text.secondary" sx={{ mb: 4 }}>
                         Your account has been created successfully via SSO.
                     </Typography>
 
                     <Alert severity="warning" sx={{ my: 2, textAlign: "left" }}>
-                        <Typography variant="body2" fontWeight="bold">
+                        <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                             Pending Approval
                         </Typography>
                         <Typography variant="body2">

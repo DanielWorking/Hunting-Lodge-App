@@ -114,8 +114,8 @@ export { ShiftSchedule, ShiftScheduleSchema, ShiftAssignmentSchema };
 export default ShiftSchedule;
 
 // CommonJS compatibility for require("../models/ShiftSchedule")
-module.exports = ShiftSchedule;
-module.exports.default = ShiftSchedule;
-module.exports.ShiftSchedule = ShiftSchedule;
-module.exports.ShiftScheduleSchema = ShiftScheduleSchema;
-module.exports.ShiftAssignmentSchema = ShiftAssignmentSchema;
+// 
+// 
+// 
+// 
+// 

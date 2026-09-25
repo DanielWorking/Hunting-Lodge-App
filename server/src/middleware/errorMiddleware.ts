@@ -142,12 +142,6 @@ export default {
 };
 
 // CommonJS compatibility
-module.exports = {
-    notFoundHandler,
-    errorHandler,
-};
-module.exports.default = {
-    notFoundHandler,
-    errorHandler,
-};
+/*  */
+/*  */
 

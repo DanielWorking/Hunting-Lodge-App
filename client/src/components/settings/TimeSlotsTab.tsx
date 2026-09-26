@@ -33,6 +33,9 @@ import {
     ListItemText,
     Typography,
     useTheme,
+    Alert,
+    AlertTitle,
+    FormHelperText,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -135,7 +138,7 @@ export default function TimeSlotsTab() {
             showNotification("Time slots updated", "success");
             refreshData();
             setIsDialogOpen(false);
-        } catch (error) {
+        } catch {
             showNotification("Error saving slots", "error");
         }
     };
@@ -165,7 +168,7 @@ export default function TimeSlotsTab() {
             });
             showNotification("Slot deleted", "success");
             refreshData();
-        } catch (error) {
+        } catch {
             showNotification("Error deleting", "error");
         } finally {
             setDeleteId(null);
@@ -241,6 +244,28 @@ export default function TimeSlotsTab() {
                     Add Slot
                 </Button>
             </Box>
+
+            {/* Prominent advisory instructing managers to only assign working shift types */}
+            <Alert
+                severity="warning"
+                role="alert"
+                aria-live="polite"
+                sx={{
+                    mb: 3,
+                    borderRadius: 2,
+                    "& .MuiAlert-message": { width: "100%" },
+                }}
+            >
+                <AlertTitle sx={{ fontWeight: "bold" }}>
+                    Important: Active Duty Time Slots Only
+                </AlertTitle>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    Do not assign or link time slots to non-working shift types (such as <strong>Vacation</strong>, <strong>Sick Leave</strong>, or <strong>Personal Days</strong>).
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                    Time slots are strictly reserved for operational shifts. Linking non-working shifts causes automated schedule overlaps and corrupts duty roster assignments in shift reports.
+                </Typography>
+            </Alert>
 
             <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
                 <Table size="small">
@@ -332,7 +357,7 @@ export default function TimeSlotsTab() {
                 <DialogContent>
                     <Box display="flex" flexDirection="column" gap={2} mt={1}>
                         <TextField
-                            label="Slot Name (e.g. Vacation / Morning)"
+                            label="Slot Name (e.g. Morning Shift / Night Shift)"
                             value={formData.name}
                             onChange={(e) =>
                                 setFormData({
@@ -420,8 +445,9 @@ export default function TimeSlotsTab() {
                         </Box>
 
                         <FormControl fullWidth>
-                            <InputLabel>Linked Shift Types</InputLabel>
+                            <InputLabel id="linked-shift-types-label">Linked Shift Types</InputLabel>
                             <Select
+                                labelId="linked-shift-types-label"
                                 multiple
                                 value={formData.linkedShiftTypes}
                                 onChange={(e) => {
@@ -452,11 +478,36 @@ export default function TimeSlotsTab() {
                                                 ) > -1
                                             }
                                         />
-                                        <ListItemText primary={type.name} />
+                                        <ListItemText
+                                            primary={type.name}
+                                            secondary={
+                                                type.isVacation
+                                                    ? "Non-working (Vacation)"
+                                                    : undefined
+                                            }
+                                        />
                                     </MenuItem>
                                 ))}
                             </Select>
+                            <FormHelperText>
+                                Only link active working shifts. Do not assign non-working shift types (e.g., Vacation or Leave).
+                            </FormHelperText>
                         </FormControl>
+
+                        {/* Dynamic warning if any selected shift type is marked as vacation */}
+                        {formData.linkedShiftTypes.some(
+                            (id) =>
+                                shiftTypes.find((t) => t._id === id)
+                                    ?.isVacation,
+                        ) && (
+                            <Alert
+                                severity="warning"
+                                role="alert"
+                                sx={{ mt: 1 }}
+                            >
+                                Warning: One or more selected shift types are marked as non-working (vacation). Linking them will trigger schedule overlaps and inaccurate report assignments.
+                            </Alert>
+                        )}
                     </Box>
                 </DialogContent>
                 <DialogActions>

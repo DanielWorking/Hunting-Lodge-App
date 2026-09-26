@@ -76,8 +76,8 @@ export default function GroupSettingsPage() {
                     {currentGroup.name} Settings
                 </Typography>
                 <Typography variant="subtitle1" component="p" color="text.secondary">
-                    Configure shift types, report times, and manage member
-                    vacations.
+                    Configure shift types, operational report times, and manage member
+                    rotations.
                 </Typography>
             </Box>
 
@@ -89,14 +89,40 @@ export default function GroupSettingsPage() {
                     textColor="primary"
                     variant="scrollable"
                     scrollButtons="auto"
+                    aria-label="Group settings sections"
                 >
-                    <Tab icon={<ViewListIcon />} label="Shift Types" />
-                    <Tab icon={<AccessTimeIcon />} label="Time Slots" />
-                    <Tab icon={<PeopleIcon />} label="Members & Order" />
-                    <Tab icon={<BarChartIcon />} label="Statistics" />
+                    <Tab
+                        id="group-settings-tab-0"
+                        aria-controls="group-settings-tabpanel-0"
+                        icon={<ViewListIcon />}
+                        label="Shift Types"
+                    />
+                    <Tab
+                        id="group-settings-tab-1"
+                        aria-controls="group-settings-tabpanel-1"
+                        icon={<AccessTimeIcon />}
+                        label="Time Slots"
+                    />
+                    <Tab
+                        id="group-settings-tab-2"
+                        aria-controls="group-settings-tabpanel-2"
+                        icon={<PeopleIcon />}
+                        label="Members & Order"
+                    />
+                    <Tab
+                        id="group-settings-tab-3"
+                        aria-controls="group-settings-tabpanel-3"
+                        icon={<BarChartIcon />}
+                        label="Statistics"
+                    />
                 </Tabs>
 
-                <Box sx={{ bgcolor: "background.paper", minHeight: 400 }}>
+                <Box
+                    role="tabpanel"
+                    id={`group-settings-tabpanel-${tabValue}`}
+                    aria-labelledby={`group-settings-tab-${tabValue}`}
+                    sx={{ bgcolor: "background.paper", minHeight: 400 }}
+                >
                     {tabValue === 0 && <ShiftTypesTab />}
                     {tabValue === 1 && <TimeSlotsTab />}
                     {tabValue === 2 && <MembersTab />}

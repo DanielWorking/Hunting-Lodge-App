@@ -154,5 +154,26 @@ router.patch(
     usersController.managerUpdate,
 );
 
+/**
+ * PATCH /whats-new
+ * Persists user acknowledgement of the "What's New" feature modal for the caller.
+ * Authorization: Requires valid JWT.
+ */
+router.patch(
+    "/whats-new",
+    usersController.acknowledgeWhatsNew,
+);
+
+/**
+ * PATCH /:id/whats-new
+ * Persists user acknowledgement of the "What's New" feature modal by user ID.
+ * Authorization: Requires valid JWT; controller enforces self-acknowledgement or Administrator.
+ */
+router.patch(
+    "/:id/whats-new",
+    validateRequest({ params: userIdParamSchema }),
+    usersController.acknowledgeWhatsNew,
+);
+
 (router as unknown as { default: typeof router }).default = router;
 export default router;

@@ -33,6 +33,7 @@ export interface IUser {
     lastLogin?: string;
     vacationBalance: number;
     favoritePhones: (PopulatedDoc<IPhone, Types.ObjectId> | string)[];
+    hasSeenWhatsNew?: boolean;
     createdAt?: Date;
     updatedAt?: Date;
 }
@@ -100,6 +101,10 @@ const UserSchema = new Schema<IUser>(
                 },
             ],
             default: [],
+        },
+        hasSeenWhatsNew: {
+            type: Boolean,
+            default: false,
         },
     },
     { timestamps: true },

@@ -27,6 +27,8 @@ import envConfig from "../config/env";
 interface UserContextType {
     /** The currently authenticated user object, or null if unauthenticated. */
     user: User | null;
+    /** True if a valid authenticated user session is active. */
+    isAuthenticated?: boolean;
     /** The specific group/department the user is currently interacting with. */
     currentGroup: Group | null;
     /** Direct state setter for currentGroup. */
@@ -54,6 +56,8 @@ interface UserContextType {
     switchGroup: (groupId: string, targetGroup?: Group) => void;
     /** Indicates if the system is still trying to recover a previous session from storage. */
     isRestoringSession: boolean;
+    /** Updates local state to mark that the user has acknowledged the What's New modal. */
+    markWhatsNewSeen?: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -84,11 +88,13 @@ interface RawUserData {
     createdAt?: string;
     updatedAt?: string;
     lastLogin?: string;
+    hasSeenWhatsNew?: boolean;
 }
 
 const normalizeUser = (foundUser: RawUserData): User => {
     return {
         ...foundUser,
+        hasSeenWhatsNew: foundUser.hasSeenWhatsNew ?? false,
         groups: (foundUser.groups || []).map((g) => {
             const rawGid = g.groupId;
             let gidString: string;
@@ -317,10 +323,17 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    const isAuthenticated = Boolean(user && user.isActive !== false);
+
+    const markWhatsNewSeen = useCallback(() => {
+        setUser((prev) => (prev ? { ...prev, hasSeenWhatsNew: true } : null));
+    }, []);
+
     return (
         <UserContext.Provider
             value={{
                 user,
+                isAuthenticated,
                 currentGroup,
                 setCurrentGroup,
                 isAdmin,
@@ -329,6 +342,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 logout,
                 switchGroup,
                 isRestoringSession,
+                markWhatsNewSeen,
             }}
         >
             {children}

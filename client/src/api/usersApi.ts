@@ -16,3 +16,5 @@ export const updateUser = (id: string, userData: any) => apiClient.put(`/users/$
 export const managerUpdateUser = (id: string, updates: any) => apiClient.patch(`/users/${id}/manager-update`, updates);
 export const reorderUsers = (payload: any) => apiClient.put("/users/reorder/group", payload);
 export const deleteUser = (id: string) => apiClient.delete(`/users/${id}`);
+export const acknowledgeWhatsNew = (userId?: string) =>
+    apiClient.patch(userId ? `/users/${userId}/whats-new` : "/users/whats-new");

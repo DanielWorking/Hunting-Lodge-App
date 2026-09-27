@@ -42,6 +42,7 @@ import SortIcon from "@mui/icons-material/Sort";
 import { createSite, updateSite, deleteSite, toggleFavoriteSite } from "../api/sitesApi";
 import { addGroupTag, renameGroupTag, deleteGroupTag } from "../api/groupsApi";
 import ThinkingLoader from "../components/ThinkingLoader";
+import WhatsNewModal from "../components/modals/WhatsNewModal";
 
 /**
  * The primary sites management page component.
@@ -53,9 +54,24 @@ import ThinkingLoader from "../components/ThinkingLoader";
  * @returns {JSX.Element} The rendered SitesPage component.
  */
 export default function SitesPage() {
-    const { user, currentGroup } = useUser();
+    const { user, isAuthenticated, currentGroup, markWhatsNewSeen } = useUser();
     const { showNotification } = useNotification();
     const { sites, groups, refreshData, loading } = useData();
+
+    // What's New modal display state for fully authenticated group members on homepage
+    const [whatsNewDismissed, setWhatsNewDismissed] = useState(false);
+    const shouldShowWhatsNew = Boolean(
+        (isAuthenticated ?? Boolean(user)) &&
+        user &&
+        user.groups.length > 0 &&
+        user.hasSeenWhatsNew === false &&
+        !whatsNewDismissed
+    );
+
+    const handleWhatsNewClose = () => {
+        setWhatsNewDismissed(true);
+        markWhatsNewSeen?.();
+    };
 
     // Locate the active group within the data context to access extended fields
     // such as the database _id and site-specific tags.
@@ -622,6 +638,12 @@ export default function SitesPage() {
                 content={`Are you sure? All sites under this tag will be moved to "General".`}
                 onCancel={handleCloseTagDeleteDialog}
                 onConfirm={handleConfirmDeleteTag}
+            />
+
+            <WhatsNewModal
+                open={shouldShowWhatsNew}
+                onClose={handleWhatsNewClose}
+                userId={user?._id}
             />
         </Container>
     );

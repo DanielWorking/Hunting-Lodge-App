@@ -60,6 +60,8 @@ export interface User {
     createdAt?: string;
     /** ISO timestamp of last update. */
     updatedAt?: string;
+    /** Whether the user has seen/acknowledged the latest What's New modal. */
+    hasSeenWhatsNew?: boolean;
 }
 
 /**

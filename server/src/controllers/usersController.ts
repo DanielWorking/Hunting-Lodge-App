@@ -507,6 +507,58 @@ export async function managerUpdate(req: Request, res: Response, next?: NextFunc
     }
 }
 
+/**
+ * Acknowledges the "What's New" feature modal for the user.
+ * Persists hasSeenWhatsNew = true to MongoDB and invalidates the in-memory session cache.
+ */
+export async function acknowledgeWhatsNew(req: Request, res: Response, next?: NextFunction): Promise<void> {
+    try {
+        const authUser = req.user as AuthUser | undefined;
+        if (!authUser || !authUser._id) {
+            res.status(401).json({ message: "Unauthorized", code: "UNAUTHORIZED" });
+            return;
+        }
+
+        const paramId = extractParamId(req.params.id);
+        const targetUserId = paramId || authUser._id.toString();
+
+        // Enforce RBAC: Caller can only acknowledge for themselves unless Admin
+        if (paramId && paramId !== authUser._id.toString() && !isAdmin(authUser)) {
+            res.status(403).json({
+                message: "Forbidden: Cannot acknowledge for another user",
+                code: "FORBIDDEN",
+            });
+            return;
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(
+            targetUserId,
+            { $set: { hasSeenWhatsNew: true } },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        invalidateUserCache(targetUserId);
+
+        res.json({
+            message: "What's new acknowledged",
+            hasSeenWhatsNew: true,
+            user: updatedUser,
+        });
+    } catch (err: unknown) {
+        console.error("Acknowledge What's New error:", err);
+        if (typeof next === "function") {
+            next(err);
+            return;
+        }
+        res.status(500).json({ message: "Failed to acknowledge What's New" });
+    }
+}
+
 export default {
     login,
     getUsers,
@@ -514,4 +566,6 @@ export default {
     updateUser,
     deleteUser,
     managerUpdate,
+    acknowledgeWhatsNew,
 };
+

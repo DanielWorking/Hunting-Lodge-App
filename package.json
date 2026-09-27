@@ -13,6 +13,7 @@
     "dev": "concurrently \"npm:server\" \"npm:client\"",
     "dev:seed": "concurrently \"npm:server\" \"npm:seed\" \"npm:client\"",
     "seed": "npm run seed --workspace=server",
+    "seed:example": "npm run seed:example --workspace=server",
     "migrate:up": "npm run migrate:up --workspace=server",
     "migrate:down": "npm run migrate:down --workspace=server",
     "migrate:status": "npm run migrate:status --workspace=server",

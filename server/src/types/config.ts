@@ -104,6 +104,7 @@ export interface ServerProcessEnv {
     readonly TRUST_PROXY?: string;
     readonly LOG_FORMAT?: string;
     readonly STATIC_FILES_PATH?: string;
+    readonly SHIFT_REPORT_CRON_SCHEDULE?: string;
 }
 
 declare global {

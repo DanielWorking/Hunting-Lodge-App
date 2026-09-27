@@ -1,10 +1,10 @@
-﻿/**
+/**
  * @module SeedExample
  *
  * Example database seeding script for local development and initial environment bootstrap.
  * Resets existing collections and populates structured sample data including
  * administrative & operational groups, users, shift types, time slots,
- * directory contacts, sites, shift schedules, and shift reports.
+ * directory contacts, sites, shift schedules, shift reports, and vacation requests.
  */
 
 import mongoose, { Types } from "mongoose";
@@ -15,6 +15,8 @@ import Site from "./src/models/Site";
 import Phone from "./src/models/Phone";
 import ShiftSchedule from "./src/models/ShiftSchedule";
 import ShiftReport from "./src/models/ShiftReport";
+import VacationRequest from "./src/models/VacationRequest";
+import Shift from "./src/models/Shift";
 
 // Safety guard to prevent accidental database wipes in production
 if (config.isProd && !process.argv.includes("--force-production")) {
@@ -23,7 +25,7 @@ if (config.isProd && !process.argv.includes("--force-production")) {
     console.error("==================================================================");
     console.error("This script executes deleteMany() and wipes all database records!");
     console.error("If you truly intend to wipe and re-seed the production database, run:");
-    console.error("  node seed.example.js --force-production\n");
+    console.error("  npm run seed -- --force-production\n");
     console.error("==================================================================\n");
     process.exit(1);
 }
@@ -125,7 +127,7 @@ const NOC_TIME_SLOTS: readonly TimeSlotSeed[] = [
 interface PhoneSeed {
     readonly name: string;
     readonly numbers: readonly string[];
-    readonly type: string;
+    readonly type: "Black" | "Red" | "Mobile" | "Landline";
     readonly description: string;
 }
 
@@ -182,16 +184,18 @@ const importData = async (): Promise<void> => {
         await mongoose.connect(config.mongoUri, config.database ? config.database.options : {});
         console.log("✅ MongoDB Connected...");
 
-        // Wipe existing collections
-        await Group.deleteMany();
-        await User.deleteMany();
-        await Site.deleteMany();
-        await Phone.deleteMany();
-        await ShiftSchedule.deleteMany();
-        await ShiftReport.deleteMany();
-        console.log("🗑️  Old Data Destroyed...");
+        // Wipe existing collections in safe dependency order
+        await VacationRequest.deleteMany({});
+        await Shift.deleteMany({});
+        await ShiftReport.deleteMany({});
+        await ShiftSchedule.deleteMany({});
+        await Site.deleteMany({});
+        await Phone.deleteMany({});
+        await User.deleteMany({});
+        await Group.deleteMany({});
+        console.log("🗑️  Old Data Destroyed across all collections...");
 
-        // Ensure indexes match current schema (drops obsolete indexes like old 'id_1')
+        // Ensure indexes match current schema (drops obsolete indexes and applies compound indexes)
         try {
             await Group.syncIndexes();
             await User.syncIndexes();
@@ -199,6 +203,9 @@ const importData = async (): Promise<void> => {
             await Phone.syncIndexes();
             await ShiftSchedule.syncIndexes();
             await ShiftReport.syncIndexes();
+            await VacationRequest.syncIndexes();
+            await Shift.syncIndexes();
+            console.log("📐 Indexes Synchronized...");
         } catch (idxErr: unknown) {
             const msg: string = idxErr instanceof Error ? idxErr.message : String(idxErr);
             console.log("  [Index sync notice]:", msg);
@@ -239,16 +246,17 @@ const importData = async (): Promise<void> => {
             {
                 ...adminUserData,
                 isActive: true,
+                hasSeenWhatsNew: true,
                 vacationBalance: 999,
                 groups: [
                     {
                         groupId: gMap[config.superAdmin.groupName],
-                        role: "shift_manager",
+                        role: "shift_manager" as const,
                         order: 0,
                     },
                     {
                         groupId: gMap["noc"],
-                        role: "shift_manager",
+                        role: "shift_manager" as const,
                         order: 0,
                     },
                 ],
@@ -258,11 +266,12 @@ const importData = async (): Promise<void> => {
             {
                 ...regularUserData,
                 isActive: true,
+                hasSeenWhatsNew: false,
                 vacationBalance: 18,
                 groups: [
                     {
                         groupId: gMap["noc"],
-                        role: "member",
+                        role: "member" as const,
                         order: 1,
                     },
                 ],
@@ -327,12 +336,14 @@ const importData = async (): Promise<void> => {
                 date: weekDays[0],
                 shiftTypeId: shiftTypeMorningId,
                 vacationDeducted: false,
+                vacationValue: 1.0 as const,
             },
             {
                 userId: createdUsers[1]._id,
                 date: weekDays[0],
                 shiftTypeId: shiftTypeEveningId,
                 vacationDeducted: false,
+                vacationValue: 1.0 as const,
             },
             // Monday: Regular on Morning, Admin on Evening
             {
@@ -340,12 +351,14 @@ const importData = async (): Promise<void> => {
                 date: weekDays[1],
                 shiftTypeId: shiftTypeMorningId,
                 vacationDeducted: false,
+                vacationValue: 1.0 as const,
             },
             {
                 userId: createdUsers[0]._id,
                 date: weekDays[1],
                 shiftTypeId: shiftTypeEveningId,
                 vacationDeducted: false,
+                vacationValue: 1.0 as const,
             },
             // Tuesday: Admin on Night, Regular on Middle
             {
@@ -353,12 +366,22 @@ const importData = async (): Promise<void> => {
                 date: weekDays[2],
                 shiftTypeId: shiftTypeNightId,
                 vacationDeducted: false,
+                vacationValue: 1.0 as const,
             },
             {
                 userId: createdUsers[1]._id,
                 date: weekDays[2],
                 shiftTypeId: shiftTypeMiddleId,
                 vacationDeducted: false,
+                vacationValue: 1.0 as const,
+            },
+            // Wednesday: Regular on Vacation (tests vacation day consumption)
+            {
+                userId: createdUsers[1]._id,
+                date: weekDays[3],
+                shiftTypeId: shiftTypeVacationId,
+                vacationDeducted: true,
+                vacationValue: 1.0 as const,
             },
         ];
 
@@ -396,6 +419,33 @@ const importData = async (): Promise<void> => {
         });
         console.log("📝 Sample Shift Report Created...");
 
+        // 7. Create Sample Vacation Requests
+        const pendingVacationDate: Date = new Date(weekDays[6]);
+        pendingVacationDate.setDate(pendingVacationDate.getDate() + 3);
+        pendingVacationDate.setHours(0, 0, 0, 0);
+
+        await VacationRequest.insertMany([
+            {
+                userId: createdUsers[1]._id,
+                groupId: gMap["noc"],
+                date: weekDays[3],
+                vacationValue: 1.0,
+                status: "approved",
+                notes: "Approved annual vacation",
+                reviewedBy: createdUsers[0]._id,
+                reviewedAt: new Date(),
+            },
+            {
+                userId: createdUsers[1]._id,
+                groupId: gMap["noc"],
+                date: pendingVacationDate,
+                vacationValue: 0.5,
+                status: "pending",
+                notes: "Request for half-day personal leave",
+            },
+        ]);
+        console.log("🏖️  Sample Vacation Requests Created (1 Approved, 1 Pending)...");
+
         console.log("\n==================================================");
         console.log("✨ ALL SAMPLE DATA IMPORTED SUCCESSFULLY!");
         console.log("==================================================\n");
@@ -407,4 +457,8 @@ const importData = async (): Promise<void> => {
     }
 };
 
-importData();
+importData().catch((fatalError: unknown) => {
+    const errorMsg: string = fatalError instanceof Error ? fatalError.message : String(fatalError);
+    console.error(`❌ Fatal unhandled error during seeding: ${errorMsg}`);
+    process.exit(1);
+});

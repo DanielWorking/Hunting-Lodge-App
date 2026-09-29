@@ -203,7 +203,7 @@ const ScheduleTable = forwardRef<HTMLDivElement, ScheduleTableProps>(
                                             tabIndex={isShiftManager ? 0 : undefined}
                                             aria-label={
                                                 isShiftManager
-                                                    ? `${user.name} - ${format(day, "EEEE dd/MM/yyyy")}${shiftType ? `: ${shiftType.name}` : ""}`
+                                                    ? `${user.displayName || user.username} - ${format(day, "EEEE dd/MM/yyyy")}${shiftType ? `: ${shiftType.name}` : ""}`
                                                     : undefined
                                             }
                                             onClick={(e) =>

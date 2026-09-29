@@ -27,18 +27,20 @@ Every test case follows a strict **GIVEN-WHEN-THEN** flow adhering to intent-dri
    - 3.9 [Test Case 1.9: In-Memory User Cache TTL (30s) & Mid-Session Deactivation (Session)](#test-case-19-in-memory-user-cache-ttl-30s--mid-session-deactivation-session)
    - 3.10 [Test Case 1.10: Expired JWT Token Handling (Session)](#test-case-110-expired-jwt-token-handling-session)
    - 3.11 [Test Case 1.11: Unauthenticated Deep Linking Interception (Session)](#test-case-111-unauthenticated-deep-linking-interception-session)
+   - 3.12 [Test Case 1.12: First-Time User Feature Walkthrough & 'What's New' Modal Lifecycle (Session)](#test-case-112-first-time-user-feature-walkthrough--whats-new-modal-lifecycle-session)
 4. [Suite 2: Role-Based Access Control (RBAC) & Visibility Boundaries](#4-suite-2-role-based-access-control-rbac--visibility-boundaries)
    - 4.1 [Test Case 2.1: Guest User Isolation & Protected Route Interception (Guest)](#test-case-21-guest-user-isolation--protected-route-interception-guest)
    - 4.2 [Test Case 2.2: Standard Member & Non-Manager Admin Published-Only Schedule View (Member/Admin)](#test-case-22-standard-member--non-manager-admin-published-only-schedule-view-memberadmin)
    - 4.3 [Test Case 2.3: Standard Member & Non-Manager Admin Report Deletion Prohibition (Member/Admin)](#test-case-23-standard-member--non-manager-admin-report-deletion-prohibition-memberadmin)
    - 4.4 [Test Case 2.4: Shift Manager UI Badge & Group Settings Access (Manager)](#test-case-24-shift-manager-ui-badge--group-settings-access-manager)
    - 4.5 [Test Case 2.5: Shift Manager Schedule Edit & Draft Save (Manager)](#test-case-25-shift-manager-schedule-edit--draft-save-manager)
-   - 4.6 [Test Case 2.6: Shift Schedule Publishing & Vacation Day Deduction (Manager)](#test-case-26-shift-schedule-publishing--vacation-day-deduction-manager)
+   - 4.6 [Test Case 2.6: Shift Schedule Publishing & Fractional Vacation Day Deduction (Manager)](#test-case-26-shift-schedule-publishing--fractional-vacation-day-deduction-manager)
    - 4.7 [Test Case 2.7: Shift Manager Group Tenancy Boundary Check (Manager)](#test-case-27-shift-manager-group-tenancy-boundary-check-manager)
    - 4.8 [Test Case 2.8: Administrator Navbar Badging & Dynamic Group Switching (Admin)](#test-case-28-administrator-navbar-badging--dynamic-group-switching-admin)
    - 4.9 [Test Case 2.9: Administrator Self-Deletion Prevention (Security Invariant)](#test-case-29-administrator-self-deletion-prevention-security-invariant)
    - 4.10 [Test Case 2.10: Root Super Admin Account Protection Locks (Security Invariant)](#test-case-210-root-super-admin-account-protection-locks-security-invariant)
    - 4.11 [Test Case 2.11: Protected System Group Lifecycle Locks (Security Invariant)](#test-case-211-protected-system-group-lifecycle-locks-security-invariant)
+   - 4.12 [Test Case 2.12: Vacation Request Lifecycle & Quota Management (Manager/Member)](#test-case-212-vacation-request-lifecycle--quota-management-managermember)
 5. [Suite 3: Happy Path End-to-End Operational Workflows](#5-suite-3-happy-path-end-to-end-operational-workflows)
    - 5.1 [Test Case 3.1: Sites & Bookmarks Management (CRUD, Tags & Favorites)](#test-case-31-sites--bookmarks-management-crud-tags--favorites)
    - 5.2 [Test Case 3.2: Phone Directory Management (CRUD, Formatting & Details Modal)](#test-case-32-phone-directory-management-crud-formatting--details-modal)
@@ -52,7 +54,7 @@ Every test case follows a strict **GIVEN-WHEN-THEN** flow adhering to intent-dri
    - 6.2 [Test Case 4.1: Sites Form Field Required Validations (Client-Side)](#test-case-41-sites-form-field-required-validations-client-side)
    - 6.3 [Test Case 4.2: Phone Directory Multi-Number & Type Formatting (Client-Side)](#test-case-42-phone-directory-multi-number--type-formatting-client-side)
    - 6.4 [Test Case 4.3: Member Vacation Balance Negative Boundary (API Validation)](#test-case-43-member-vacation-balance-negative-boundary-api-validation)
-   - 6.5 [Test Case 4.4: User Reordering Malformed Payload (API Zod Validation)](#test-case-44-user-reordering-要因-payload-api-zod-validation)
+   - 6.5 [Test Case 4.4: User Reordering Malformed Payload (API Zod Validation)](#test-case-44-user-reordering-malformed-payload-api-zod-validation)
    - 6.6 [Test Case 4.5: Locked Shift Report Modification Invariant (`REPORT_LOCKED`)](#test-case-45-locked-shift-report-modification-invariant-report_locked)
    - 6.7 [Test Case 4.6: Deleting Group with Active Members Guard](#test-case-46-deleting-group-with-active-members-guard)
 7. [Suite 5: Cross-Cutting & System-Wide Checks](#7-suite-5-cross-cutting--system-wide-checks)
@@ -68,26 +70,63 @@ Every test case follows a strict **GIVEN-WHEN-THEN** flow adhering to intent-dri
 
 ### 1.1 Prerequisites & Seed Data
 
-Ensure application dependencies are installed, local databases are active, and sample test fixtures are loaded.
+Ensure application dependencies are installed, local databases are active, and sample test fixtures are loaded. Database bootstrapping can be performed using either of the following commands:
 
 ```bash
-# In project root:
+# In project root - concurrently starts server, seeds database, and boots Vite client:
 npm run dev:seed
+
+# Alternatively, run standalone database reset and seed script directly:
+npm run seed:example
 ```
 
 > [!NOTE]
-> Seeding the database resets collections and creates deterministic test records:
+> Seeding the database resets existing collections and populates deterministic test fixtures across **8 core data models**:
 >
-> - **Super Admin Account:** `username: "10001"` (Display: `Admin User`, Email: `admin@dev.local`, Groups: `hunting_lodge_admin` [Manager], `noc` [Manager])
-> - **Regular Member Account:** `username: "10002"` (Display: `Regular User`, Email: `member@dev.local`, Groups: `noc` [Member])
-> - **Core Groups:** `hunting_lodge_admin` (System Protected), `noc` (Operational Group)
-> - **Mock Data:** Initial site bookmarks, phone contacts, shift types (`בוקר`, `ערב`, `לילה`, `חופש`), time slots, schedules, and historical reports.
+> 1. **User:** Deterministic account states for automated and manual verification:
+>    - **Super Admin Account:** `username: "10001"` (Display: `Admin User`, Email: `admin@dev.local`, Groups: `hunting_lodge_admin` [Manager], `noc` [Manager], `hasSeenWhatsNew: true`, `vacationBalance: 999`).
+>    - **Regular Member Account:** `username: "10002"` (Display: `Regular User`, Email: `member@dev.local`, Groups: `noc` [Member], `hasSeenWhatsNew: false`, `vacationBalance: 18`).
+> 2. **Group:**
+>    - `hunting_lodge_admin` (System Protected, `isSystemGroup: true`).
+>    - `noc` (Operational Group, contains shift types and time slots).
+> 3. **Site:** Initial bookmark entries (`NOC Dashboard`, `Shift Log Tool`, `Company Portal`) with tags (`General`, `Tacti`) and user favorites.
+> 4. **Phone:** Directory contacts (`David` [Mobile], `HQ` [Landline]) with auto-formatted numbers.
+> 5. **ShiftType:** Configured within group settings (`בוקר` / Morning, `ערב` / Evening, `לילה` / Night, `חופש` / Vacation [isVacation: true], `Leave` [isVacation: true]).
+> 6. **TimeSlot:** Configured working slots (`Morning Shift`, `Evening Shift`, `Night Shift`, `Weekend Shift`, `Middle Shift`) linked exclusively to working shift types.
+> 7. **ShiftSchedule:** Published schedule for the current week containing scheduled member shifts and vacation entries.
+> 8. **ShiftReport:** Historical shift reports with rich HTML tasks, previous task handoffs, and attendee records.
+> 9. **VacationRequest:** Pre-seeded requests demonstrating lifecycle states:
+>    - 1 Approved Full-Day Request: `vacationValue: 1.0`, `status: "approved"`, `notes: "Approved annual vacation"`.
+>    - 1 Pending Half-Day Request: `vacationValue: 0.5`, `status: "pending"`, `notes: "Request for half-day personal leave"`.
+> 10. **Shift:** Shift records supporting fractional values (`vacationValue: 1.0` and `vacationValue: 0.5`) with atomic `vacationDeducted` tracking.
 
 ### 1.2 Application Endpoints
 
 - **Client Application:** `http://localhost:5173` (Vite dev server)
 - **Backend REST API:** `http://localhost:5000` (or `PORT` from `.env`)
 - **API Health / Status:** `http://localhost:5000/api/auth/me`
+
+#### Core API Routing Matrix:
+- **Authentication & Claims:**
+  - `GET /api/auth/me` - Session restoration and claim verification.
+  - `POST /api/auth/login` - Local and SSO callback authentication.
+  - `GET /api/auth/sso-url` - SSO IdP redirection URL generation.
+- **User Management & Onboarding:**
+  - `GET /api/users` - Directory listing (group-scoped or global admin).
+  - `PATCH /api/users/whats-new` - First-time user feature walkthrough acknowledgement.
+  - `PATCH /api/users/:id/whats-new` - Explicit user feature acknowledgement.
+  - `PATCH /api/users/:id/manager-update` - Manager status and vacation quota adjustments.
+  - `PUT /api/users/reorder/group` - Roster display ordering updates.
+- **Vacation Lifecycle & Quotas:**
+  - `POST /api/vacations` - Member vacation request submission (supports `0.5` and `1.0`).
+  - `GET /api/vacations` - Group vacation requests query filtered by status or user.
+  - `PATCH /api/vacations/:id/status` - Manager approval/rejection with atomic quota updates.
+  - `GET /api/vacations/balance` - Aggregated user leave balance calculation.
+- **Shift Rostering & Operational Reports:**
+  - `GET /api/schedules` & `PUT /api/schedules` - Schedule drafting and live retrieval.
+  - `POST /api/schedules/publish` - Publishing schedule with fractional leave deduction.
+  - `GET /api/reports` & `POST /api/reports` - Operational shift handoff logs.
+  - `PUT /api/reports/:id` & `DELETE /api/reports/:id` - Log modification and manager deletion.
 
 ### 1.3 Architectural Layer & Exception Mapping Model
 
@@ -106,8 +145,16 @@ graph TD
 
 - **Client Form Level:** Immediate field border highlights and red `helperText` (e.g. `"Name is required"`).
 - **Zod Schema Level (`400 Bad Request`):** Handled by `validateRequest` in `validationMiddleware.ts` yielding `code: "VALIDATION_ERROR"`.
-- **RBAC Security Level (`403 Forbidden`):** Handled by `authMiddleware.ts`(`FORBIDDEN_ADMIN_REQUIRED`, `FORBIDDEN_GROUP_MEMBER_REQUIRED`, `FORBIDDEN_SHIFT_MANAGER_REQUIRED`, `FORBIDDEN_SELF_DELETION`, `FORBIDDEN_SUPER_ADMIN_PROTECTED`).
+- **RBAC Security Level (`403 Forbidden`):** Handled by `authMiddleware.ts` (`FORBIDDEN_ADMIN_REQUIRED`, `FORBIDDEN_GROUP_MEMBER_REQUIRED`, `FORBIDDEN_SHIFT_MANAGER_REQUIRED`, `FORBIDDEN_SELF_DELETION`, `FORBIDDEN_SUPER_ADMIN_PROTECTED`).
 - **Global Toast Level:** Rendered via `NotificationContext.tsx` anchored at bottom-right (`variant="filled"`).
+
+> [!IMPORTANT]
+> **Server-Driven Role-Based Access Control (RBAC):**
+> Role evaluations are strictly server-driven. Responses from `/api/auth/me`, `/api/auth/login`, and `/api/users` provide explicit boolean flags:
+> - `isSuperAdmin`: Identifies the system root administrator with global oversight.
+> - `isAdmin`: Evaluated dynamically when the user is operating within an active administrative group (`isSystemGroup: true`).
+> - `isShiftManager`: Evaluated dynamically per active group context based on the user's `role: "shift_manager"` assignment.
+> Legacy client-side environment configurations (such as `VITE_SUPER_ADMIN_GROUP_NAME`) have been completely eliminated. `UserContext.tsx` dynamically binds these server-provided flags to current UI state.
 
 ---
 
@@ -154,9 +201,10 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 - **WHEN:** User clicks **"Login with Organization SSO"** and authenticates through the IdP callback to `/auth/callback?code=mock_valid_code`.
 - **THEN:**
   1. Frontend displays `ThinkingLoader.tsx` while `loginWithCode` in `authApi.ts` posts to `/api/auth/login`.
-  2. Server creates a new document in `User.ts` with `username: "new_cadet"`, `isActive: true`, `groups: []`, and returns a signed JWT.
+  2. Server creates a new document in `User.ts` with `username: "new_cadet"`, `isActive: true`, `groups: []`, `hasSeenWhatsNew: false`, and returns a signed JWT.
   3. Client stores `hunting_token` and `hunting_userId` in `localStorage`.
   4. User is redirected to `/guest` because `groups` is empty.
+  5. Once an administrator assigns `new_cadet` to an operational group and the user navigates to `/`, the blocking "What's New" modal will mount automatically (see [Test Case 1.12](#test-case-112-first-time-user-feature-walkthrough--whats-new-modal-lifecycle-session)).
 - **Must Not:** Crash or create duplicate users on consecutive requests.
 - **Failure Consequence:** New personnel cannot enter the platform.
 
@@ -164,14 +212,16 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ### Test Case 1.2: Returning User Login & Claim Refresh (Happy Path)
 
-- **Objective:** Verify returning users have their `lastLogin` timestamp and claims updated upon subsequent logins.
-- **Preconditions:** User `10002` already exists in MongoDB.
+- **Objective:** Verify returning users have their `lastLogin` timestamp and claims updated upon subsequent logins, respecting their `hasSeenWhatsNew` onboarding status.
+- **Preconditions:** User `10002` already exists in MongoDB with `hasSeenWhatsNew: false`. User `10001` exists with `hasSeenWhatsNew: true`.
 - **GIVEN:** User `10002` initiates SSO callback via `/auth/callback?code=mock_user_code`.
 - **WHEN:** Server executes `login` in `authController.ts`.
 - **THEN:**
   1. Server updates `lastLogin` ISO timestamp on the user record.
   2. Server returns existing user profile and signed JWT.
-  3. Client redirects to `/` and renders the Sites dashboard with the active group `noc`.
+  3. Client redirects to `/` with the active group `noc`.
+  4. Because `user.hasSeenWhatsNew === false`, `SitesPage` detects an un-acknowledged feature tour and immediately mounts the centered blocking `WhatsNewModal` (see [Test Case 1.12](#test-case-112-first-time-user-feature-walkthrough--whats-new-modal-lifecycle-session)).
+  5. In contrast, when Super Admin `10001` (`hasSeenWhatsNew: true`) logs in, the `WhatsNewModal` is bypassed entirely, rendering the Sites dashboard immediately.
 - **Must Not:** Overwrite custom user configurations or reset vacation balances.
 - **Failure Consequence:** Loss of member group assignments or historical statistics.
 
@@ -344,6 +394,61 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ---
 
+### Test Case 1.12: First-Time User Feature Walkthrough & 'What's New' Modal Lifecycle (Session)
+
+- **Objective:** Verify centered blocking slide wizard behavior, stepper dot progression, version chip display, API acknowledgement dispatch, and permanent dismissal across page reloads.
+- **Preconditions:** User `10002` (Regular User) is seeded with `hasSeenWhatsNew: false`. User holds active membership in `noc`.
+- **GIVEN:** User `10002` logs into the application and navigates to `http://localhost:5173/`.
+- **WHEN:** `SitesPage.tsx` detects `user.hasSeenWhatsNew === false` and mounts `WhatsNewModal.tsx`:
+  1. **Strict Blocking Verification:**
+     - Click outside the modal on the backdrop: verify modal does **NOT** dismiss.
+     - Press the `Escape` key on keyboard: verify modal does **NOT** dismiss (`disableEscapeKeyDown` prop active).
+  2. **Slide 1 Header & Content Inspection:**
+     - Top Bar: Stepper counter displays `"1 of 4"`. Feature tag chip displays `"Schedule"`. Version chip displays `"v1.0.0"`.
+     - Icon & Title: Displays Calendar icon and title `"Shift Scheduling & Calendar"`.
+     - Description: `"Interactive monthly calendar and weekly rosters with real-time slot constraints, seamless shift coverage, and clear shift assignments."`.
+     - Key Benefit Pill: `"✨ Instant visibility on upcoming rosters and team coverage"`.
+     - Action Controls: "Back" button is disabled and hidden (`visibility: hidden`). Click **"Next"** button.
+  3. **Slide 2 (Operational Shift Reports):**
+     - Counter advances to `"2 of 4"`. Tag displays `"Reports"`.
+     - Title: `"Operational Shift Reports"`.
+     - Benefit Pill: `"✨ Zero handover gaps with structured digital shift logs"`.
+     - Stepper Dots: The 2nd dot expands to width 24px with cyan accent color (`#0288d1`).
+     - Click **"Back"** button: verify wizard returns to Slide 1 (`"1 of 4"`).
+     - Click **"Next"** button twice: advance through Slide 2 to Slide 3.
+  4. **Slide 3 (Vacation Management & Quotas):**
+     - Counter advances to `"3 of 4"`. Tag displays `"Vacation"`.
+     - Title: `"Vacation Management & Quotas"`.
+     - Benefit Pill: `"✨ Self-service vacation balance tracking and quick approvals"`.
+     - Accent color: Amber/Orange (`#ed6c02`). Click **"Next"**.
+  5. **Slide 4 (Phone & Site Directory):**
+     - Counter advances to `"4 of 4"`. Tag displays `"Directory"`.
+     - Title: `"Phone & Site Directory"`.
+     - Benefit Pill: `"✨ One-click access to critical emergency and site contacts"`.
+     - Button Transition: The primary button transitions from "Next" to **"Got it, let's explore!"** (or **"Got It, Let's Go!"**) accompanied by a checkmark icon.
+  6. **Network Exception Edge Case Check:**
+     - In DevTools Network tab, simulate "Offline".
+     - Click **"Got it, let's explore!"**:
+     - Modal remains open and renders a red inline Alert:
+       ```text
+       "Unable to save your acknowledgement at this time. Please check your connection and try again."
+       ```
+     - Reconnect network in DevTools.
+  7. **Successful Acknowledgement Dispatch:**
+     - Click **"Got it, let's explore!"**.
+- **THEN:**
+  1. Button transitions to loading state (`"Saving..."` with circular spinner).
+  2. Client dispatches HTTP `PATCH /api/users/whats-new`.
+  3. Server executes `acknowledgeWhatsNew` in `usersController.ts`, sets `hasSeenWhatsNew: true` on user document in MongoDB, and invalidates in-memory user cache (`invalidateUserCache`).
+  4. Response returns HTTP 200: `{ "message": "What's new acknowledged", "hasSeenWhatsNew": true }`.
+  5. Client calls `markWhatsNewSeen()` in `UserContext.tsx`, updating local user state.
+  6. `WhatsNewModal` unmounts smoothly; `SitesPage` becomes fully interactive.
+  7. Reload browser (`F5`): User remains on `/` and the modal does **NOT** mount again.
+- **Must Not:** Allow dismissal via background click or Escape key, fail to persist acknowledgement, or loop on subsequent visits.
+- **Failure Consequence:** First-time users trapped in modal or continually harassed by onboarding dialogs on every page load.
+
+---
+
 ## 4. Suite 2: Role-Based Access Control (RBAC) & Visibility Boundaries
 
 ### Test Case 2.1: Guest User Isolation & Protected Route Interception (Guest)
@@ -439,38 +544,71 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
   2. Popover menu opens displaying configured shift types (`בוקר`, `ערב`, `לילה`, `חופש`).
   3. Manager selects `משמרת בוקר`.
   4. Cell updates with morning shift color and title.
-  5. Manager clicks **"Save Changes"** icon button in the header toolbar.
+  5. Manager clicks **"Save Draft"** (or Save icon) in the header toolbar.
 - **THEN:**
-  1. Client sends `PUT /api/schedules/:id` with draft assignment payload.
+  1. Client sends `PUT /api/schedules` with draft assignment payload.
   2. A green Toast notification appears:
      ```text
      "Schedule saved as Draft"
      ```
-  3. Status badge displays `"Draft"` (or `"Published"` if editing a live schedule).
+  3. Status badge displays `"DRAFT"` (or `"Published"` if modifying a live schedule).
   4. Page reload confirms the assignment persists.
 - **Must Not:** Deduct vacation balances while the schedule is merely saved as Draft.
 - **Failure Consequence:** Premature deduction of leave days before schedules are confirmed.
 
 ---
 
-### Test Case 2.6: Shift Schedule Publishing & Vacation Day Deduction (Manager)
+### Test Case 2.6: Shift Schedule Publishing & Fractional Vacation Day Deduction (Manager)
 
-- **Objective:** Verify publishing a schedule prompts for confirmation, triggers vacation balance deductions, and locks in the roster.
-- **Preconditions:** Manager has configured at least one member with a `חופש` (Vacation) shift in the draft schedule.
-- **GIVEN:** Schedule has unsaved or draft changes.
-- **WHEN:** Manager clicks **"Publish Schedule"**.
+- **Objective:** Verify publishing a schedule prompts for confirmation, correctly calculates both Full-Day (1.0) and Half-Day (0.5) vacation assignments, and atomically deducts the accurate fractional leave balance.
+- **Preconditions:** Log in as Manager (`10001` in `noc`). Member `10002` has initial `vacationBalance: 18`. Draft schedule contains empty or modifiable slots for member `10002`.
+- **GIVEN:** Manager is at `http://localhost:5173/schedule`.
+- **WHEN:**
+  1. **Assigning Full-Day Vacation:**
+     - Click Tuesday cell for `10002`.
+     - Popover menu opens: locate vacation shift type (e.g. `חופש`).
+     - Notice distinct fractional options:
+       - Item 1: `חופש (1.0)` with solid colored circle icon.
+       - Item 2: `חופש (0.5)` with `opacity: 0.7` colored circle icon.
+     - Click `חופש (1.0)`.
+     - Verify cell renders chip: `חופש`.
+  2. **Assigning Half-Day Vacation:**
+     - Click Wednesday cell for `10002`.
+     - Popover menu opens: click `חופש (0.5)`.
+     - Verify cell renders chip: `חופש (0.5)`.
+  3. **Publishing the Schedule:**
+     - Click **"Publish Schedule"** (or **"Update & Publish"**) button in the toolbar.
+     - `ConfirmDialog.tsx` mounts with title `"Publish Schedule?"` and message:
+       ```text
+       "Publishing will make the schedule visible to all users. Vacation days will be calculated based on assigned shifts. Continue?"
+       ```
+     - Click **"Publish"** (`confirmColor="success"`).
 - **THEN:**
-  1. `ConfirmDialog.tsx` opens warning: `"Are you sure you want to publish? This will update member vacation balances."`
-  2. Manager clicks **"Confirm"**.
-  3. Client dispatches publish request.
-  4. Green Toast notification displays:
+  1. Client sends publish request to `POST /api/schedules/publish`.
+  2. In `schedulesController.ts`:
+     - Server detects 2 un-deducted vacation shifts for `10002`: one `1.0` and one `0.5`.
+     - Server pre-aggregates total deduction: `1.0 + 0.5 = 1.5` days.
+     - Server atomically updates MongoDB user record:
+       ```typescript
+       await User.findOneAndUpdate(
+           { _id: userIdVal, vacationBalance: { $gte: 1.5 } },
+           { $inc: { vacationBalance: -1.5 } },
+           { returnDocument: "after" }
+       );
+       ```
+     - Server marks both shifts with `vacationDeducted: true`.
+  3. Client displays green Toast notification:
      ```text
      "Schedule Published Successfully!"
      ```
-  5. Status badge switches to `"Published"`.
-  6. In Group Settings -> Members Tab, verify the member's vacation balance decreased by 1 day per vacation shift.
-- **Must Not:** Allow double-deductions if the publish button is clicked repeatedly.
-- **Failure Consequence:** Erroneous leave balance calculations and HR disputes.
+  4. Header status indicator transitions to `"Published"`.
+  5. Navigate to `http://localhost:5173/group-settings` -> **Members Tab**:
+     - Locate `10002` (Regular User).
+     - Vacation Balance displays `16.5` days (exactly `18 - 1.5`).
+  6. Return to `/schedule` and click **"Update & Publish"** again:
+     - Verify no further deductions occur (`vacationDeducted: true` prevents double-deductions).
+- **Must Not:** Deduct integer-only days (e.g. 2.0 instead of 1.5), deduct from balance on draft saves, or allow balances to go negative (`$gte` balance guard).
+- **Failure Consequence:** Severe leave accounting errors, loss of half-day tracking, and member quota disputes.
 
 ---
 
@@ -576,6 +714,60 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ---
 
+### Test Case 2.12: Vacation Request Lifecycle & Quota Management (Manager/Member)
+
+- **Objective:** Verify members can submit fractional vacation requests (`0.5` and `1.0`), view projected balance deductions in real time, and Shift Managers can approve/reject requests via `/api/vacations` with atomic balance updates.
+- **Preconditions:**
+  - Member `10002` is authenticated with active group `noc` (`vacationBalance: 18`).
+  - Manager `10001` holds `role: "shift_manager"` in `noc`.
+- **GIVEN:** Member `10002` opens the `VacationModal.tsx` dialog to submit leave.
+- **WHEN:**
+  1. **Submitting Fractional Vacation Request (Member):**
+     - Inspect `VacationModal` fields:
+       - Date header: displays selected date (e.g. `05/10/2026`).
+       - Radio group: **"Full Day (1.0 day)"** and **"Half Day (0.5 day)"**.
+       - Balance display: `"Current balance: 18 days"`.
+     - Select **"Half Day (0.5 day)"**.
+     - Verify projected balance dynamically updates: `"Projected balance: 17.5 days"`.
+     - Click **"Confirm"** (or Submit).
+     - Client calls `POST /api/vacations` with:
+       ```json
+       {
+         "groupId": "noc_id",
+         "date": "2026-10-05T00:00:00.000Z",
+         "vacationValue": 0.5,
+         "notes": "Doctor appointment"
+       }
+       ```
+     - Response returns HTTP 201 with `status: "pending"`.
+  2. **Manager Review & Approval:**
+     - Log in as Shift Manager `10001`.
+     - Query pending requests via `GET /api/vacations?groupId=noc_id&status=pending`.
+     - Locate pending request for `10002` with `vacationValue: 0.5`.
+     - Manager approves request: client sends `PATCH /api/vacations/:id/status` with:
+       ```json
+       {
+         "status": "approved"
+       }
+       ```
+- **THEN:**
+  1. Request status transitions from `"pending"` to `"approved"`.
+  2. Server updates vacation balance atomically using `$inc: { vacationBalance: -0.5 }`.
+  3. Querying `GET /api/vacations/balance?groupId=noc_id&userId=10002_id` returns updated balance `17.5`.
+  4. In Group Settings -> Members Tab, user `10002` row displays `Vacation Balance: 17.5`.
+  5. **Insufficient Quota Guard Verification:**
+     - If user balance is `0` or insufficient for requested value (e.g. balance `0.2` and request `0.5`), `VacationModal` renders red Alert:
+       ```text
+       "Insufficient vacation balance. You cannot book 0.5 day with 0.2 remaining."
+       ```
+     - The submit button is disabled.
+  6. **RBAC Guard Verification:**
+     - If regular member `10002` attempts direct `PATCH /api/vacations/:id/status`, server rejects with HTTP 403 Forbidden (`requireShiftManager`).
+- **Must Not:** Allow negative balances, permit unapproved leave deductions, or allow members to approve their own requests.
+- **Failure Consequence:** Unchecked leave accrual, unauthorized absences, and HR accounting failures.
+
+---
+
 ## 5. Suite 3: Happy Path End-to-End Operational Workflows
 
 ### Test Case 3.1: Sites & Bookmarks Management (CRUD, Tags & Favorites)
@@ -669,21 +861,42 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ### Test Case 3.5: Group Settings Configuration (Shift Types, Time Slots & Reordering)
 
-- **Objective:** Verify Shift Managers can customize operational shift metadata, time slot definitions, and member display order.
+- **Objective:** Verify Shift Managers can customize operational shift metadata, configure active duty time slots while adhering to operational safety alerts, and manage member display order.
 - **Preconditions:** Authenticated as Shift Manager in `noc` at `http://localhost:5173/group-settings`.
-- **GIVEN:** Group Settings page with 4 tabs.
+- **GIVEN:** Group Settings page with 4 tabs (Shift Types, Time Slots, Members, General).
 - **WHEN:**
-  1. **Shift Types Tab:** Click **"+ Add Shift Type"**, Name: `כוננות שבת`, Color: `#E91E63`, Vacation: `No`, Save.
-  2. **Time Slots Tab:** Click **"+ Add Time Slot"**, Name: `משמרת לילה מוקדמת`, Start: `22:00`, End: `06:00`, Link to Night Shift, Save.
-  3. **Members Tab:** Click **Up (↑)** arrow next to Member 2 to move them above Member 1.
-  4. Edit Member 1 Vacation Balance from `18` to `20`. Click Save icon on the row.
+  1. **Shift Types Tab:**
+     - Click **"+ Add Shift Type"**, Name: `כוננות שבת`, Color: `#E91E63`, Vacation: `No`, Save.
+     - Green Toast: `"Shift types updated successfully"`.
+  2. **Time Slots Tab Operational Safety Checks:**
+     - Inspect top banner: Verify prominent warning Alert (`role="alert"`, `aria-live="polite"`):
+       - Title: `"Important: Active Duty Time Slots Only"`
+       - Body: `"Do not assign or link time slots to non-working shift types (such as Vacation, Sick Leave, or Personal Days)."`
+       - Caption: `"Time slots are strictly reserved for operational shifts. Linking non-working shifts causes automated schedule overlaps and corrupts duty roster assignments in shift reports."`
+     - Click **"Add Slot"** to open dialog.
+     - In **Linked Shift Types** multi-select, select a shift type marked as vacation (e.g. `חופש` / `Vacation`).
+     - Verify dynamic warning Alert appears inside the dialog:
+       ```text
+       "Warning: One or more selected shift types are marked as non-working (vacation). Linking them will trigger schedule overlaps and inaccurate report assignments."
+       ```
+     - Verify helper text below the select box displays:
+       ```text
+       "Only link active working shifts. Do not assign non-working shift types (e.g., Vacation or Leave)."
+       ```
+     - Deselect `חופש`: verify dynamic warning Alert immediately disappears.
+     - Link active duty working shift (e.g. `משמרת לילה`), Name: `משמרת לילה מוקדמת`, Start: `22:00`, End: `06:00`.
+     - Click **"Save"**.
+     - Green Toast: `"Time slots updated"`.
+  3. **Members Tab & Vacation Balance Update:**
+     - Click **Up (↑)** arrow next to Member 2 to move them above Member 1. Roster updates optimistically and persists via `PUT /api/users/reorder/group`.
+     - Edit Member 1 Vacation Balance from `18` to `20.5` (supporting fractional days). Click row Save icon.
 - **THEN:**
-  1. Shift Types updates with green Toast: `"Shift types updated successfully"`.
-  2. Time Slots updates with green Toast: `"Time slots updated"`.
-  3. Member order updates optimistically and persists to backend via `PUT /api/users/reorder/group`.
-  4. Vacation balance update dispatches `PATCH /api/users/:id/manager-update` and displays green Toast: `"User updated"`.
-- **Must Not:** Allow non-managers to view or access this interface.
-- **Failure Consequence:** Inflexible shift definitions and stale roster hierarchies.
+  1. Shift Types and Time Slots update reliably with green toasts.
+  2. TimeSlotsTab warnings enforce strict active-duty boundaries preventing accidental non-working linkages.
+  3. Member order updates optimistically and persists.
+  4. Vacation balance dispatches `PATCH /api/users/:id/manager-update` with `{ "vacationBalance": 20.5 }` and displays green Toast: `"User updated"`.
+- **Must Not:** Allow non-managers to view or access this interface, or permit vacation types to be linked without dynamic warnings.
+- **Failure Consequence:** Corrupted automated shift reports, scheduling overlaps, and stale roster hierarchies.
 
 ---
 
@@ -738,20 +951,24 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ### 6.1 Exception-to-Toast/Warning Mapping Matrix
 
-| Trigger / Action                     |       HTTP Status & Server Code       | Server Response Payload                                                                                           | Client UI Manifestation                                        | UI Location           |
-| :----------------------------------- | :-----------------------------------: | :---------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- | :-------------------- |
-| **Site Form: Empty Title/URL**       |            _N/A (Client)_             | Form validation aborted                                                                                           | Red `helperText`: `"Name is required"`, `"URL is required"`    | Inside Site Dialog    |
-| **Site Form: Server Save Error**     |               500 / 400               | `{ "message": "Failed to save site" }`                                                                            | Red Toast: `"Error saving site"`                               | Bottom-Right (6s)     |
-| **Phone Form: Empty Name**           |            _N/A (Client)_             | Form validation aborted                                                                                           | Red `helperText`: `"Name is required"`                         | Inside Phone Dialog   |
-| **Phone Form: Server Duplicate**     |               400 / 409               | `{ "message": "Phone number already exists" }`                                                                    | Red Alert banner: `{serverError}`                              | Top of Phone Dialog   |
-| **Member Update: Negative Vacation** |        400 `VALIDATION_ERROR`         | `{ "message": "Vacation balance must be a non-negative number" }`                                                 | Red Toast: `"Error updating user"`                             | Bottom-Right (6s)     |
-| **Reorder: Malformed Body**          |        400 `VALIDATION_ERROR`         | `{ "message": "Invalid update item format: userId must be a valid ID..." }`                                       | Red Toast: `"Failed to update order"`                          | Bottom-Right (6s)     |
-| **Report Edit: Locked Report**       |          400 `REPORT_LOCKED`          | `{ "message": "This shift report is locked and cannot be edited.", "code": "REPORT_LOCKED" }`                     | Red Toast: `"Error saving report"`                             | Bottom-Right (6s)     |
-| **Delete Non-Empty Group**           |         _N/A (Client Guard)_          | Delete button disabled                                                                                            | Tooltip: `"Cannot delete group with active members"`           | Admin Groups Table    |
-| **Admin Self-Deletion Call**         |     403 `FORBIDDEN_SELF_DELETION`     | `{ "message": "Forbidden: Administrators cannot delete their own accounts.", "code": "FORBIDDEN_SELF_DELETION" }` | Delete icon hidden; API call rejects with Red Toast            | Admin Users Table     |
-| **Super Admin Deactivation**         | 403 `FORBIDDEN_SUPER_ADMIN_PROTECTED` | `{ "message": "System Security: The root Super Admin account cannot be deactivated." }`                           | Switch disabled; API call rejects with Red Toast               | Admin Users Dialog    |
-| **Token Expired Call**               |          401 `TOKEN_EXPIRED`          | `{ "message": "Unauthorized: Token expired", "code": "TOKEN_EXPIRED" }`                                           | Red Alert banner: `"Authentication failed. Please try again."` | Login Page (`/login`) |
-| **Deactivated User Request**         |          401 `USER_INACTIVE`          | `{ "message": "Unauthorized: User not found or inactive", "code": "USER_INACTIVE" }`                              | Red Alert banner: `"Authentication failed. Please try again."` | Login Page (`/login`) |
+| Trigger / Action                       |       HTTP Status & Server Code       | Server Response Payload                                                                                           | Client UI Manifestation                                                                                   | UI Location                  |
+| :------------------------------------- | :-----------------------------------: | :---------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------- | :--------------------------- |
+| **Site Form: Empty Title/URL**         |            _N/A (Client)_             | Form validation aborted                                                                                           | Red `helperText`: `"Name is required"`, `"URL is required"`                                               | Inside Site Dialog           |
+| **Site Form: Server Save Error**       |               500 / 400               | `{ "message": "Failed to save site" }`                                                                            | Red Toast: `"Error saving site"`                                                                          | Bottom-Right (6s)            |
+| **Phone Form: Empty Name**             |            _N/A (Client)_             | Form validation aborted                                                                                           | Red `helperText`: `"Name is required"`                                                                    | Inside Phone Dialog          |
+| **Phone Form: Server Duplicate**       |               400 / 409               | `{ "message": "Phone number already exists" }`                                                                    | Red Alert banner: `{serverError}`                                                                         | Top of Phone Dialog          |
+| **Member Update: Negative Vacation**   |        400 `VALIDATION_ERROR`         | `{ "message": "Vacation balance must be a non-negative number" }`                                                 | Red Toast: `"Error updating user"`                                                                        | Bottom-Right (6s)            |
+| **Reorder: Malformed Body**            |        400 `VALIDATION_ERROR`         | `{ "message": "Invalid update item format: userId must be a valid ID..." }`                                       | Red Toast: `"Failed to update order"`                                                                     | Bottom-Right (6s)            |
+| **Report Edit: Locked Report**         |          400 `REPORT_LOCKED`          | `{ "message": "This shift report is locked and cannot be edited.", "code": "REPORT_LOCKED" }`                     | Red Toast: `"Error saving report"`                                                                        | Bottom-Right (6s)            |
+| **Delete Non-Empty Group**             |         _N/A (Client Guard)_          | Delete button disabled                                                                                            | Tooltip: `"Cannot delete group with active members"`                                                      | Admin Groups Table           |
+| **Admin Self-Deletion Call**           |     403 `FORBIDDEN_SELF_DELETION`     | `{ "message": "Forbidden: Administrators cannot delete their own accounts.", "code": "FORBIDDEN_SELF_DELETION" }` | Delete icon hidden; API call rejects with Red Toast                                                       | Admin Users Table            |
+| **Super Admin Deactivation**           | 403 `FORBIDDEN_SUPER_ADMIN_PROTECTED` | `{ "message": "System Security: The root Super Admin account cannot be deactivated." }`                           | Switch disabled; API call rejects with Red Toast                                                          | Admin Users Dialog           |
+| **Token Expired Call**                 |          401 `TOKEN_EXPIRED`          | `{ "message": "Unauthorized: Token expired", "code": "TOKEN_EXPIRED" }`                                           | Red Alert banner: `"Authentication failed. Please try again."`                                            | Login Page (`/login`)        |
+| **Deactivated User Request**           |          401 `USER_INACTIVE`          | `{ "message": "Unauthorized: User not found or inactive", "code": "USER_INACTIVE" }`                              | Red Alert banner: `"Authentication failed. Please try again."`                                            | Login Page (`/login`)        |
+| **TimeSlotsTab: Vacation Linked**      |         _N/A (Client Guard)_          | Non-blocking dynamic warning                                                                                      | Inline Dialog Alert (`warning`): `"Warning: One or more selected shift types are marked as non-working..."` | Add/Edit Time Slot Dialog    |
+| **What's New: Acknowledgement Error**  |              500 / Conn               | `{ "message": "Failed to acknowledge What's New" }`                                                               | Red Error Alert: `"Unable to save your acknowledgement at this time. Please check your connection..."`     | Inside What's New Modal      |
+| **Vacation: Insufficient Balance**     |         _N/A (Client Guard)_          | Booking disabled                                                                                                  | Red Error Alert: `"Insufficient vacation balance. You cannot book {vacationValue} day..."`                | Inside VacationModal         |
+| **Vacation Status: Non-Manager**       | 403 `FORBIDDEN_SHIFT_MANAGER_REQUIRED` | `{ "message": "Forbidden: You must be an explicit Shift Manager...", "code": "FORBIDDEN_SHIFT_MANAGER_REQUIRED" }` | Request rejected; Red Toast: `"Forbidden"`                                                                | Bottom-Right (6s)            |
 
 ---
 
@@ -800,12 +1017,17 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ---
 
-### Test Case 4.3: Member Vacation Balance Negative Boundary (API Validation)
+### Test Case 4.3: Member Vacation Balance Boundary (Fractional & Negative Validation)
 
-- **Objective:** Verify server rejects negative vacation days and client surfaces an error notification.
+- **Objective:** Verify server and client accept fractional vacation days (e.g. `16.5`) while rejecting negative numbers.
 - **Preconditions:** Shift Manager viewing Group Settings -> Members Tab.
-- **GIVEN:** Member has vacation balance `10`.
-- **WHEN:** Manager edits the input field to `-5` and clicks the row Save icon.
+- **GIVEN:** Member has vacation balance `18`.
+- **WHEN:**
+  1. **Fractional Value Check:** Manager edits input field to `16.5` and clicks Save.
+     - Server accepts `{ "vacationBalance": 16.5 }`.
+     - Green Toast displays: `"User updated"`.
+     - Balance updates to `16.5`.
+  2. **Negative Value Boundary:** Manager edits the input field to `-5` (or negative fractional `-0.5`) and clicks Save.
 - **THEN:**
   1. Client calls `PATCH /api/users/:id/manager-update` with `{ "vacationBalance": -5 }`.
   2. Server rejects with HTTP 400 Bad Request:
@@ -819,7 +1041,7 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
      "Error updating user"
      ```
   4. Vacation balance resets to previous valid value upon refresh.
-- **Must Not:** Allow negative balances in the database.
+- **Must Not:** Allow negative balances in the database or reject legitimate half-day fractions (`0.5`, `16.5`).
 - **Failure Consequence:** Corrupted leave accounting and negative quota anomalies.
 
 ---
@@ -875,7 +1097,7 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 ### Test Case 4.6: Deleting Group with Active Members Guard
 
 - **Objective:** Verify that groups with active assigned users cannot be deleted.
-- **Preconditions:** Group `noc` currently has 2 active members. Logged in as Super Admin.
+- **Preconditions:** Group `noc` currently has active members. Logged in as Super Admin.
 - **GIVEN:** Admin is on `/admin/users` in Groups view.
 - **WHEN:** Admin inspects the row for `noc`.
 - **THEN:**
@@ -962,47 +1184,49 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ## 8. Test Execution & Sign-Off Checklist
 
-| Suite                      | Test Case Ref | Target Area & Scenario             | Expected Deterministic Indicator                        |        Status         | Tester | Date | Notes |
-| :------------------------- | :------------ | :--------------------------------- | :------------------------------------------------------ | :-------------------: | :----: | :--: | :---- |
-| **Suite 1: SSO & Auth**    | **1.1**       | New User Auto-Provisioning         | Redirect to `/guest`, user record in DB                 | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.2**       | Returning User Login               | `lastLogin` timestamp updated; land on `/`              | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.3**       | Super Admin Claim Elevation        | Dynamic assignment to `hunting_lodge_admin`             | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.4**       | Missing Claim Fallbacks            | Synthetic email `@organization.local` created           | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.5**       | Invalid SSO Auth Code              | Red alert: `"Authentication failed. Please try again."` | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.6**       | Auth Rate Limiting                 | HTTP 429; Red toast `"Failed to connect to SSO..."`     | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.7**       | In-Flight Request Deduplication    | Single HTTP request recorded in DevTools                | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.8**       | Global 401 Interceptor             | Tokens purged; `/login?error=session_expired`           | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.9**       | 30s Cache TTL & Deactivation       | HTTP 401 `USER_INACTIVE` after 30 seconds               | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.10**      | Expired JWT Rejection              | HTTP 401 `TOKEN_EXPIRED`; redirect to login             | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.11**      | Unauthenticated Deep Linking       | Forced redirect to `/login`; Navbar hidden              | `[ ] Pass` `[ ] Fail` |        |      |       |
-| **Suite 2: RBAC**          | **2.1**       | Guest Route Confinement            | Intercept to `/guest`; `"Pending Approval"` box         | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.2**       | Member / Admin Schedule View       | Published Only; inert cells; Save/Publish hidden        | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.3**       | Member / Admin Report Delete Block | View & Create/Edit only; Delete button hidden; HTTP 403 | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.4**       | Manager UI Badging                 | Avatar dot; `(M)` in menu; Group Settings gear          | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.5**       | Manager Schedule Draft Save        | Green toast: `"Schedule saved as Draft"`                | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.6**       | Schedule Publish & Vacation Deduct | ConfirmDialog; vacation balance deducted                | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.7**       | Manager Cross-Group Tenancy        | HTTP 403 `FORBIDDEN_MANAGER_REQUIRED`                   | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.8**       | Admin Navbar & Context Switch      | Red avatar & Admin button toggles on group switch       | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.9**       | Admin Self-Deletion Lock           | Delete button hidden for self; HTTP 403 block           | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.10**      | Root Super Admin Protection        | Active switch disabled; Delete button hidden            | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.11**      | System Group Lifecycle Locks       | Delete button hidden; Rename field disabled             | `[ ] Pass` `[ ] Fail` |        |      |       |
-| **Suite 3: Happy Path**    | **3.1**       | Sites CRUD & Tag Management        | Green toasts on save/delete; tag chips filter           | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **3.2**       | Phones Directory & Multi-Number    | Auto-formatting; `PhoneDetailsDialog` opens             | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **3.3**       | Schedule Grid & Fullscreen         | Week navigation; Fullscreen toggle via ESC              | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **3.4**       | Shift Reports Full Lifecycle       | Auto-shift calculation; Tiptap rich-text formatting     | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **3.5**       | Group Settings (4 Tabs)            | Shift types, slots, reordering up/down arrows           | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **3.6**       | Admin Users & Groups Oversight     | Dual-table view; real-time population metrics           | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **3.7**       | About & Support Dialog             | Pin `v1.0.0`; hotline `0305-4851`; Daniel Reifer        | `[ ] Pass` `[ ] Fail` |        |      |       |
-| **Suite 4: Edge Cases**    | **4.1**       | Site Required Fields               | Red helperText: `"Name is required"`, etc.              | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **4.2**       | Phone Masking & Form Validation    | Real-time mask; empty numbers block save                | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **4.3**       | Negative Vacation Balance          | HTTP 400; Red toast: `"Error updating user"`            | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **4.4**       | Malformed Reorder Zod Payload      | HTTP 400 `VALIDATION_ERROR`; Red toast                  | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **4.5**       | Locked Shift Report Guard          | HTTP 400 `REPORT_LOCKED`; Red toast                     | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **4.6**       | Delete Non-Empty Group Guard       | Delete button disabled; member warning tooltip          | `[ ] Pass` `[ ] Fail` |        |      |       |
-| **Suite 5: Cross-Cutting** | **5.1**       | Light & Dark Mode Contrast         | Theme switch; contrast ratio; `localStorage` save       | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **5.2**       | Mobile Viewport Responsiveness     | Hamburger drawer; single column card stack              | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **5.3**       | Toast Notification Auto-Dismiss    | 3000ms for success; 6000ms for error                    | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **5.4**       | Custom 404 Route Fallback          | Branded 404 card with Return to Home button             | `[ ] Pass` `[ ] Fail` |        |      |       |
+| Suite                      | Test Case Ref | Target Area & Scenario               | Expected Deterministic Indicator                          |        Status         | Tester | Date | Notes |
+| :------------------------- | :------------ | :----------------------------------- | :-------------------------------------------------------- | :-------------------: | :----: | :--: | :---- |
+| **Suite 1: SSO & Auth**    | **1.1**       | New User Auto-Provisioning           | Redirect to `/guest`, user record in DB, hasSeenWhatsNew  | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.2**       | Returning User Login                 | `lastLogin` timestamp updated; land on `/`; check modal   | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.3**       | Super Admin Claim Elevation          | Dynamic assignment to `hunting_lodge_admin`               | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.4**       | Missing Claim Fallbacks              | Synthetic email `@organization.local` created             | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.5**       | Invalid SSO Auth Code                | Red alert: `"Authentication failed. Please try again."`   | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.6**       | Auth Rate Limiting                   | HTTP 429; Red toast `"Failed to connect to SSO..."`       | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.7**       | In-Flight Request Deduplication      | Single HTTP request recorded in DevTools                  | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.8**       | Global 401 Interceptor               | Tokens purged; `/login?error=session_expired`             | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.9**       | 30s Cache TTL & Deactivation         | HTTP 401 `USER_INACTIVE` after 30 seconds                 | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.10**      | Expired JWT Rejection                | HTTP 401 `TOKEN_EXPIRED`; redirect to login               | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.11**      | Unauthenticated Deep Linking         | Forced redirect to `/login`; Navbar hidden                | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.12**      | What's New Modal Wizard Lifecycle    | 4-slide wizard; PATCH acknowledgement; reload persistent  | `[ ] Pass` `[ ] Fail` |        |      |       |
+| **Suite 2: RBAC**          | **2.1**       | Guest Route Confinement              | Intercept to `/guest`; `"Pending Approval"` box           | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.2**       | Member / Admin Schedule View         | Published Only; inert cells; Save/Publish hidden          | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.3**       | Member / Admin Report Delete Block   | View & Create/Edit only; Delete button hidden; HTTP 403   | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.4**       | Manager UI Badging                   | Avatar dot; `(M)` in menu; Group Settings gear            | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.5**       | Manager Schedule Draft Save          | Green toast: `"Schedule saved as Draft"`                  | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.6**       | Schedule Publish & Fractional Deduct | Context menu 1.0/0.5; chip labels; atomic 1.5 deducted     | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.7**       | Manager Cross-Group Tenancy          | HTTP 403 `FORBIDDEN_MANAGER_REQUIRED`                     | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.8**       | Admin Navbar & Context Switch        | Red avatar & Admin button toggles on group switch         | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.9**       | Admin Self-Deletion Lock             | Delete button hidden for self; HTTP 403 block             | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.10**      | Root Super Admin Protection          | Active switch disabled; Delete button hidden              | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.11**      | System Group Lifecycle Locks         | Delete button hidden; Rename field disabled               | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.12**      | Vacation Request Lifecycle & Quota   | VacationModal 0.5/1.0; manager approval; balance updated  | `[ ] Pass` `[ ] Fail` |        |      |       |
+| **Suite 3: Happy Path**    | **3.1**       | Sites CRUD & Tag Management          | Green toasts on save/delete; tag chips filter             | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **3.2**       | Phones Directory & Multi-Number      | Auto-formatting; `PhoneDetailsDialog` opens               | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **3.3**       | Schedule Grid & Fullscreen           | Week navigation; Fullscreen toggle via ESC                | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **3.4**       | Shift Reports Full Lifecycle         | Auto-shift calculation; Tiptap rich-text formatting       | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **3.5**       | Group Settings & Slot Guard Warnings | Active duty advisory banner; dynamic vacation Alert       | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **3.6**       | Admin Users & Groups Oversight       | Dual-table view; real-time population metrics             | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **3.7**       | About & Support Dialog               | Pin `v1.0.0`; hotline `0305-4851`; Daniel Reifer          | `[ ] Pass` `[ ] Fail` |        |      |       |
+| **Suite 4: Edge Cases**    | **4.1**       | Site Required Fields                 | Red helperText: `"Name is required"`, etc.                | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **4.2**       | Phone Masking & Form Validation      | Real-time mask; empty numbers block save                  | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **4.3**       | Vacation Balance Boundary (Negative) | Fractional accepted; negative rejected (HTTP 400)         | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **4.4**       | Malformed Reorder Zod Payload        | HTTP 400 `VALIDATION_ERROR`; Red toast                    | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **4.5**       | Locked Shift Report Guard            | HTTP 400 `REPORT_LOCKED`; Red toast                       | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **4.6**       | Delete Non-Empty Group Guard         | Delete button disabled; member warning tooltip            | `[ ] Pass` `[ ] Fail` |        |      |       |
+| **Suite 5: Cross-Cutting** | **5.1**       | Light & Dark Mode Contrast           | Theme switch; contrast ratio; `localStorage` save         | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **5.2**       | Mobile Viewport Responsiveness       | Hamburger drawer; single column card stack                | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **5.3**       | Toast Notification Auto-Dismiss      | 3000ms for success; 6000ms for error                      | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **5.4**       | Custom 404 Route Fallback            | Branded 404 card with Return to Home button               | `[ ] Pass` `[ ] Fail` |        |      |       |
 
 ---
 

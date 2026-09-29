@@ -31,7 +31,6 @@ import PersonIcon from "@mui/icons-material/Person";
 import { useData } from "../context/DataContext";
 import { useUser } from "../context/UserContext";
 import type { User, Group } from "../types";
-import envConfig from "../config/env";
 
 /**
  * Props for the {@link UserDialog} component.
@@ -65,9 +64,6 @@ export function UserDialog({
     const { groups } = useData();
     const { user: currentUser } = useUser();
 
-    /** The unique identifier for the Super Admin account from configuration. */
-    const SUPER_ADMIN_ID = envConfig.superAdmin.id;
-
     const [formData, setFormData] = useState<Partial<User>>({
         username: initialData?.username,
         displayName: initialData?.displayName,
@@ -90,7 +86,7 @@ export function UserDialog({
     }, [initialData, open]);
 
     /** True if the account being edited is the primary system Super Admin. */
-    const isSuperAdminProfile = formData.username === SUPER_ADMIN_ID;
+    const isSuperAdminProfile = Boolean(formData.isSuperAdmin ?? initialData?.isSuperAdmin);
 
     /**
      * Determines if the active administrator is editing their own profile.
@@ -114,11 +110,7 @@ export function UserDialog({
         const groupObj = (groups || []).find(
             (g) => g._id === membership.groupId,
         );
-        const resolvedName = groupObj?.name || membership.groupName || (membership as { name?: string }).name;
-        return (
-            resolvedName === envConfig.superAdmin.groupName ||
-            membership.groupId === envConfig.superAdmin.groupName
-        );
+        return Boolean(groupObj?.isSystemGroup);
     });
 
     /**
@@ -167,7 +159,7 @@ export function UserDialog({
     const handleRoleChange = (groupId: string, isManager: boolean) => {
         if (isTargetUserAdmin) {
             const groupObj = groups.find((g) => g._id === groupId);
-            if (groupObj?.name === envConfig.superAdmin.groupName)
+            if (groupObj?.isSystemGroup)
                 return;
         }
 
@@ -302,8 +294,7 @@ export function UserDialog({
                             if (!groupObj) return null;
 
                             const isAdministratorsGroup =
-                                groupObj.name ===
-                                envConfig.superAdmin.groupName;
+                                Boolean(groupObj.isSystemGroup);
 
                             const canRemove = !(
                                 isAdministratorsGroup &&
@@ -484,8 +475,7 @@ export function GroupDialog({
     const [name, setName] = useState("");
 
     /** Determine if this is a protected system group based on its identifier. */
-    const isSystemGroup =
-        initialData?.name === envConfig.superAdmin.groupName;
+    const isSystemGroup = Boolean(initialData?.isSystemGroup);
     const isCreateMode = !initialData;
 
     useEffect(() => {

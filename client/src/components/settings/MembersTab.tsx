@@ -29,7 +29,6 @@ import { useUser } from "../../context/UserContext";
 import { useData } from "../../context/DataContext";
 import { useNotification } from "../../context/NotificationContext";
 import { managerUpdateUser, reorderUsers } from "../../api/usersApi";
-import envConfig from "../../config/env";
 
 /**
  * Renders the group members management tab.
@@ -224,9 +223,7 @@ export default function MembersTab() {
                             const isEdited = !!editedValues[userId];
 
                             // Check if the user is the designated super admin
-                            const isSuperAdmin =
-                                user.username ===
-                                envConfig.superAdmin.id;
+                            const isSuperAdmin = Boolean(user.isSuperAdmin);
 
                             const currentVacation = isEdited
                                 ? editedValues[userId].vacation

@@ -15,7 +15,7 @@ import Group from "../models/Group";
 import config from "../config";
 import ssoConfig from "../config/sso";
 import { generateToken } from "../utils/jwt";
-import { isSuperAdminUser } from "../utils/authHelpers";
+import { isSuperAdminUser, isAdmin, AuthUser } from "../utils/authHelpers";
 import type { SsoLoginInput } from "../routes/auth";
 
 // Configure outbound HTTP keep-alive connection pooling for OIDC token exchanges and discovery
@@ -258,8 +258,28 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
             await user.save();
         }
 
+        const userWithToObject = user as unknown as { toObject?: () => Record<string, unknown> };
+        const userObj: Record<string, unknown> = typeof userWithToObject.toObject === "function"
+            ? userWithToObject.toObject()
+            : { ...user };
+        const adminGroupName = config.superAdmin.groupName;
+        const rawGroups = Array.isArray(userObj.groups) ? [...userObj.groups] : [];
+        userObj.groups = rawGroups.map((g: any) => {
+            const gDoc = typeof g?.toObject === "function" ? g.toObject() : { ...g };
+            const gid = gDoc?.groupId && typeof gDoc.groupId === "object" && "_id" in gDoc.groupId
+                ? (gDoc.groupId as { _id?: unknown; name?: string }).name || String((gDoc.groupId as { _id?: unknown })._id)
+                : String(gDoc?.groupId);
+            const gName = gDoc?.name || gDoc?.groupName || (gDoc?.groupId && typeof gDoc.groupId === "object" ? gDoc.groupId.name : undefined);
+            return {
+                ...gDoc,
+                isSystemGroup: gid === adminGroupName || gName === adminGroupName,
+            };
+        });
+        userObj.isSuperAdmin = isSuperAdminUser(user);
+        userObj.isAdmin = isAdmin(user as unknown as AuthUser);
+
         const token = generateToken(user);
-        res.json({ user, token });
+        res.json({ user: userObj, token });
     } catch (error: unknown) {
         console.error("SSO Login Error:", error);
         res.status(401).json({
@@ -287,6 +307,11 @@ export async function getMe(req: Request, res: Response, next?: NextFunction): P
         const adminGroupName = config.superAdmin.groupName;
         const isSuperAdmin = isSuperAdminUser(user);
 
+        const userWithToObject = user as unknown as { toObject?: () => Record<string, unknown> };
+        const userObj: Record<string, unknown> = typeof userWithToObject.toObject === "function"
+            ? userWithToObject.toObject()
+            : { ...user };
+
         if (isSuperAdmin) {
             const userGroups = Array.isArray(user.groups) ? [...user.groups] : [];
             const hasAdminGroup = userGroups.some((g) => {
@@ -307,19 +332,27 @@ export async function getMe(req: Request, res: Response, next?: NextFunction): P
                     groupName: adminGroupName,
                     order: 0,
                 };
-
-                const userWithToObject = user as unknown as { toObject?: () => Record<string, unknown> };
-                const userObj: Record<string, unknown> = typeof userWithToObject.toObject === "function"
-                    ? userWithToObject.toObject()
-                    : { ...user };
-
                 userObj.groups = [adminGroupEntry, ...userGroups];
-                res.json(userObj);
-                return;
             }
         }
 
-        res.json(user);
+        const finalGroups = Array.isArray(userObj.groups) ? [...userObj.groups] : [];
+        userObj.groups = finalGroups.map((g: any) => {
+            const gDoc = typeof g?.toObject === "function" ? g.toObject() : { ...g };
+            const gid = gDoc?.groupId && typeof gDoc.groupId === "object" && "_id" in gDoc.groupId
+                ? (gDoc.groupId as { _id?: unknown; name?: string }).name || String((gDoc.groupId as { _id?: unknown })._id)
+                : String(gDoc?.groupId);
+            const gName = gDoc?.name || gDoc?.groupName || (gDoc?.groupId && typeof gDoc.groupId === "object" ? gDoc.groupId.name : undefined);
+            return {
+                ...gDoc,
+                isSystemGroup: gid === adminGroupName || gName === adminGroupName,
+            };
+        });
+
+        userObj.isSuperAdmin = isSuperAdmin;
+        userObj.isAdmin = isAdmin(userObj as unknown as AuthUser);
+
+        res.json(userObj);
     } catch (error: unknown) {
         console.error("GetMe Error:", error);
         if (typeof next === "function") {

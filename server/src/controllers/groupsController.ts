@@ -56,6 +56,7 @@ export interface UpdateGroupRequestBody {
 export interface GroupWithUserCount extends IGroup {
     _id: Types.ObjectId | string;
     userCount: number;
+    isSystemGroup?: boolean;
 }
 
 export async function getGroups(req: Request, res: Response, next?: NextFunction): Promise<void> {
@@ -101,6 +102,7 @@ export async function getGroups(req: Request, res: Response, next?: NextFunction
                     groupsWithCounts = groups.map((group) => ({
                         ...group,
                         userCount: countMap.get(group._id ? group._id.toString() : "") || 0,
+                        isSystemGroup: group.name === config.superAdmin.groupName,
                     }));
                 } else {
                     throw new Error("Aggregation returned non-array");
@@ -114,6 +116,7 @@ export async function getGroups(req: Request, res: Response, next?: NextFunction
                         return {
                             ...group,
                             userCount: realCount,
+                            isSystemGroup: group.name === config.superAdmin.groupName,
                         };
                     }),
                 );
@@ -127,6 +130,7 @@ export async function getGroups(req: Request, res: Response, next?: NextFunction
                     return {
                         ...group,
                         userCount: realCount,
+                        isSystemGroup: group.name === config.superAdmin.groupName,
                     };
                 }),
             );

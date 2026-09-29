@@ -13,20 +13,6 @@ interface ImportMetaEnv {
     readonly VITE_APP_VERSION: string;
 
     /**
-     * Unique identifier for the primary Super Administrator account.
-     * Must synchronize with `SUPER_ADMIN_ID` in the server environment configuration.
-     * Fallback default in `envConfig`: "10001".
-     */
-    readonly VITE_SUPER_ADMIN_ID?: string;
-
-    /**
-     * The organizational group name that designates global administrative authority.
-     * Must synchronize with `SUPER_ADMIN_GROUP_NAME` in the server environment configuration.
-     * Fallback default in `envConfig`: "ADMINISTRATORS".
-     */
-    readonly VITE_SUPER_ADMIN_GROUP_NAME?: string;
-
-    /**
      * Base HTTP endpoint URL for backend API requests.
      * In development, proxied through Vite dev server to localhost:5000.
      * In production, defaults to relative reverse proxy path "/api".

@@ -142,7 +142,13 @@ export async function getUsers(req: Request, res: Response, next?: NextFunction)
             const users = await (typeof (usersQuery as any).lean === "function"
                 ? (usersQuery as any).lean()
                 : usersQuery);
-            res.json(users);
+            const userDocs = Array.isArray(users) ? users : [];
+            const mappedUsers = userDocs.map((u: any) => ({
+                ...(typeof u.toObject === "function" ? u.toObject() : u),
+                isSuperAdmin: isSuperAdminUser(u),
+                isAdmin: isAdmin(u),
+            }));
+            res.json(mappedUsers);
             return;
         }
 
@@ -160,7 +166,13 @@ export async function getUsers(req: Request, res: Response, next?: NextFunction)
         const users = await (typeof (usersQuery as any).lean === "function"
             ? (usersQuery as any).lean()
             : usersQuery);
-        res.json(users);
+        const userDocs = Array.isArray(users) ? users : [];
+        const mappedUsers = userDocs.map((u: any) => ({
+            ...(typeof u.toObject === "function" ? u.toObject() : u),
+            isSuperAdmin: isSuperAdminUser(u),
+            isAdmin: isAdmin(u),
+        }));
+        res.json(mappedUsers);
     } catch (err: unknown) {
         console.error("Get users error:", err);
         if (typeof next === "function") {

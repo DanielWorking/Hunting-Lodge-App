@@ -1,0 +1,17 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongodb-seed-job
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seeder
+          # ודא שבשורה הבאה מופיע שם ה-Namespace/Project הנוכחי שלך במקום <YOUR_NAMESPACE>
+          image: image-registry.openshift-image-registry.svc:5000/<YOUR_NAMESPACE>/hunting-lodge-app:latest
+          command: ["node", "seed.js", "--idempotent"]
+          envFrom:
+            - secretRef:
+                name: backend-secrets

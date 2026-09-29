@@ -718,7 +718,10 @@ describe("Controller Cascading & Validation Rules", () => {
                     assert.equal(res.statusCode, 200);
                     const list = res.jsonData as unknown[];
                     assert.equal(list.length, 3);
-                    assert.deepEqual(list, allUsersInDb);
+                    assert.deepEqual(
+                        list,
+                        allUsersInDb.map((u) => ({ ...u, isSuperAdmin: false, isAdmin: false })),
+                    );
                 } finally {
                     userHolder.find = originalFind;
                 }

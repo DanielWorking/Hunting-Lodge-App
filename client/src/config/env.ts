@@ -2,8 +2,7 @@
  * @module ClientConfig
  *
  * Centralized, typed environment configuration for the client application.
- * Normalizes Vite environment variables and provides safe fallbacks
- * with development warnings.
+ * Normalizes Vite environment variables and provides safe fallbacks.
  */
 
 export interface ClientConfig {
@@ -17,36 +16,14 @@ export interface ClientConfig {
     appVersion: string;
     /** The base API endpoint URL (defaults to relative '/api'). */
     apiUrl: string;
-    /** Super admin configuration. */
-    superAdmin: {
-        /** Unique identifier for the primary Super Admin account. */
-        id: string;
-        /** The designated name of the Super Admin group. */
-        groupName: string;
-    };
 }
 
 const isProd = import.meta.env.PROD;
 const isDev = import.meta.env.DEV;
 const mode = import.meta.env.MODE;
 
-const superAdminId = (import.meta.env.VITE_SUPER_ADMIN_ID as string) || "10001";
-const superAdminGroupName = (import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME as string) || "ADMINISTRATORS";
 const apiUrl = (import.meta.env.VITE_API_URL as string) || "/api";
 const appVersion = (import.meta.env.VITE_APP_VERSION as string) || "1.0.0";
-
-if (isDev) {
-    if (!import.meta.env.VITE_SUPER_ADMIN_ID) {
-        console.warn(
-            "⚠️ [Client Config] VITE_SUPER_ADMIN_ID is not set in environment. Using default fallback: '10001'",
-        );
-    }
-    if (!import.meta.env.VITE_SUPER_ADMIN_GROUP_NAME) {
-        console.warn(
-            "⚠️ [Client Config] VITE_SUPER_ADMIN_GROUP_NAME is not set in environment. Using default fallback: 'ADMINISTRATORS'",
-        );
-    }
-}
 
 export const envConfig: ClientConfig = Object.freeze({
     isProd,
@@ -54,10 +31,6 @@ export const envConfig: ClientConfig = Object.freeze({
     mode,
     appVersion,
     apiUrl,
-    superAdmin: {
-        id: superAdminId,
-        groupName: superAdminGroupName,
-    },
 });
 
 export default envConfig;

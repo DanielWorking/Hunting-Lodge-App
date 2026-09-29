@@ -30,6 +30,8 @@ export interface GroupMembership {
     name?: string;
     /** Optional group name alias. */
     groupName?: string;
+    /** Computed server-side: true if this group is the protected administrative system group. */
+    isSystemGroup?: boolean;
 }
 
 /**
@@ -62,6 +64,10 @@ export interface User {
     updatedAt?: string;
     /** Whether the user has seen/acknowledged the latest What's New modal. */
     hasSeenWhatsNew?: boolean;
+    /** Computed server-side: true if user is the primary system Super Admin account. */
+    isSuperAdmin?: boolean;
+    /** Computed server-side: true if user has administrative privileges. */
+    isAdmin?: boolean;
 }
 
 /**
@@ -126,6 +132,8 @@ export interface Group {
     settings?: GroupSettings;
     /** Array of tags used for categorizing group-specific content. */
     siteTags?: string[];
+    /** Computed server-side: true if this is the protected administrative system group. */
+    isSystemGroup?: boolean;
 }
 
 /**

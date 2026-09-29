@@ -1,48 +1,32 @@
 # ==============================================================================
-# Stage 1: Build the React Client SPA Bundle
+# Stage 1: Build (Client & Server)
 # ==============================================================================
-FROM node:22-alpine AS client-builder
+FROM node:22-alpine AS builder
 
-WORKDIR /app/client
+WORKDIR /app
 
-# Install frontend dependencies cleanly using package-lock
-COPY client/package.json client/package-lock.json ./
+# Copy the root package files that manage the workspaces
+COPY package.json package-lock.json ./
+
+# Copy the workspace directories
+COPY client/ ./client/
+COPY server/ ./server/
+
+# Install all dependencies using the single root lockfile
 RUN npm ci
 
-# Copy client source files and configuration
-COPY client/ ./
-
-# Build arguments for Vite environment variables with enterprise defaults
+# Dynamic build arguments for Vite client bundle compilation
 ARG VITE_API_URL=/api
-ARG VITE_SUPER_ADMIN_ID=10001
-ARG VITE_SUPER_ADMIN_GROUP_NAME=ADMINISTRATORS
+ARG VITE_APP_VERSION
 
 ENV VITE_API_URL=${VITE_API_URL} \
-    VITE_SUPER_ADMIN_ID=${VITE_SUPER_ADMIN_ID} \
-    VITE_SUPER_ADMIN_GROUP_NAME=${VITE_SUPER_ADMIN_GROUP_NAME}
+    VITE_APP_VERSION=${VITE_APP_VERSION}
 
-# Compile TypeScript and build production bundle into /app/client/dist
+# Build both client and server using the root script
 RUN npm run build
 
 # ==============================================================================
-# Stage 2: Build the Backend TypeScript Application
-# ==============================================================================
-FROM node:22-alpine AS server-builder
-
-WORKDIR /app/server
-
-# Install all backend dependencies (including devDependencies for TypeScript compiler)
-COPY server/package.json server/package-lock.json ./
-RUN npm ci
-
-# Copy server source code and TypeScript build configuration
-COPY server/ ./
-
-# Compile TypeScript into JavaScript in /app/server/dist
-RUN npm run build
-
-# ==============================================================================
-# Stage 3: Production Runtime (OpenShift / Kubernetes v1.33+ Compliant)
+# Stage 2: Production Runtime (OpenShift / Kubernetes v1.33+ Compliant)
 # ==============================================================================
 FROM node:22-alpine
 
@@ -51,20 +35,28 @@ RUN apk add --no-cache dumb-init
 
 WORKDIR /app
 
+# Dynamic build arguments for runtime defaults
+ARG NODE_ENV=production
+ARG PORT=5000
+ARG STATIC_FILES_PATH=/app/client/dist
+
 # Set default production environment variables
-ENV NODE_ENV=production \
-    PORT=5000 \
-    STATIC_FILES_PATH=/app/client/dist
+ENV NODE_ENV=${NODE_ENV} \
+    PORT=${PORT} \
+    STATIC_FILES_PATH=${STATIC_FILES_PATH}
+
+# Copy root package files and server package.json for production install
+COPY package.json package-lock.json ./
+COPY server/package.json ./server/
 
 # Install backend production dependencies only
-COPY server/package.json server/package-lock.json ./server/
-RUN cd server && npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev --ignore-scripts
 
-# Copy compiled backend JavaScript application from Stage 2 into /app/server
-COPY --from=server-builder /app/server/dist ./server
+# Copy compiled backend JavaScript application from Stage 1 into /app/server
+COPY --from=builder /app/server/dist ./server
 
 # Copy compiled frontend SPA bundle from Stage 1 into /app/client/dist
-COPY --from=client-builder /app/client/dist ./client/dist
+COPY --from=builder /app/client/dist ./client/dist
 
 # Configure OpenShift Restricted-v2 SCC Permissions:
 # Ensure files are owned by UID 1001 and Group 0 (root group) with group-read/write permissions

@@ -19,7 +19,6 @@ import axios from "axios";
 import { getMe } from "../api/authApi";
 import { loginUser } from "../api/usersApi";
 import type { User, Group, GroupRole } from "../types";
-import envConfig from "../config/env";
 
 /**
  * Defines the structure of the authentication and authorization context.
@@ -33,7 +32,9 @@ interface UserContextType {
     currentGroup: Group | null;
     /** Direct state setter for currentGroup. */
     setCurrentGroup: React.Dispatch<React.SetStateAction<Group | null>>;
-    /** True if the user is in the system-wide super administrator group. */
+    /** True if the user is the system super administrator. */
+    isSuperAdmin?: boolean;
+    /** True if the user is currently acting with administrator privileges. */
     isAdmin: boolean;
     /** True if the user has a 'shift_manager' role in the current group. */
     isShiftManager: boolean;
@@ -73,6 +74,7 @@ interface RawUserGroup {
     name?: string;
     groupName?: string;
     order?: number;
+    isSystemGroup?: boolean;
 }
 
 interface RawUserData {
@@ -89,11 +91,15 @@ interface RawUserData {
     updatedAt?: string;
     lastLogin?: string;
     hasSeenWhatsNew?: boolean;
+    isSuperAdmin?: boolean;
+    isAdmin?: boolean;
 }
 
 const normalizeUser = (foundUser: RawUserData): User => {
     return {
         ...foundUser,
+        isSuperAdmin: Boolean(foundUser.isSuperAdmin),
+        isAdmin: Boolean(foundUser.isAdmin),
         hasSeenWhatsNew: foundUser.hasSeenWhatsNew ?? false,
         groups: (foundUser.groups || []).map((g) => {
             const rawGid = g.groupId;
@@ -113,6 +119,7 @@ const normalizeUser = (foundUser: RawUserData): User => {
                 ...g,
                 groupId: gidString,
                 ...(groupName ? { groupName } : {}),
+                isSystemGroup: Boolean(g.isSystemGroup),
             };
         }),
     };
@@ -135,39 +142,33 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const isRestoringRef = useRef(false);
 
     /**
-     * Determines whether the user account possesses global administrative eligibility.
-     * True if the user is the designated root Super Admin or is assigned to the administrator group.
+     * True if the authenticated user has system super administrator privileges.
      */
-    const isUserAdminEligible = Boolean(
-        user?.username === envConfig.superAdmin.id ||
-        (currentGroup &&
-            currentGroup.name === envConfig.superAdmin.groupName &&
-            user?.groups?.some((g) => {
-                return (
-                    g.groupId === currentGroup._id ||
-                    g.groupId === currentGroup.name ||
-                    g.groupId === envConfig.superAdmin.groupName ||
-                    g.groupName === currentGroup.name ||
-                    g.name === currentGroup.name
-                );
-            })) ||
-        user?.groups?.some((g) => {
-            const gName = g.name || g.groupName;
-            return (
-                g.groupId === envConfig.superAdmin.groupName ||
-                gName === envConfig.superAdmin.groupName
-            );
-        }),
-    );
+    const isSuperAdmin = Boolean(user?.isSuperAdmin);
+
+    /**
+     * Determines whether the user account possesses global administrative eligibility.
+     * True if the user has isSuperAdmin or isAdmin flags returned by the server.
+     */
+    const isUserAdminEligible = Boolean(user?.isSuperAdmin || user?.isAdmin);
+
+    /** 
+     * Checks if the user has managerial privileges within the active group context.
+     * Uses optional chaining to prevent runtime errors during session transitions.
+     */
+    const activeGroupId = currentGroup?._id || localStorage.getItem("hunting_groupId");
+
+    const activeGroupMembership = user?.groups?.find(
+        (g) => g.groupId === activeGroupId || g.name === activeGroupId || g.groupName === activeGroupId
+    ) || user?.groups?.[0];
 
     /**
      * Determines if the active group is the system administrator group.
+     * Checks currentGroup if set; falls back to active membership during session initialization.
      */
-    const isActiveAdminGroup = Boolean(
-        currentGroup
-            ? currentGroup.name === envConfig.superAdmin.groupName
-            : false,
-    );
+    const isActiveAdminGroup = currentGroup
+        ? Boolean(currentGroup.isSystemGroup)
+        : Boolean(activeGroupMembership?.isSystemGroup);
 
     /**
      * User has administrator privileges ONLY when actively connected to the administrator group.
@@ -175,11 +176,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      */
     const isAdmin = Boolean(isUserAdminEligible && isActiveAdminGroup);
 
-    /** 
-     * Checks if the user has managerial privileges within the active group context.
-     * Uses optional chaining to prevent runtime errors during session transitions.
-     */
-    const activeGroupId = currentGroup?._id || localStorage.getItem("hunting_groupId");
     const isShiftManagerBool = Boolean(
         user?.groups?.some((g) => {
             const gName = g.name || g.groupName;
@@ -302,20 +298,22 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         if (membership || isUserAdminEligible) {
             localStorage.setItem("hunting_groupId", groupId);
             if (targetGroup) {
-                setCurrentGroup(targetGroup);
+                setCurrentGroup({
+                    ...targetGroup,
+                    isSystemGroup: targetGroup.isSystemGroup ?? Boolean(membership?.isSystemGroup),
+                });
             } else {
                 const resolvedName =
                     membership?.groupName ||
                     membership?.name ||
-                    (groupId === envConfig.superAdmin.groupName
-                        ? envConfig.superAdmin.groupName
-                        : groupId);
+                    groupId;
                 setCurrentGroup((prev) => {
                     if (prev && prev._id === groupId && prev.name === resolvedName) return prev;
                     return {
                         _id: groupId,
                         name: resolvedName,
                         members: [],
+                        isSystemGroup: Boolean(membership?.isSystemGroup),
                         createdAt: new Date().toISOString(),
                     } as Group;
                 });
@@ -336,6 +334,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 isAuthenticated,
                 currentGroup,
                 setCurrentGroup,
+                isSuperAdmin,
                 isAdmin,
                 isShiftManager: isShiftManagerBool,
                 login,

@@ -25,7 +25,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import PersonIcon from "@mui/icons-material/Person";
 
 import type { User, Group } from "../../types";
-import envConfig from "../../config/env";
 import { useUser } from "../../context/UserContext";
 
 /**
@@ -147,8 +146,7 @@ export default function AdminTable({
      * @returns {JSX.Element}  The rendered table row.
      */
     const renderUserRow = (user: User) => {
-        const superAdminId = envConfig.superAdmin.id;
-        const isSuperAdmin = user.username === superAdminId;
+        const isSuperAdmin = Boolean(user.isSuperAdmin);
         const isCurrentUser = Boolean(
             currentUser &&
                 ((currentUser._id && user._id === currentUser._id) ||
@@ -277,8 +275,7 @@ export default function AdminTable({
      * @returns {JSX.Element}   The rendered table row.
      */
     const renderGroupRow = (group: Group) => {
-        const isSystemGroup =
-            group.name === envConfig.superAdmin.groupName;
+        const isSystemGroup = Boolean(group.isSystemGroup);
         const groupId = group._id;
 
         /**

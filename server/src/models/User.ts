@@ -3,6 +3,12 @@
  * 
  * Manages user identities, cross-group memberships, and personal preferences.
  * Handles roles within groups and tracks resource-related metrics like vacation balance.
+ * 
+ * Authentication Architecture:
+ * User authentication and credentials (including passwords) are managed exclusively
+ * via external SSO (Auth0 / OIDC). Passwords are never stored or hashed in MongoDB.
+ * Local seed and test users (e.g. dov-member | member@test.local | Auth0 password: dov-member123)
+ * map directly through OIDC token claims matching username/email.
  */
 
 import mongoose, { Schema, Model, HydratedDocument, Types, PopulatedDoc } from "mongoose";

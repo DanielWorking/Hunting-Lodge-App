@@ -3,6 +3,11 @@
  * 
  * Defines the Shift model representing individual shift assignments.
  * Supports half-day (0.5) and full-day (1.0) vacation tracking.
+ * 
+ * Shift Type Operational Rules:
+ * Non-active shift types (vacation / חופש, after / אפטר, not in country / חול / leave)
+ * represent non-working periods. They cannot be linked to group time slots, and users
+ * assigned to non-active shift types are excluded from active shift report attendees.
  */
 
 import mongoose, { Schema, Model, HydratedDocument, Types, PopulatedDoc } from "mongoose";

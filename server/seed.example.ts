@@ -47,11 +47,17 @@ const adminUserData: SeedUserIdentity = {
     email: config.superAdmin.email || "admin@corp.local",
 };
 
-/** Predefined regular user data for standard permission testing. */
+/**
+ * Predefined regular user data matching Auth0 SSO configuration.
+ * Auth0 Test Credentials:
+ *   - Username: dov-member
+ *   - Email: member@test.local
+ *   - Auth0 Login Password: dov-member123 (authenticated externally by Auth0 SSO)
+ */
 const regularUserData: SeedUserIdentity = {
-    username: "10002",
-    displayName: "Regular User",
-    email: "regular@corp.local",
+    username: "dov-member",
+    displayName: "dov-member",
+    email: "member@test.local",
 };
 
 // 1. Generate ObjectIds for Shift Types so Time Slots can link directly to them
@@ -123,6 +129,35 @@ const NOC_TIME_SLOTS: readonly TimeSlotSeed[] = [
         linkedShiftTypes: [shiftTypeMiddleId],
     },
 ];
+
+/**
+ * Non-active shift type IDs (vacation / Vacation, after / After, not in country / Leave).
+ * These shift types represent non-working periods and must NEVER be assigned to operational time slots.
+ */
+const NON_ACTIVE_SHIFT_TYPE_IDS: ReadonlySet<string> = new Set([
+    shiftTypeVacationId.toString(),
+    shiftTypeLeaveId.toString(),
+    shiftTypeAfterId.toString(),
+]);
+
+/**
+ * Validates that no non-active shift types are assigned to operational time slots.
+ * @throws Error if any non-active shift type is assigned to a time slot.
+ */
+function validateSeedTimeSlots(
+    timeSlots: readonly TimeSlotSeed[],
+    nonActiveIds: ReadonlySet<string>
+): void {
+    for (const slot of timeSlots) {
+        for (const linkedId of slot.linkedShiftTypes) {
+            if (nonActiveIds.has(linkedId.toString())) {
+                throw new Error(
+                    `[Seed Validation Error] Non-active shift type (${linkedId.toString()}) cannot be assigned to time slot "${slot.name}".`
+                );
+            }
+        }
+    }
+}
 
 interface PhoneSeed {
     readonly name: string;
@@ -210,6 +245,9 @@ const importData = async (): Promise<void> => {
             const msg: string = idxErr instanceof Error ? idxErr.message : String(idxErr);
             console.log("  [Index sync notice]:", msg);
         }
+
+        // Validate that no non-active shift types (vacation, after, not in country / Leave) are linked to time slots
+        validateSeedTimeSlots(NOC_TIME_SLOTS, NON_ACTIVE_SHIFT_TYPE_IDS);
 
         // 1. Create Groups
         const createdGroups = await Group.insertMany([
@@ -449,6 +487,7 @@ const importData = async (): Promise<void> => {
         console.log("\n==================================================");
         console.log("✨ ALL SAMPLE DATA IMPORTED SUCCESSFULLY!");
         console.log("==================================================\n");
+        await mongoose.disconnect();
         process.exit(0);
     } catch (error: unknown) {
         const errorMsg: string = error instanceof Error ? error.message : String(error);

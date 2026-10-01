@@ -1,0 +1,296 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: <APP_NAME>-dev
+  namespace: <YOUR-NAMESPACE>
+  labels:
+    app: <APP_NAME>-dev
+    app.kubernetes.io/name: <APP_NAME>-dev
+    app.kubernetes.io/part-of: <YOUR-NAMESPACE>
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: <APP_NAME>-dev
+  template:
+    metadata:
+      labels:
+        app: <APP_NAME>-dev
+        app.kubernetes.io/name: <APP_NAME>-dev
+        app.kubernetes.io/part-of: <YOUR-NAMESPACE>
+        app.kubernetes.io/component: backend
+    spec:
+      # Pod-level security context compliant with OpenShift restricted-v2 SCC
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: <APP_NAME>-dev
+          image: image-registry.openshift-image-registry.svc:5000/<YOUR-NAMESPACE>/<APP_NAME>-dev:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          # Container-level security context compliant with OpenShift restricted-v2 SCC
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: STATIC_FILES_PATH
+              value: "/app/client/dist"
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: PORT
+                  optional: false
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: NODE_ENV
+                  optional: false
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-dev
+                  key: MONGO_URI
+                  optional: false
+            - name: MONGO_MAX_POOL_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: MONGO_MAX_POOL_SIZE
+                  optional: false
+            - name: MONGO_MIN_POOL_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: MONGO_MIN_POOL_SIZE
+                  optional: false
+            - name: MONGO_SERVER_SELECTION_TIMEOUT_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: MONGO_SERVER_SELECTION_TIMEOUT_MS
+                  optional: false
+            - name: MONGO_SOCKET_TIMEOUT_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: MONGO_SOCKET_TIMEOUT_MS
+                  optional: false
+            - name: MONGO_HEARTBEAT_FREQUENCY_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: MONGO_HEARTBEAT_FREQUENCY_MS
+                  optional: false
+            - name: MONGO_CONNECT_TIMEOUT_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: MONGO_CONNECT_TIMEOUT_MS
+                  optional: false
+            - name: MONGO_MAX_IDLE_TIME_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: MONGO_MAX_IDLE_TIME_MS
+                  optional: false
+            - name: SHIFT_REPORT_CRON_SCHEDULE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: SHIFT_REPORT_CRON_SCHEDULE
+                  optional: false
+            - name: LOG_FORMAT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: LOG_FORMAT
+                  optional: false
+            - name: MONGO_AUTO_INDEX
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: MONGO_AUTO_INDEX
+                  optional: false
+            - name: SSO_ISSUER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-dev
+                  key: SSO_ISSUER_URL
+                  optional: false
+            - name: SSO_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-dev
+                  key: SSO_CLIENT_ID
+                  optional: false
+            - name: SSO_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-dev
+                  key: SSO_CLIENT_SECRET
+                  optional: false
+            - name: SSO_REDIRECT_URI
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-dev
+                  key: SSO_REDIRECT_URI
+                  optional: false
+            - name: SSO_IDENTIFIER_FIELD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-dev
+                  key: SSO_IDENTIFIER_FIELD
+                  optional: false
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-dev
+                  key: JWT_SECRET
+                  optional: false
+            - name: JWT_EXPIRES_IN
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: JWT_EXPIRES_IN
+                  optional: false
+            - name: SUPER_ADMIN_ID
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-dev
+                  key: SUPER_ADMIN_ID
+                  optional: false
+            - name: SUPER_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-dev
+                  key: SUPER_ADMIN_USERNAME
+                  optional: false
+            - name: SUPER_ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-dev
+                  key: SUPER_ADMIN_EMAIL
+                  optional: false
+            - name: SUPER_ADMIN_GROUP_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-dev
+                  key: SUPER_ADMIN_GROUP_NAME
+                  optional: false
+            - name: CORS_ORIGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: CORS_ORIGIN
+                  optional: false
+            - name: RATE_LIMIT_MAX
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: RATE_LIMIT_MAX
+                  optional: false
+            - name: RATE_LIMIT_WINDOW_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: RATE_LIMIT_WINDOW_MS
+                  optional: false
+            - name: TRUST_PROXY
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-dev
+                  key: TRUST_PROXY
+                  optional: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          # Startup probe: protects slow container starts & DB connection initialization
+          startupProbe:
+            httpGet:
+              path: /startup
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5
+          # Liveness probe: verifies process health & event loop responsiveness (purely in-memory)
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5
+          # Readiness probe: verifies Mongoose DB readiness before routing traffic
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: <APP_NAME>-dev-service
+  namespace: <YOUR-NAMESPACE>
+  labels:
+    app: <APP_NAME>-dev
+    app.kubernetes.io/name: <APP_NAME>-dev
+    app.kubernetes.io/part-of: <YOUR-NAMESPACE>
+    app.kubernetes.io/component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: <APP_NAME>-dev
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: <APP_NAME>-<ENV>-route
+  namespace: <YOUR-NAMESPACE>
+  labels:
+    app: <APP_NAME>-dev
+    app.kubernetes.io/name: <APP_NAME>-dev
+    app.kubernetes.io/part-of: <YOUR-NAMESPACE>
+    app.kubernetes.io/component: backend
+spec:
+  to:
+    kind: Service
+    name: <APP_NAME>-dev-service
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

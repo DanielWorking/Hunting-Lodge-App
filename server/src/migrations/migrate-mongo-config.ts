@@ -20,23 +20,40 @@ const serverRootDir: string = path.resolve(__dirname, "../..");
 
 // Load environment variables matching server configuration hierarchy
 const customEnvPath: string | null = process.env.ENV_FILE ? path.resolve(process.env.ENV_FILE) : null;
+const devConfigPath: string = path.join(serverRootDir, ".env.config.development");
 const devEnvPath: string = path.join(serverRootDir, ".env.development");
+const prodConfigPath: string = path.join(serverRootDir, ".env.config.production");
 const prodEnvPath: string = path.join(serverRootDir, ".env.production");
+const standardConfigPath: string = path.join(serverRootDir, ".env.config");
 const standardEnvPath: string = path.join(serverRootDir, ".env");
 
 if (customEnvPath && fs.existsSync(customEnvPath)) {
     dotenv.config({ path: customEnvPath });
-} else if (isDev && fs.existsSync(devEnvPath)) {
-    dotenv.config({ path: devEnvPath });
+} else if (isDev) {
+    if (fs.existsSync(devConfigPath)) {
+        dotenv.config({ path: devConfigPath });
+    }
+    if (fs.existsSync(devEnvPath)) {
+        dotenv.config({ path: devEnvPath, override: true });
+    }
     const localDevEnvPath: string = path.join(serverRootDir, ".env.development.local");
     if (fs.existsSync(localDevEnvPath)) {
         dotenv.config({ path: localDevEnvPath, override: true });
     }
-} else if (isProd && fs.existsSync(prodEnvPath)) {
-    dotenv.config({ path: prodEnvPath });
-} else if (fs.existsSync(standardEnvPath)) {
-    dotenv.config({ path: standardEnvPath });
+} else if (isProd) {
+    if (fs.existsSync(prodConfigPath)) {
+        dotenv.config({ path: prodConfigPath });
+    }
+    if (fs.existsSync(prodEnvPath)) {
+        dotenv.config({ path: prodEnvPath, override: true });
+    }
 } else {
+    if (fs.existsSync(standardConfigPath)) {
+        dotenv.config({ path: standardConfigPath });
+    }
+    if (fs.existsSync(standardEnvPath)) {
+        dotenv.config({ path: standardEnvPath, override: true });
+    }
     dotenv.config();
 }
 

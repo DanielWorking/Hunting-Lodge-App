@@ -3,11 +3,14 @@ node_modules/
 package-lock.json
 
 # Environment variables & secrets
-# Ignore all real environment files (.env, .env.development, .env.production, .env.local, etc.)
+# Ignore all real environment files (.env, .env.development, .env.production, .env.config.*, etc.)
 .env
 .env.*
+.env*.local
+
 # Allow only template example files to be pushed to Git
 !.env*.example
+!.env.*.example
 
 # Build outputs & caches
 dist/
@@ -22,3 +25,7 @@ seed.ts
 
 # Load test scripts with local tokens
 load-test-auth.js
+
+# Deployment files
+deployment-dev.yaml
+deployment-prod.yaml

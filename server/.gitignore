@@ -1,9 +1,13 @@
 node_modules
-# Ignore all real environment files
+# Ignore all real environment files (secrets, config, and local developer overrides)
 .env
 .env.*
-# Allow only template example files
+.env*.local
+
+# Allow only Git-trackable template example files
 !.env*.example
+!.env.*.example
+
 *.log
 # Database seed files
 seed.ts

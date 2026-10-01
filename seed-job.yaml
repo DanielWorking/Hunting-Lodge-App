@@ -2,6 +2,8 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: mongodb-seed-job
+  # <YOUR_NAMESPACE>: change to the current namespace
+  namespace: danielrei-dev
 spec:
   backoffLimit: 2
   template:
@@ -9,9 +11,12 @@ spec:
       restartPolicy: Never
       containers:
         - name: seeder
-          # ודא שבשורה הבאה מופיע שם ה-Namespace/Project הנוכחי שלך במקום <YOUR_NAMESPACE>
-          image: image-registry.openshift-image-registry.svc:5000/<YOUR_NAMESPACE>/hunting-lodge-app:latest
+          # <YOUR_NAMESPACE>: change to the current namespace
+          # <YOUR_DEPLOYMENT>: change to the current deployment
+          image: image-registry.openshift-image-registry.svc:5000/<YOUR_NAMESPACE>/<YOUR_DEPLOYMENT>:latest
           command: ["node", "seed.js", "--idempotent"]
           envFrom:
+            - configMapRef:
+                name: backend-config-prod
             - secretRef:
-                name: backend-secrets
+                name: backend-secrets-prod

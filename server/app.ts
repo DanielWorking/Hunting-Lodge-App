@@ -13,8 +13,8 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import compression from "compression";
 import morgan from "morgan";
-import mongoose from "mongoose";
 import config from "./src/config";
+import healthRoutes from "./src/routes/health";
 import authRoutes from "./src/routes/auth";
 import sitesRoutes from "./src/routes/sites";
 import phonesRoutes from "./src/routes/phones";
@@ -71,7 +71,7 @@ if (config.security.corsOrigin === true) {
 app.use(express.json());
 app.use(stripImmutableFields);
 
-// Apply rate limiting to API requests; skip auth paths that enforce stricter dedicated rate limiters
+// Apply rate limiting to API requests; skip auth paths and OpenShift probe polling endpoints
 const limiter = rateLimit({
     windowMs: config.security.rateLimitWindowMs,
     max: config.security.rateLimitMax,
@@ -80,47 +80,14 @@ const limiter = rateLimit({
         req.path.startsWith("/api/auth") ||
         req.path === "/api/users/login" ||
         req.path === "/api/health" ||
-        req.path === "/healthz",
+        req.path === "/healthz" ||
+        req.path === "/startup" ||
+        req.path === "/api/startup",
 });
 app.use(limiter);
 
-interface HealthCheckResponse {
-    readonly status: "UP" | "DEGRADED";
-    readonly timestamp: string;
-    readonly uptime: number;
-    readonly environment: string;
-    readonly database: {
-        readonly status: "connected" | "disconnected";
-        readonly readyState: number;
-    };
-}
-
-/**
- * Health check handler for OpenShift / Kubernetes liveness and readiness probes.
- * Checks database readiness state and returns system uptime and timestamp.
- */
-const healthHandler = (_req: Request, res: Response): void => {
-    const isDbConnected: boolean = mongoose.connection.readyState === 1;
-    const status: "UP" | "DEGRADED" = isDbConnected ? "UP" : "DEGRADED";
-    const statusCode: number = isDbConnected ? 200 : 503;
-
-    const responseData: HealthCheckResponse = {
-        status,
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        environment: config.env,
-        database: {
-            status: isDbConnected ? "connected" : "disconnected",
-            readyState: mongoose.connection.readyState,
-        },
-    };
-
-    res.status(statusCode).json(responseData);
-};
-
 // Register OpenShift / Kubernetes health probe endpoints
-app.get("/api/health", healthHandler);
-app.get("/healthz", healthHandler);
+app.use(healthRoutes);
 
 // === API Route Definitions ===
 app.use("/api/sites", sitesRoutes);

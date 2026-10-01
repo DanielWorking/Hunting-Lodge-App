@@ -21,23 +21,43 @@ export const rootServerDir: string = path.resolve(__dirname, "../..");
 
 // Environment file resolution paths
 const customEnvPath: string | null = process.env.ENV_FILE ? path.resolve(process.env.ENV_FILE) : null;
-const devEnvPath: string = path.join(rootServerDir, ".env.development");
-const prodEnvPath: string = path.join(rootServerDir, ".env.production");
-const standardEnvPath: string = path.join(rootServerDir, ".env");
+const devConfigPath: string = path.join(rootServerDir, ".env.config.development");
+const devSecretPath: string = path.join(rootServerDir, ".env.development");
+const prodConfigPath: string = path.join(rootServerDir, ".env.config.production");
+const prodSecretPath: string = path.join(rootServerDir, ".env.production");
+const standardConfigPath: string = path.join(rootServerDir, ".env.config");
+const standardSecretPath: string = path.join(rootServerDir, ".env");
 
 if (customEnvPath && fs.existsSync(customEnvPath)) {
     dotenv.config({ path: customEnvPath });
-} else if (isDev && fs.existsSync(devEnvPath)) {
-    dotenv.config({ path: devEnvPath });
+} else if (isDev) {
+    // 1. Load non-sensitive configuration defaults (ConfigMap)
+    if (fs.existsSync(devConfigPath)) {
+        dotenv.config({ path: devConfigPath });
+    }
+    // 2. Load sensitive credentials (Secret), overriding or supplementing config
+    if (fs.existsSync(devSecretPath)) {
+        dotenv.config({ path: devSecretPath, override: true });
+    }
+    // 3. Optional local developer overrides (.env.development.local)
     const localDevEnvPath: string = path.join(rootServerDir, ".env.development.local");
     if (fs.existsSync(localDevEnvPath)) {
         dotenv.config({ path: localDevEnvPath, override: true });
     }
-} else if (isProd && fs.existsSync(prodEnvPath)) {
-    dotenv.config({ path: prodEnvPath });
-} else if (fs.existsSync(standardEnvPath)) {
-    dotenv.config({ path: standardEnvPath });
+} else if (isProd) {
+    if (fs.existsSync(prodConfigPath)) {
+        dotenv.config({ path: prodConfigPath });
+    }
+    if (fs.existsSync(prodSecretPath)) {
+        dotenv.config({ path: prodSecretPath, override: true });
+    }
 } else {
+    if (fs.existsSync(standardConfigPath)) {
+        dotenv.config({ path: standardConfigPath });
+    }
+    if (fs.existsSync(standardSecretPath)) {
+        dotenv.config({ path: standardSecretPath, override: true });
+    }
     dotenv.config();
 }
 

@@ -35,19 +35,10 @@ RUN apk add --no-cache dumb-init
 
 WORKDIR /app
 
-# Dynamic build arguments for runtime defaults
-ARG NODE_ENV=production
-ARG PORT=5000
-ARG STATIC_FILES_PATH=/app/client/dist
-
-# Set default production environment variables
-ENV NODE_ENV=${NODE_ENV} \
-    PORT=${PORT} \
-    STATIC_FILES_PATH=${STATIC_FILES_PATH}
-
-# Copy root package files and server package.json for production install
+# Copy root package files and server, client package.json for production install
 COPY package.json package-lock.json ./
 COPY server/package.json ./server/
+COPY client/package.json ./client/
 
 # Install backend production dependencies only
 RUN npm ci --omit=dev --ignore-scripts

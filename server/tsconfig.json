@@ -34,6 +34,7 @@
   },
   "include": [
     "*.ts",
+    "src/*.ts",
     "src/config/**/*.ts",
     "src/controllers/**/*.ts",
     "src/middleware/**/*.ts",

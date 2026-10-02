@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: shift-report-cronjob
+  namespace: <YOUR-NAMESPACE>
+spec:
+  # Run every minute in Asia/Jerusalem time
+  schedule: "* * * * *"
+  timeZone: "Asia/Jerusalem"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: shift-report-worker
+              image: image-registry.openshift-image-registry.svc:5000/<YOUR-NAMESPACE>/<APP_NAME>-<ENV>:latest
+              command: ["dumb-init", "--", "node", "dist/scripts/runCron.js"]
+              envFrom:
+                - secretRef:
+                    name: backend-secrets-prod
+                - configMapRef:
+                    name: backend-config-prod

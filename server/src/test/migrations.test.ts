@@ -7,6 +7,7 @@ import migration2 from "../migrations/20260826000002-sanitize-and-backfill-defau
 import migration3 from "../migrations/20260824000001-create-initial-indexes";
 import migration4 from "../migrations/20260824000002-ensure-super-admin-group";
 import migration5 from "../migrations/20260824000003-backfill-user-defaults";
+import migration6 from "../migrations/20261002000001-enforce-shift-report-unique-index";
 
 interface RecordedIndex {
     collection: string;
@@ -253,6 +254,124 @@ describe("Database Migration Scripts", () => {
                         (op.update.$unset as Record<string, unknown> | undefined)?.isActive !== undefined
                 ),
                 "Expected isActive rollback via $unset"
+            );
+        });
+    });
+
+    describe("20261002000001-enforce-shift-report-unique-index", () => {
+        it("should deduplicate shift reports, drop old index, and create unique compound index on up", async () => {
+            assert.equal(typeof migration6.up, "function");
+            assert.equal(typeof migration6.down, "function");
+
+            const createdIndexes: RecordedIndex[] = [];
+            const droppedIndexes: RecordedDrop[] = [];
+            let aggregatePipeline: unknown[] | null = null;
+            let deletedFilter: unknown = null;
+
+            const duplicateGroups = [
+                {
+                    _id: { groupId: "grp1", title: "Morning - 01/10/2026" },
+                    ids: ["id1", "id2", "id3"],
+                    count: 3,
+                },
+            ];
+
+            const mockDb = {
+                collection: (name: string) => ({
+                    aggregate: (pipeline: unknown[]) => {
+                        aggregatePipeline = pipeline;
+                        return {
+                            toArray: async () => duplicateGroups,
+                        };
+                    },
+                    deleteMany: async (filter: unknown) => {
+                        deletedFilter = filter;
+                        return { acknowledged: true, deletedCount: 2 };
+                    },
+                    createIndex: async (keys: IndexSpecification, options?: CreateIndexesOptions) => {
+                        createdIndexes.push({ collection: name, keys: keys as Record<string, number | string>, options });
+                        return "groupId_1_title_1";
+                    },
+                    dropIndex: async (keys: string | IndexSpecification) => {
+                        droppedIndexes.push({ collection: name, keys: keys as string | Record<string, number | string> });
+                    },
+                }),
+            } as unknown as Db;
+
+            await migration6.up(mockDb);
+
+            // 1. Verify deduplication aggregation was invoked
+            assert.ok(aggregatePipeline !== null, "Aggregation pipeline should have run");
+
+            // 2. Verify duplicate IDs (id2, id3) were targeted for deletion, keeping primary id1
+            assert.deepEqual(deletedFilter, { _id: { $in: ["id2", "id3"] } });
+
+            // 3. Verify old index was dropped
+            assert.ok(
+                droppedIndexes.some(
+                    (d) =>
+                        d.collection === "shiftreports" &&
+                        (d.keys === "groupId_1_title_1" ||
+                            ((d.keys as Record<string, unknown>).groupId === 1 &&
+                                (d.keys as Record<string, unknown>).title === 1))
+                ),
+                "Expected old index to be dropped"
+            );
+
+            // 4. Verify unique compound index was created
+            assert.ok(
+                createdIndexes.some(
+                    (i) =>
+                        i.collection === "shiftreports" &&
+                        i.keys.groupId === 1 &&
+                        i.keys.title === 1 &&
+                        i.options?.unique === true &&
+                        i.options?.name === "groupId_1_title_1"
+                ),
+                "Expected unique compound index on shiftreports { groupId: 1, title: 1 } with name groupId_1_title_1"
+            );
+        });
+
+        it("should drop unique index and recreate non-unique compound index on down", async () => {
+            const createdIndexes: RecordedIndex[] = [];
+            const droppedIndexes: RecordedDrop[] = [];
+
+            const mockDb = {
+                collection: (name: string) => ({
+                    createIndex: async (keys: IndexSpecification, options?: CreateIndexesOptions) => {
+                        createdIndexes.push({ collection: name, keys: keys as Record<string, number | string>, options });
+                        return "groupId_1_title_1";
+                    },
+                    dropIndex: async (keys: string | IndexSpecification) => {
+                        droppedIndexes.push({ collection: name, keys: keys as string | Record<string, number | string> });
+                    },
+                }),
+            } as unknown as Db;
+
+            await migration6.down(mockDb);
+
+            // 1. Verify unique index was dropped
+            assert.ok(
+                droppedIndexes.some(
+                    (d) =>
+                        d.collection === "shiftreports" &&
+                        (d.keys === "groupId_1_title_1" ||
+                            ((d.keys as Record<string, unknown>).groupId === 1 &&
+                                (d.keys as Record<string, unknown>).title === 1))
+                ),
+                "Expected unique index to be dropped in rollback"
+            );
+
+            // 2. Verify non-unique index was recreated
+            assert.ok(
+                createdIndexes.some(
+                    (i) =>
+                        i.collection === "shiftreports" &&
+                        i.keys.groupId === 1 &&
+                        i.keys.title === 1 &&
+                        !i.options?.unique
+                ),
+                "Expected non-unique compound index on shiftreports { groupId: 1, title: 1 } to be recreated"
             );
         });
     });

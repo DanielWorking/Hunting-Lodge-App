@@ -19,8 +19,8 @@ describe("Defect Regression: Event Loop Non-Blocking & Cron/Mongoose Resilience"
             if (cronJobs && typeof cronJobs.stopCronJobs === "function") {
                 cronJobs.stopCronJobs();
             }
-        } catch {
-            // Ignore if not loaded
+        } catch (err: unknown) {
+            console.error("Failed to stop cron jobs in test cleanup:", err);
         }
     });
 
@@ -217,6 +217,156 @@ describe("Defect Regression: Event Loop Non-Blocking & Cron/Mongoose Resilience"
                     configurable: true,
                 });
                 groupHolder.find = originalGroupFind;
+            }
+        });
+
+        it("should safely drop duplicate key error (E11000) when concurrent pod creates shift report", async () => {
+            const testGroupId = new mongoose.Types.ObjectId();
+
+            const groupHolder = Group as unknown as Record<string, unknown>;
+            const reportHolder = ShiftReport as unknown as Record<string, unknown>;
+            const scheduleHolder = ShiftSchedule as unknown as Record<string, unknown>;
+
+            const originalGroupFind = groupHolder.find;
+            const originalReportFindOne = reportHolder.findOne;
+            const originalScheduleFindOne = scheduleHolder.findOne;
+            const originalReportSave = ShiftReport.prototype.save;
+            const originalConsoleWarn = console.warn;
+
+            const warnLogs: string[] = [];
+            console.warn = (...args: unknown[]) => {
+                warnLogs.push(args.map(String).join(" "));
+            };
+
+            groupHolder.find = () => ({
+                lean: async () => [
+                    {
+                        _id: testGroupId,
+                        name: "Concurrent Pod Test Group",
+                        settings: {
+                            timeSlots: [
+                                {
+                                    name: "משמרת בוקר",
+                                    startTime: "08:00",
+                                    endTime: "14:00",
+                                    linkedShiftTypes: [],
+                                },
+                            ],
+                        },
+                    },
+                ],
+            });
+
+            reportHolder.findOne = () => ({
+                lean: async () => null,
+                sort: () => ({
+                    lean: async () => null,
+                }),
+            });
+
+            scheduleHolder.findOne = () => ({
+                lean: async () => null,
+            });
+
+            // Simulate save throwing E11000 duplicate key exception from MongoDB driver
+            ShiftReport.prototype.save = async function (this: ShiftReportDocument) {
+                const dupError = new Error(
+                    "E11000 duplicate key error collection: hunting_lodge_db.shiftreports index: groupId_1_title_1 dup key: { groupId: ObjectId('123'), title: 'משמרת בוקר - 04/09/2026' }"
+                );
+                (dupError as unknown as { code: number }).code = 11000;
+                (dupError as unknown as { codeName: string }).codeName = "DuplicateKey";
+                (dupError as unknown as { errorResponse: { code: number; codeName: string } }).errorResponse = {
+                    code: 11000,
+                    codeName: "DuplicateKey",
+                };
+                throw dupError;
+            };
+
+            const originalReadyState = mongoose.connection.readyState;
+            Object.defineProperty(mongoose.connection, "readyState", {
+                value: 1,
+                configurable: true,
+            });
+
+            try {
+                const tickTime = new Date("2026-09-04T05:00:00.000Z"); // 08:00 Jerusalem time
+
+                // Must complete cleanly without unhandled rejection
+                await cronJobs.runShiftReportGenerator(tickTime);
+
+                const hasDuplicateWarning = warnLogs.some((msg) =>
+                    msg.includes("[Cron] Report already exists (duplicate key dropped safely)")
+                );
+                assert.ok(
+                    hasDuplicateWarning,
+                    `Expected warning indicating duplicate key dropped safely, got logs: ${JSON.stringify(warnLogs)}`
+                );
+            } finally {
+                Object.defineProperty(mongoose.connection, "readyState", {
+                    value: originalReadyState,
+                    configurable: true,
+                });
+                groupHolder.find = originalGroupFind;
+                reportHolder.findOne = originalReportFindOne;
+                scheduleHolder.findOne = originalScheduleFindOne;
+                ShiftReport.prototype.save = originalReportSave;
+                console.warn = originalConsoleWarn;
+            }
+        });
+
+        it("should detect and safely drop duplicate key error in processGroupSlot across error shapes", async () => {
+            const testGroup = {
+                _id: new mongoose.Types.ObjectId(),
+                name: "Multi-pod Group",
+            };
+            const testSlot = {
+                name: "Morning",
+                startTime: "08:00",
+                endTime: "16:00",
+            };
+            const now = new Date("2026-09-04T05:00:00.000Z");
+            const currentJerusalemMinutes = 8 * 60;
+
+            const reportHolder = ShiftReport as unknown as Record<string, unknown>;
+            const originalReportFindOne = reportHolder.findOne;
+            const originalReportSave = ShiftReport.prototype.save;
+            const originalConsoleWarn = console.warn;
+
+            reportHolder.findOne = () => ({
+                lean: async () => null,
+                sort: () => ({
+                    lean: async () => null,
+                }),
+            });
+
+            const errorVariants = [
+                { code: 11000 },
+                { codeName: "DuplicateKey" },
+                { errorResponse: { code: 11000 } },
+                { errorResponse: { codeName: "DuplicateKey" } },
+                new Error("E11000 duplicate key error"),
+            ];
+
+            try {
+                for (const errVariant of errorVariants) {
+                    let loggedWarn = false;
+                    console.warn = (msg: unknown) => {
+                        if (String(msg).includes("[Cron] Report already exists (duplicate key dropped safely)")) {
+                            loggedWarn = true;
+                        }
+                    };
+
+                    ShiftReport.prototype.save = async function () {
+                        throw errVariant;
+                    };
+
+                    await cronJobs.processGroupSlot(testGroup, testSlot, now, currentJerusalemMinutes);
+                    assert.ok(loggedWarn, `Failed to detect duplicate key for error variant: ${JSON.stringify(errVariant)}`);
+                }
+            } finally {
+                reportHolder.findOne = originalReportFindOne;
+                ShiftReport.prototype.save = originalReportSave;
+                console.warn = originalConsoleWarn;
             }
         });
     });

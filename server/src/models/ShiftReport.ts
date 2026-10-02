@@ -108,7 +108,7 @@ ShiftReportSchema.index({ groupId: 1, date: -1, startTime: -1 });
 ShiftReportSchema.index({ groupId: 1, date: -1, _id: -1 });
 ShiftReportSchema.index({ groupId: 1, date: -1 });
 ShiftReportSchema.index({ groupId: 1, startTime: -1 });
-ShiftReportSchema.index({ groupId: 1, title: 1 });
+ShiftReportSchema.index({ groupId: 1, title: 1 }, { unique: true });
 
 const ShiftReport: ShiftReportModel =
     (mongoose.models.ShiftReport as ShiftReportModel) ||

@@ -280,16 +280,19 @@ describe("Mongoose Schema Validations & Constraints", () => {
             assert.ok(err.errors.endTime, "endTime is required");
         });
 
-        it("should define compound index on { groupId: 1, startTime: -1 } and { groupId: 1, title: 1 }", () => {
+        it("should define compound index on { groupId: 1, startTime: -1 } and unique compound index on { groupId: 1, title: 1 }", () => {
             const indexes = ShiftReport.schema.indexes();
             const hasStartTimeIndex = indexes.some(
                 ([spec]) => (spec as IndexSpecMap).groupId === 1 && (spec as IndexSpecMap).startTime === -1
             );
-            const hasTitleIndex = indexes.some(
-                ([spec]) => (spec as IndexSpecMap).groupId === 1 && (spec as IndexSpecMap).title === 1
+            const hasUniqueTitleIndex = indexes.some(
+                ([spec, options]) =>
+                    (spec as IndexSpecMap).groupId === 1 &&
+                    (spec as IndexSpecMap).title === 1 &&
+                    options?.unique === true
             );
             assert.ok(hasStartTimeIndex, "Expected compound index on groupId and startTime desc");
-            assert.ok(hasTitleIndex, "Expected compound index on groupId and title");
+            assert.ok(hasUniqueTitleIndex, "Expected unique compound index on groupId and title");
         });
     });
 

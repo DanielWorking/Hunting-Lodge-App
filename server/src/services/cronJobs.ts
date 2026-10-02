@@ -400,16 +400,33 @@ export async function processGroupSlot(
         console.log(`[Cron] Successfully saved new report for ${groupDisplayName}`);
     } catch (saveError: unknown) {
         // Handle race conditions where another worker or process inserted the same report
-        const isDuplicateKey =
-            typeof saveError === "object" &&
-            saveError !== null &&
-            (("code" in saveError && (saveError as { code: unknown }).code === 11000) ||
-                ("errorResponse" in saveError &&
-                    typeof (saveError as { errorResponse: unknown }).errorResponse === "object" &&
-                    (saveError as { errorResponse: { code?: unknown } }).errorResponse?.code === 11000));
+        const errObj =
+            typeof saveError === "object" && saveError !== null
+                ? (saveError as Record<string, unknown>)
+                : null;
+        const errResponse =
+            errObj && typeof errObj.errorResponse === "object" && errObj.errorResponse !== null
+                ? (errObj.errorResponse as Record<string, unknown>)
+                : null;
+        const errMsg =
+            saveError instanceof Error
+                ? saveError.message
+                : typeof errObj?.message === "string"
+                ? errObj.message
+                : "";
+
+        const isDuplicateKey = Boolean(
+            errObj?.code === 11000 ||
+            errObj?.codeName === "DuplicateKey" ||
+            errResponse?.code === 11000 ||
+            errResponse?.codeName === "DuplicateKey" ||
+            errMsg.includes("E11000")
+        );
 
         if (isDuplicateKey) {
-            console.warn(`[Cron] Report already exists (duplicate key) for ${groupDisplayName} - ${slotName}`);
+            console.warn(
+                `[Cron] Report already exists (duplicate key dropped safely) for ${groupDisplayName} - ${slotName}`
+            );
         } else {
             const errorStack =
                 saveError instanceof Error ? saveError.stack ?? saveError.message : String(saveError);

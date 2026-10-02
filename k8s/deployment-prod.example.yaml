@@ -285,6 +285,7 @@ metadata:
     app.kubernetes.io/part-of: <YOUR-NAMESPACE>
     app.kubernetes.io/component: backend
 spec:
+  host: <YOUR-PROD-DNS>
   to:
     kind: Service
     name: <APP_NAME>-prod-service
@@ -294,3 +295,6 @@ spec:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+    certificate: <YOUR-CERT-NAME>
+    key: <YOUR-KEY-NAME>
+    caCertificate: <YOUR-CA-CERT-NAME>

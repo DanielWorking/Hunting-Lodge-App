@@ -159,6 +159,30 @@ spec:
                   name: backend-secrets-prod
                   key: SSO_IDENTIFIER_FIELD
                   optional: false
+            - name: SSO_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets-prod
+                  key: SSO_COOKIE_SECRET
+                  optional: true
+            - name: SSO_USE_PKCE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-prod
+                  key: SSO_USE_PKCE
+                  optional: true
+            - name: SSO_COOKIE_SECURE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-prod
+                  key: SSO_COOKIE_SECURE
+                  optional: true
+            - name: SSO_SAME_SITE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-prod
+                  key: SSO_SAME_SITE
+                  optional: true
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

@@ -8,15 +8,15 @@
  */
 
 import mongoose, { Types } from "mongoose";
-import config from "./src/config";
-import Group from "./src/models/Group";
-import User from "./src/models/User";
-import Site from "./src/models/Site";
-import Phone from "./src/models/Phone";
-import ShiftSchedule from "./src/models/ShiftSchedule";
-import ShiftReport from "./src/models/ShiftReport";
-import VacationRequest from "./src/models/VacationRequest";
-import Shift from "./src/models/Shift";
+import config from "../config";
+import Group from "../models/Group";
+import User from "../models/User";
+import Site from "../models/Site";
+import Phone from "../models/Phone";
+import ShiftSchedule from "../models/ShiftSchedule";
+import ShiftReport from "../models/ShiftReport";
+import VacationRequest from "../models/VacationRequest";
+import Shift from "../models/Shift";
 
 // Safety guard to prevent accidental database wipes in production
 if (config.isProd && !process.argv.includes("--force-production")) {

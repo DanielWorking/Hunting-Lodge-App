@@ -3,7 +3,7 @@ kind: Job
 metadata:
   name: mongodb-seed-job
   # <YOUR_NAMESPACE>: change to the current namespace
-  namespace: <YOUR_NAMESPACE>
+  namespace: danielrei-dev
 spec:
   backoffLimit: 2
   template:
@@ -14,7 +14,7 @@ spec:
           # <YOUR_NAMESPACE>: change to the current namespace
           # <YOUR_DEPLOYMENT>: change to the current deployment
           image: image-registry.openshift-image-registry.svc:5000/<YOUR_NAMESPACE>/<YOUR_DEPLOYMENT>:latest
-          command: ["node", "seed.js", "--idempotent"]
+          command: ["node", "src/scripts/seed.js", "--idempotent"]
           envFrom:
             - configMapRef:
                 name: backend-config-prod

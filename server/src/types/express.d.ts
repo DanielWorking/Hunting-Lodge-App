@@ -36,6 +36,7 @@ declare global {
         interface Request {
             user?: Express.User;
             auth?: DecodedTokenPayload;
+            cookies?: Record<string, string>;
         }
     }
 }

@@ -21,10 +21,8 @@ build/
 
 # Database seed files
 server/seed.ts
+server/src/scripts/seed.ts
 seed.ts
-
-# Load test scripts with local tokens
-load-test-auth.js
 
 # Deployment files
 deployment-dev.yaml

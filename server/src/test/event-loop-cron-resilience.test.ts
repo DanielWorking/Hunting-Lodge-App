@@ -328,7 +328,9 @@ describe("Defect Regression: Event Loop Non-Blocking & Cron/Mongoose Resilience"
             const currentJerusalemMinutes = 8 * 60;
 
             const reportHolder = ShiftReport as unknown as Record<string, unknown>;
+            const scheduleHolder = ShiftSchedule as unknown as Record<string, unknown>;
             const originalReportFindOne = reportHolder.findOne;
+            const originalScheduleFindOne = scheduleHolder.findOne;
             const originalReportSave = ShiftReport.prototype.save;
             const originalConsoleWarn = console.warn;
 
@@ -337,6 +339,10 @@ describe("Defect Regression: Event Loop Non-Blocking & Cron/Mongoose Resilience"
                 sort: () => ({
                     lean: async () => null,
                 }),
+            });
+
+            scheduleHolder.findOne = () => ({
+                lean: async () => null,
             });
 
             const errorVariants = [
@@ -365,6 +371,7 @@ describe("Defect Regression: Event Loop Non-Blocking & Cron/Mongoose Resilience"
                 }
             } finally {
                 reportHolder.findOne = originalReportFindOne;
+                scheduleHolder.findOne = originalScheduleFindOne;
                 ShiftReport.prototype.save = originalReportSave;
                 console.warn = originalConsoleWarn;
             }

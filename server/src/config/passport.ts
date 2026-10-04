@@ -11,12 +11,7 @@ import ssoConfig from "./sso";
 import type { PassportConfig, SsoConfig } from "../types/config";
 
 const rawPassportConfig: PassportConfig = {
-    issuerUrl: ssoConfig.issuerUrl,
-    clientId: ssoConfig.clientId,
-    clientSecret: ssoConfig.clientSecret,
-    redirectUri: ssoConfig.redirectUri,
-    identifierField: ssoConfig.identifierField,
-    scope: ssoConfig.scope,
+    ...ssoConfig,
     session: false,
 };
 

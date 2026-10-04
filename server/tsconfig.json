@@ -40,6 +40,7 @@
     "src/middleware/**/*.ts",
     "src/models/**/*.ts",
     "src/routes/**/*.ts",
+    "src/scripts/**/*.ts",
     "src/services/**/*.ts",
     "src/types/**/*.ts",
     "src/types/**/*.d.ts",

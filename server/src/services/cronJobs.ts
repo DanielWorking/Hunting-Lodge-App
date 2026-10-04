@@ -496,6 +496,7 @@ export async function runShiftReportGenerator(now: Date = new Date()): Promise<v
     } catch (error: unknown) {
         const errorStack = error instanceof Error ? error.stack ?? error.message : String(error);
         console.error("[Cron] Error generating shift reports:", errorStack);
+        throw error;
     } finally {
         isJobRunning = false;
     }
@@ -535,20 +536,23 @@ const cronTaskOptions: TaskOptions = {
 
 /**
  * Scheduled job that runs every minute to check for upcoming shift starts.
- * Wrapped with strict error boundary to prevent unhandled rejections or crashes.
+ * By default, in-process scheduling is disabled in favor of dedicated OpenShift CronJobs.
+ * Set ENABLE_IN_PROCESS_CRON="true" in development to enable in-memory scheduling.
  */
-export const job: ScheduledTask = cron.schedule(
-    cronScheduleExpression,
-    async (): Promise<void> => {
-        try {
-            await runShiftReportGenerator();
-        } catch (err: unknown) {
-            const errorStack = err instanceof Error ? err.stack ?? err.message : String(err);
-            console.error("[Cron] Unhandled error in scheduled task callback:", errorStack);
-        }
-    },
-    cronTaskOptions
-);
+export const job: ScheduledTask | null = process.env.ENABLE_IN_PROCESS_CRON === "true"
+    ? cron.schedule(
+        cronScheduleExpression,
+        async (): Promise<void> => {
+            try {
+                await runShiftReportGenerator();
+            } catch (err: unknown) {
+                const errorStack = err instanceof Error ? err.stack ?? err.message : String(err);
+                console.error("[Cron] Unhandled error in scheduled task callback:", errorStack);
+            }
+        },
+        cronTaskOptions
+    )
+    : null;
 
 /**
  * Gracefully stops the cron scheduler.

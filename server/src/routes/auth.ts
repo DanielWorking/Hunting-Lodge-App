@@ -22,6 +22,7 @@ export const ssoLoginSchema = z.object({
     code: z.string({ message: "Authorization code missing" })
         .trim()
         .min(1, "Authorization code missing"),
+    state: z.string().trim().optional(),
 });
 
 export type SsoLoginInput = z.infer<typeof ssoLoginSchema>;
@@ -65,10 +66,26 @@ router.post(
 );
 
 /**
+ * POST /refresh
+ * 
+ * Silent session refresh using httpOnly refresh token cookie.
+ * Issues a renewed hunting_token session cookie.
+ */
+router.post("/refresh", authRateLimiter, authController.refreshToken);
+
+/**
+ * POST /logout
+ * 
+ * Terminates the application session, clears httpOnly auth cookies,
+ * and provides OIDC RP-initiated logout redirection URL if supported.
+ */
+router.post("/logout", authRateLimiter, authController.logout);
+
+/**
  * GET /me
  * 
  * Retrieves the currently authenticated user profile from token.
- * Protected endpoint requiring valid JWT Bearer token.
+ * Protected endpoint requiring valid JWT Bearer token or session cookie.
  */
 router.get("/me", protect, authController.getMe);
 

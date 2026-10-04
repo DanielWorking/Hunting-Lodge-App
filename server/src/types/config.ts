@@ -33,6 +33,15 @@ export interface SsoConfig {
     readonly redirectUri: string;
     readonly identifierField: string;
     readonly scope: string;
+    readonly usePkce: boolean;
+    readonly cookieSecret: string;
+    readonly cookieDomain?: string;
+    readonly cookieSecure: boolean;
+    readonly sameSite: "lax" | "strict" | "none";
+    readonly sessionCookieName: string;
+    readonly refreshCookieName: string;
+    readonly stateCookieName: string;
+    readonly clockTolerance: number;
 }
 
 export interface PassportConfig extends SsoConfig {
@@ -94,6 +103,11 @@ export interface ServerProcessEnv {
     readonly SSO_CLIENT_SECRET?: string;
     readonly SSO_REDIRECT_URI?: string;
     readonly SSO_IDENTIFIER_FIELD?: string;
+    readonly SSO_USE_PKCE?: string;
+    readonly SSO_COOKIE_SECRET?: string;
+    readonly SSO_COOKIE_DOMAIN?: string;
+    readonly SSO_COOKIE_SECURE?: string;
+    readonly SSO_SAME_SITE?: string;
     readonly SUPER_ADMIN_ID?: string;
     readonly SUPER_ADMIN_USERNAME?: string;
     readonly SUPER_ADMIN_EMAIL?: string;

@@ -1,9 +1,10 @@
 /**
  * @module SSOCallback
  *
- * Handles the final stage of the SSO authentication flow.
+ * Handles the final stage of the SSO authentication flow (Step 6 to Step 9).
  * Processes the authorization code and state returned by the identity provider,
- * exchanges them for user data, and initializes the application session.
+ * checks for IdP error responses, exchanges parameters with the backend,
+ * and initializes the application session with smooth redirection.
  */
 
 import { useEffect, useRef } from "react";
@@ -27,6 +28,17 @@ export default function SSOCallback() {
     const processedRef = useRef(false);
 
     useEffect(() => {
+        // Step 6: Detect any error parameters sent back by the IdP
+        const error = searchParams.get("error");
+        const errorDescription = searchParams.get("error_description");
+
+        if (error) {
+            console.error("SSO Identity Provider returned an error:", error, errorDescription);
+            const errorParam = errorDescription || error;
+            navigate(`/login?error=${encodeURIComponent(errorParam)}`, { replace: true });
+            return;
+        }
+
         const code = searchParams.get("code");
         const state = searchParams.get("state");
 
@@ -35,12 +47,11 @@ export default function SSOCallback() {
         processedRef.current = true;
 
         /**
-         * Exchanges the authorization code for a user record on the server.
-         *
+         * Step 7-9: Exchanges the authorization code and state for a user record on the server.
          * Performs a full page redirect on success to ensure global context
-         * re-initialization with the new user state.
+         * re-initialization with the new user state and httpOnly session cookies.
          */
-        const handleSSOLogin = async () => {
+        const handleSSOLogin = async (): Promise<void> => {
             try {
                 const response = await loginWithCode({
                     code,
@@ -51,21 +62,33 @@ export default function SSOCallback() {
                 const token = data.token;
 
                 if (user && user._id) {
-                    // Persist the JWT token and user identifier for secure session persistence.
+                    // Persist the JWT token and user identifier for session persistence.
                     if (token) {
                         localStorage.setItem("hunting_token", token);
                     }
                     localStorage.setItem("hunting_userId", user._id);
 
-                    // Force a full application reload to synchronize contexts.
+                    if (Array.isArray(user.groups) && user.groups.length > 0) {
+                        const firstGroup = user.groups[0];
+                        const gid = typeof firstGroup.groupId === "object" && firstGroup.groupId !== null
+                            ? (firstGroup.groupId as { _id?: string; name?: string })._id || (firstGroup.groupId as { name?: string }).name
+                            : firstGroup.groupId || (firstGroup as { name?: string }).name || (firstGroup as { groupName?: string }).groupName;
+                        if (gid) {
+                            localStorage.setItem("hunting_groupId", String(gid));
+                        }
+                    }
+
+                    // Force a full application reload to synchronize contexts and session cookies.
                     window.location.href = "/";
                 } else {
                     console.error("No user data returned from authentication endpoint.");
-                    navigate("/login?error=no_user_data");
+                    navigate("/login?error=no_user_data", { replace: true });
                 }
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error("SSO Login failed during code exchange:", error);
-                navigate("/login?error=sso_failed");
+                const axiosErr = error as { response?: { data?: { message?: string } } };
+                const errorMsg = axiosErr?.response?.data?.message || "sso_failed";
+                navigate(`/login?error=${encodeURIComponent(errorMsg)}`, { replace: true });
             }
         };
 

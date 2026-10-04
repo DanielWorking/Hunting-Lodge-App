@@ -11,6 +11,10 @@ import envConfig from "../config/env";
 
 const axiosInstance = axios.create({
     baseURL: envConfig.apiUrl,
+    withCredentials: true,
+    headers: {
+        "X-Requested-With": "XMLHttpRequest",
+    },
 });
 
 // Request Interceptor: Attach JWT Bearer token to all outgoing requests
@@ -25,12 +29,75 @@ axiosInstance.interceptors.request.use(
     (error: unknown) => Promise.reject(error),
 );
 
-// Response Interceptor: Handle 401 Unauthorized globally
+// Shared in-flight refresh promise to prevent multiple concurrent refresh calls
+let refreshPromise: Promise<string | null> | null = null;
+
+const attemptRefresh = async (): Promise<string | null> => {
+    if (refreshPromise) {
+        return refreshPromise;
+    }
+
+    refreshPromise = (async (): Promise<string | null> => {
+        try {
+            const response = await axios.post<{ token?: string }>(
+                `${envConfig.apiUrl}/auth/refresh`,
+                {},
+                {
+                    withCredentials: true,
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                }
+            );
+            const newToken = response.data?.token;
+            if (newToken) {
+                localStorage.setItem("hunting_token", newToken);
+            }
+            return newToken || "refreshed";
+        } catch (err: unknown) {
+            // Only return null (signaling expired session) on explicit 401/403
+            if (axios.isAxiosError(err) && err.response && (err.response.status === 401 || err.response.status === 403)) {
+                return null;
+            }
+            // For network errors or 5xx outages, throw to prevent wiping stored credentials prematurely
+            throw err;
+        } finally {
+            refreshPromise = null;
+        }
+    })();
+
+    return refreshPromise;
+};
+
+// Response Interceptor: Handle 401 Unauthorized globally with silent refresh
 axiosInstance.interceptors.response.use(
     (response) => response,
-    (error: unknown) => {
+    async (error: unknown) => {
         if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-            // If request fails with 401, clear stored auth credentials
+            const originalRequest = error.config as (AxiosRequestConfig & { _retry?: boolean });
+            const requestUrl = originalRequest?.url || "";
+
+            const isAuthRoute =
+                requestUrl.includes("/auth/refresh") ||
+                requestUrl.includes("/auth/login") ||
+                requestUrl.includes("/users/login");
+
+            if (!originalRequest?._retry && !isAuthRoute) {
+                originalRequest._retry = true;
+                try {
+                    const refreshResult = await attemptRefresh();
+                    if (refreshResult) {
+                        const token = localStorage.getItem("hunting_token");
+                        if (token && originalRequest.headers) {
+                            originalRequest.headers.Authorization = `Bearer ${token}`;
+                        }
+                        return axiosInstance(originalRequest);
+                    }
+                } catch {
+                    // Network disruption during refresh; do not destroy session yet
+                    return Promise.reject(error);
+                }
+            }
+
+            // If request fails with 401 and cannot be refreshed, clear stored auth credentials
             const currentPath = window.location.pathname;
             const hadToken = Boolean(localStorage.getItem("hunting_token"));
 

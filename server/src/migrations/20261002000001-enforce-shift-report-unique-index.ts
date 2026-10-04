@@ -12,6 +12,7 @@ import {
     IndexSpecification,
     CreateIndexesOptions,
     MongoServerError,
+    ObjectId,
 } from "mongodb";
 
 /**
@@ -105,7 +106,7 @@ export async function up(db: Db, _client?: MongoClient): Promise<void> {
     const duplicates = await collection
         .aggregate<{
             _id: { groupId: unknown; title: string };
-            ids: unknown[];
+            ids: ObjectId[];
             count: number;
         }>([
             {
@@ -126,7 +127,7 @@ export async function up(db: Db, _client?: MongoClient): Promise<void> {
         ])
         .toArray();
 
-    const idsToDelete: unknown[] = [];
+    const idsToDelete: ObjectId[] = [];
     for (const dup of duplicates) {
         if (Array.isArray(dup.ids) && dup.ids.length > 1) {
             // Retain primary (first id), mark the rest for removal

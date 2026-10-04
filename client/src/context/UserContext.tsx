@@ -11,12 +11,13 @@ import {
     useContext,
     useState,
     useCallback,
+    useMemo,
     useRef,
     type ReactNode,
     useEffect,
 } from "react";
 import axios from "axios";
-import { getMe } from "../api/authApi";
+import { getMe, logoutUser } from "../api/authApi";
 import { loginUser } from "../api/usersApi";
 import type { User, Group, GroupRole } from "../types";
 
@@ -47,7 +48,7 @@ interface UserContextType {
      */
     login: (username: string, password?: string) => Promise<boolean>;
     /** Clears the session and redirects to the login state. */
-    logout: () => void;
+    logout: () => void | Promise<void>;
     /**
      * Changes the active group scope for the user.
      * 
@@ -187,21 +188,29 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     );
 
     /**
-     * Terminates the session and cleans up sensitive items from localStorage.
+     * Terminates the session, invalidates cookies via backend logout endpoint,
+     * and cleans up sensitive items from localStorage.
      */
-    const logout = useCallback(() => {
-        setUser(null);
-        setCurrentGroup(null);
-        localStorage.removeItem("hunting_token");
-        localStorage.removeItem("hunting_userId");
-        localStorage.removeItem("hunting_groupId");
+    const logout = useCallback(async (): Promise<void> => {
+        try {
+            await logoutUser();
+        } catch (error) {
+            console.error("Backend logout failed:", error);
+        } finally {
+            setUser(null);
+            setCurrentGroup(null);
+            localStorage.removeItem("hunting_token");
+            localStorage.removeItem("hunting_userId");
+            localStorage.removeItem("hunting_groupId");
+        }
     }, []);
 
     /**
      * Session Restoration logic.
      * 
-     * Runs on initial mount. Validates stored JWT against the `/api/auth/me` endpoint
-     * to safely reconstruct the user session without querying the global user directory.
+     * Runs on initial mount. Validates session against `/api/auth/me` endpoint
+     * using httpOnly cookies or fallback Bearer token to safely reconstruct user state.
+     * Does not require token in localStorage.
      * 
      * Only invokes logout() if the server explicitly responds with HTTP 401 Unauthorized
      * (indicating an invalid or expired token). Transient network disruptions, timeouts,
@@ -212,7 +221,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             const storedToken = localStorage.getItem("hunting_token");
             const storedUserId = localStorage.getItem("hunting_userId");
 
-            if (!storedToken || !storedUserId) {
+            // Rely on httpOnly cookies; do not require JWT in localStorage if userId is stored
+            if (!storedToken && !storedUserId) {
                 setIsRestoringSession(false);
                 return;
             }
@@ -227,14 +237,17 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 if (foundUser) {
                     const safeUser = normalizeUser(foundUser);
                     setUser(safeUser);
+                    if (safeUser._id) {
+                        localStorage.setItem("hunting_userId", safeUser._id);
+                    }
                 } else {
-                    logout();
+                    await logout();
                 }
             } catch (error: unknown) {
                 console.error("Session restoration failed:", error);
                 // Only clear the stored session if the backend explicitly rejected the token (401)
                 if (axios.isAxiosError(error) && error.response?.status === 401) {
-                    logout();
+                    await logout();
                 }
             } finally {
                 setIsRestoringSession(false);
@@ -252,7 +265,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      * @param {string} [_pass] - Optional password (currently bypassed).
      * @returns {Promise<boolean>} True if authentication succeeded.
      */
-    const login = async (username: string, _pass?: string): Promise<boolean> => {
+    const login = useCallback(async (username: string, _pass?: string): Promise<boolean> => {
         try {
             const response = await loginUser(username);
             const data = response.data;
@@ -279,7 +292,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             console.error("Login failed:", error);
             return false;
         }
-    };
+    }, []);
 
     /**
      * Switches the current active group scope if the user has permission.
@@ -287,7 +300,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      * @param {string} groupId - The target group identifier.
      * @param {Group} [targetGroup] - Optional pre-resolved group object.
      */
-    const switchGroup = (groupId: string, targetGroup?: Group) => {
+    const switchGroup = useCallback((groupId: string, targetGroup?: Group) => {
         const membership = user?.groups?.find((g) => {
             return (
                 g.groupId === groupId ||
@@ -319,7 +332,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 });
             }
         }
-    };
+    }, [user, isUserAdminEligible]);
 
     const isAuthenticated = Boolean(user && user.isActive !== false);
 
@@ -327,23 +340,35 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         setUser((prev) => (prev ? { ...prev, hasSeenWhatsNew: true } : null));
     }, []);
 
+    const contextValue = useMemo(() => ({
+        user,
+        isAuthenticated,
+        currentGroup,
+        setCurrentGroup,
+        isSuperAdmin,
+        isAdmin,
+        isShiftManager: isShiftManagerBool,
+        login,
+        logout,
+        switchGroup,
+        isRestoringSession,
+        markWhatsNewSeen,
+    }), [
+        user,
+        isAuthenticated,
+        currentGroup,
+        isSuperAdmin,
+        isAdmin,
+        isShiftManagerBool,
+        login,
+        logout,
+        switchGroup,
+        isRestoringSession,
+        markWhatsNewSeen,
+    ]);
+
     return (
-        <UserContext.Provider
-            value={{
-                user,
-                isAuthenticated,
-                currentGroup,
-                setCurrentGroup,
-                isSuperAdmin,
-                isAdmin,
-                isShiftManager: isShiftManagerBool,
-                login,
-                logout,
-                switchGroup,
-                isRestoringSession,
-                markWhatsNewSeen,
-            }}
-        >
+        <UserContext.Provider value={contextValue}>
             {children}
         </UserContext.Provider>
     );

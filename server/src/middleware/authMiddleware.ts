@@ -86,25 +86,34 @@ export const protect: RequestHandler = async (
     next: NextFunction
 ): Promise<void> => {
     try {
-        const rawAuthHeader = req.headers.authorization || req.headers.Authorization;
-        const authHeader = Array.isArray(rawAuthHeader) ? rawAuthHeader[0] : rawAuthHeader;
+        let token: string | undefined;
 
-        if (!authHeader || typeof authHeader !== "string" || !authHeader.startsWith("Bearer ")) {
-            res.status(401).json({
-                message: "Unauthorized: No token provided",
-                code: "NO_TOKEN",
-            });
-            return;
-        }
+        // 1. Check for session token in req.cookies?.hunting_token first
+        const cookieToken = req.cookies?.hunting_token;
+        if (cookieToken && typeof cookieToken === "string" && cookieToken.trim().length > 0) {
+            token = cookieToken.trim();
+        } else {
+            // 2. Fall back to Authorization Bearer header
+            const rawAuthHeader = req.headers.authorization || req.headers.Authorization;
+            const authHeader = Array.isArray(rawAuthHeader) ? rawAuthHeader[0] : rawAuthHeader;
 
-        const token = authHeader.split(" ")[1];
+            if (!authHeader || typeof authHeader !== "string" || !authHeader.startsWith("Bearer ")) {
+                res.status(401).json({
+                    message: "Unauthorized: No token provided",
+                    code: "NO_TOKEN",
+                });
+                return;
+            }
 
-        if (!token) {
-            res.status(401).json({
-                message: "Unauthorized: Malformed authorization header",
-                code: "MALFORMED_TOKEN",
-            });
-            return;
+            token = authHeader.split(" ")[1]?.trim();
+
+            if (!token) {
+                res.status(401).json({
+                    message: "Unauthorized: Malformed authorization header",
+                    code: "MALFORMED_TOKEN",
+                });
+                return;
+            }
         }
 
         let decoded: DecodedTokenPayload | undefined = tokenSignatureCache.get(token);

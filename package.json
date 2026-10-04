@@ -12,6 +12,7 @@
     "server": "npm run dev --workspace=server",
     "dev": "concurrently \"npm:server\" \"npm:client\"",
     "dev:seed": "concurrently \"npm:server\" \"npm:seed\" \"npm:client\"",
+    "cron:shift-report": "npm run cron:shift-report --workspace=server",
     "seed": "npm run seed --workspace=server",
     "seed:example": "npm run seed:example --workspace=server",
     "migrate:up": "npm run migrate:up --workspace=server",

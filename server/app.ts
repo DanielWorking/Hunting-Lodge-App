@@ -59,14 +59,61 @@ app.use(
     })
 );
 
-// CORS configuration (Permissive in Dev, restricted in Prod if configured)
+// CORS configuration: support credentials with explicit origin validation to prevent arbitrary cross-origin reflection
+const defaultAllowedDevOrigins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://localhost:3000",
+    "http://localhost:5000",
+];
+
 if (config.security.corsOrigin === true) {
-    app.use(cors());
+    app.use(
+        cors({
+            origin: (origin, callback) => {
+                if (!origin || defaultAllowedDevOrigins.includes(origin) || !config.isProd) {
+                    callback(null, true);
+                } else {
+                    callback(new Error("CORS origin not allowed"), false);
+                }
+            },
+            credentials: true,
+        })
+    );
 } else if (config.security.corsOrigin) {
     app.use(cors({ origin: config.security.corsOrigin, credentials: true }));
 } else {
-    app.use(cors());
+    app.use(cors({ origin: false, credentials: true }));
 }
+
+// Lightweight native cookie parsing middleware to populate req.cookies
+app.use((req: Request, _res: Response, next: NextFunction): void => {
+    const rawCookies = req.headers.cookie;
+    const parsedCookies: Record<string, string> = {};
+
+    if (rawCookies && typeof rawCookies === "string") {
+        const pairs = rawCookies.split(";");
+        for (let i = 0; i < pairs.length; i++) {
+            const pair = pairs[i];
+            const eqIdx = pair.indexOf("=");
+            if (eqIdx !== -1) {
+                const key = pair.substring(0, eqIdx).trim();
+                const rawVal = pair.substring(eqIdx + 1).trim();
+                if (key) {
+                    try {
+                        parsedCookies[key] = decodeURIComponent(rawVal);
+                    } catch {
+                        parsedCookies[key] = rawVal;
+                    }
+                }
+            }
+        }
+    }
+
+    req.cookies = parsedCookies;
+    next();
+});
 
 app.use(express.json());
 app.use(stripImmutableFields);

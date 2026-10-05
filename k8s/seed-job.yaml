@@ -3,7 +3,7 @@ kind: Job
 metadata:
   name: mongodb-seed-job
   # <YOUR_NAMESPACE>: change to the current namespace
-  namespace: danielrei-dev
+  namespace: <YOUR_NAMESPACE>
 spec:
   backoffLimit: 2
   template:

@@ -3,58 +3,47 @@
  *
  * Configuration for the migrate-mongo migration runner.
  * Automatically resolves the database connection string from environment files
- * (.env.development, .env.production, .env, or process.env.MONGO_URI).
+ * (.env.nonprod, .env.preprod, .env.prod, .env, or process.env.MONGO_URI).
  */
 
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
 
-// Determine environment
-const nodeEnv: string = process.env.NODE_ENV || "development";
-const isDev: boolean = nodeEnv === "development";
-const isProd: boolean = nodeEnv === "production";
+// Determine tri-environment (nonprod, preprod, prod)
+const rawAppEnv = (process.env.APP_ENV || "").toLowerCase().trim();
+const rawNodeEnv = (process.env.NODE_ENV || "").toLowerCase().trim();
+const appEnv = rawAppEnv === "prod" || rawAppEnv === "production" || rawNodeEnv === "production"
+    ? "prod"
+    : rawAppEnv === "preprod" || rawAppEnv === "staging"
+    ? "preprod"
+    : "nonprod";
 
 // Base server root directory (two levels up from src/migrations)
 const serverRootDir: string = path.resolve(__dirname, "../..");
 
-// Load environment variables matching server configuration hierarchy
+// Load environment variables matching tri-environment hierarchy
 const customEnvPath: string | null = process.env.ENV_FILE ? path.resolve(process.env.ENV_FILE) : null;
-const devConfigPath: string = path.join(serverRootDir, ".env.config.development");
-const devEnvPath: string = path.join(serverRootDir, ".env.development");
-const prodConfigPath: string = path.join(serverRootDir, ".env.config.production");
-const prodEnvPath: string = path.join(serverRootDir, ".env.production");
-const standardConfigPath: string = path.join(serverRootDir, ".env.config");
-const standardEnvPath: string = path.join(serverRootDir, ".env");
+const envServerDir: string = path.join(serverRootDir, "../env/server");
+const baseEnvPath: string = path.join(envServerDir, ".env");
+const targetEnvPath: string = path.join(envServerDir, `.env.${appEnv}`);
+const localEnvPath: string = path.join(envServerDir, `.env.${appEnv}.local`);
 
 if (customEnvPath && fs.existsSync(customEnvPath)) {
     dotenv.config({ path: customEnvPath });
-} else if (isDev) {
-    if (fs.existsSync(devConfigPath)) {
-        dotenv.config({ path: devConfigPath });
-    }
-    if (fs.existsSync(devEnvPath)) {
-        dotenv.config({ path: devEnvPath, override: true });
-    }
-    const localDevEnvPath: string = path.join(serverRootDir, ".env.development.local");
-    if (fs.existsSync(localDevEnvPath)) {
-        dotenv.config({ path: localDevEnvPath, override: true });
-    }
-} else if (isProd) {
-    if (fs.existsSync(prodConfigPath)) {
-        dotenv.config({ path: prodConfigPath });
-    }
-    if (fs.existsSync(prodEnvPath)) {
-        dotenv.config({ path: prodEnvPath, override: true });
-    }
 } else {
-    if (fs.existsSync(standardConfigPath)) {
-        dotenv.config({ path: standardConfigPath });
+    // 1. Base fallback
+    if (fs.existsSync(baseEnvPath)) {
+        dotenv.config({ path: baseEnvPath });
     }
-    if (fs.existsSync(standardEnvPath)) {
-        dotenv.config({ path: standardEnvPath, override: true });
+    // 2. Tri-environment config/secret (.env.nonprod, .env.preprod, .env.prod)
+    if (fs.existsSync(targetEnvPath)) {
+        dotenv.config({ path: targetEnvPath, override: true });
     }
-    dotenv.config();
+    // 3. Local overrides
+    if (fs.existsSync(localEnvPath)) {
+        dotenv.config({ path: localEnvPath, override: true });
+    }
 }
 
 const mongoUri: string = process.env.MONGO_URI || "mongodb://localhost:27017/hunting_lodge_db";

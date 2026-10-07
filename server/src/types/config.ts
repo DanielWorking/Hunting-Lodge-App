@@ -66,11 +66,14 @@ export interface LoggingConfig {
     readonly morganFormat: string;
 }
 
+export type AppEnv = "nonprod" | "preprod" | "prod";
+
 export interface ServerConfig {
-    readonly env: string;
+    readonly env: AppEnv;
+    readonly appEnv: AppEnv;
+    readonly isNonProd: boolean;
+    readonly isPreProd: boolean;
     readonly isProd: boolean;
-    readonly isDev: boolean;
-    readonly isTest: boolean;
     readonly port: number;
     readonly mongoUri: string;
     readonly database: DatabaseConfig;
@@ -84,6 +87,7 @@ export interface ServerConfig {
 }
 
 export interface ServerProcessEnv {
+    readonly APP_ENV?: "nonprod" | "preprod" | "prod" | string;
     readonly NODE_ENV?: "development" | "production" | "test";
     readonly ENV_FILE?: string;
     readonly PORT?: string;

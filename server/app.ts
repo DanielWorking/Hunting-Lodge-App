@@ -9,6 +9,7 @@
 import path from "path";
 import express, { Express, Request, Response, NextFunction } from "express";
 import cors from "cors";
+import createCorsOptions from "./src/config/corsOptions";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import compression from "compression";
@@ -42,6 +43,10 @@ app.use(
 app.use(morgan(config.logging.morganFormat)); // HTTP request logger (dev vs combined)
 
 // Secure HTTP headers with tailored Content Security Policy (CSP) for React, Material-UI & Google Fonts
+const configuredOrigins = typeof config.security.corsOrigin === "string"
+    ? config.security.corsOrigin.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+
 app.use(
     helmet({
         contentSecurityPolicy: {
@@ -51,41 +56,20 @@ app.use(
                 styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
                 fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
                 imgSrc: ["'self'", "data:", "https:"],
-                connectSrc: ["'self'", config.sso.issuerUrl ? config.sso.issuerUrl : ""].filter(Boolean),
+                connectSrc: [
+                    "'self'",
+                    config.sso.issuerUrl ? config.sso.issuerUrl : "",
+                    ...configuredOrigins,
+                ].filter(Boolean),
                 objectSrc: ["'none'"],
-                upgradeInsecureRequests: config.isProd ? [] : null,
+                upgradeInsecureRequests: !config.isNonProd ? [] : null,
             },
         },
     })
 );
 
-// CORS configuration: support credentials with explicit origin validation to prevent arbitrary cross-origin reflection
-const defaultAllowedDevOrigins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:4173",
-    "http://localhost:3000",
-    "http://localhost:5000",
-];
-
-if (config.security.corsOrigin === true) {
-    app.use(
-        cors({
-            origin: (origin, callback) => {
-                if (!origin || defaultAllowedDevOrigins.includes(origin) || !config.isProd) {
-                    callback(null, true);
-                } else {
-                    callback(new Error("CORS origin not allowed"), false);
-                }
-            },
-            credentials: true,
-        })
-    );
-} else if (config.security.corsOrigin) {
-    app.use(cors({ origin: config.security.corsOrigin, credentials: true }));
-} else {
-    app.use(cors({ origin: false, credentials: true }));
-}
+// CORS configuration: dynamic whitelist resolution tailored per environment
+app.use(cors(createCorsOptions(config.appEnv, config.security.corsOrigin)));
 
 // Lightweight native cookie parsing middleware to populate req.cookies
 app.use((req: Request, _res: Response, next: NextFunction): void => {
@@ -151,11 +135,13 @@ app.use("/api/auth", authRoutes);
 // === Static Asset Serving & React SPA Fallback (Production & Container Deployments) ===
 const staticPath: string = config.staticFilesPath;
 
+const isProdLike: boolean = !config.isNonProd;
+
 // Serve pre-built static assets (Vite hashed bundles, robots.txt, images, fonts)
 app.use(
     express.static(staticPath, {
-        maxAge: config.isProd ? "1y" : 0,
-        immutable: config.isProd,
+        maxAge: isProdLike ? "1y" : 0,
+        immutable: isProdLike,
         index: false, // Prevents automatic index.html resolution on directory routes before our SPA fallback
         setHeaders: (res: Response, filePath: string): void => {
             // robots.txt should not be cached aggressively with 1y immutable header

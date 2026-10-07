@@ -2,35 +2,43 @@
  * @module ClientConfig
  *
  * Centralized, typed environment configuration for the client application.
- * Normalizes Vite environment variables and provides safe fallbacks.
+ * Normalizes Vite environment variables and provides backwards-compatible helpers.
  */
 
+import apiConfig, {
+    type ClientAppEnv,
+    detectClientAppEnv,
+} from "./apiConfig";
+
+export type { ClientAppEnv };
+export { detectClientAppEnv, apiConfig };
+
 export interface ClientConfig {
-    /** Whether the application is running in production mode. */
-    isProd: boolean;
-    /** Whether the application is running in development mode. */
-    isDev: boolean;
-    /** The active Vite mode string (e.g. 'development', 'production'). */
-    mode: string;
-    /** The client application package version. */
-    appVersion: string;
-    /** The base API endpoint URL (defaults to relative '/api'). */
-    apiUrl: string;
+    readonly isProd: boolean;
+    readonly isNonProd: boolean;
+    readonly isPreProd: boolean;
+    readonly appEnv: ClientAppEnv;
+    readonly mode: string;
+    readonly appVersion: string;
+    readonly apiUrl: string;
+    readonly ssoCallbackPath: string;
+    readonly ssoCallbackUrl: string;
+    readonly enableDebugLogs: boolean;
 }
 
-const isProd = import.meta.env.PROD;
-const isDev = import.meta.env.DEV;
-const mode = import.meta.env.MODE;
-
-const apiUrl = (import.meta.env.VITE_API_URL as string) || "/api";
-const appVersion = (import.meta.env.VITE_APP_VERSION as string) || "1.0.0";
-
 export const envConfig: ClientConfig = Object.freeze({
-    isProd,
-    isDev,
-    mode,
-    appVersion,
-    apiUrl,
+    isProd: apiConfig.isProd,
+    isNonProd: apiConfig.isNonProd,
+    isPreProd: apiConfig.isPreProd,
+    appEnv: apiConfig.appEnv,
+    mode: apiConfig.mode,
+    appVersion: apiConfig.appVersion,
+    apiUrl: apiConfig.apiUrl,
+    ssoCallbackPath: apiConfig.ssoCallbackPath,
+    get ssoCallbackUrl() {
+        return apiConfig.ssoCallbackUrl;
+    },
+    enableDebugLogs: apiConfig.enableDebugLogs,
 });
 
 export default envConfig;

@@ -450,14 +450,14 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
             res.status(504).json({
                 message: "Identity provider connection timeout during login",
                 code: "IDP_TIMEOUT",
-                error: config.isProd ? "Identity provider connection timeout" : (error instanceof Error ? error.message : String(error)),
+                error: !config.isNonProd ? "Identity provider connection timeout" : (error instanceof Error ? error.message : String(error)),
             });
             return;
         }
 
         res.status(401).json({
             message: "SSO Authentication failed",
-            error: config.isProd
+            error: !config.isNonProd
                 ? "Invalid authorization code or provider error"
                 : (error instanceof Error ? error.message : String(error)),
         });
@@ -626,8 +626,19 @@ export async function logout(_req: Request, res: Response, next?: NextFunction):
         try {
             const ssoClient = await getClient();
             if (typeof ssoClient.endSessionUrl === "function") {
+                let postLogoutRedirectUri: string;
+                try {
+                    const parsedUrl = new URL(ssoConfig.redirectUri);
+                    parsedUrl.pathname = "/login";
+                    parsedUrl.search = "";
+                    parsedUrl.hash = "";
+                    postLogoutRedirectUri = parsedUrl.toString();
+                } catch {
+                    postLogoutRedirectUri = ssoConfig.redirectUri.replace(/\/auth\/callback.*$/, "/login");
+                }
+
                 logoutUrl = ssoClient.endSessionUrl({
-                    post_logout_redirect_uri: ssoConfig.redirectUri.replace(/\/auth\/callback.*$/, "/login"),
+                    post_logout_redirect_uri: postLogoutRedirectUri,
                 });
             }
         } catch {

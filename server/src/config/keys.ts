@@ -5,19 +5,19 @@
  */
 
 import "./env";
-import { isProd, deepFreeze } from "./env";
+import { isProd, isPreProd, isNonProd, deepFreeze, validatedEnv } from "./env";
 import type { JwtConfig } from "../types/config";
 
-if (isProd && !process.env.JWT_SECRET) {
-    console.error("❌ CRITICAL CONFIGURATION ERROR: MISSING JWT_SECRET IN PRODUCTION");
+if ((isProd || isPreProd) && !validatedEnv.JWT_SECRET) {
+    console.error("❌ CRITICAL CONFIGURATION ERROR: MISSING JWT_SECRET IN PREPROD/PROD");
     process.exit(1);
-} else if (!isProd && !process.env.JWT_SECRET) {
-    console.warn("⚠️  [Dev Warning] JWT_SECRET is not set. Using fallback development secret.");
+} else if (isNonProd && !process.env.JWT_SECRET) {
+    console.warn("⚠️  [Nonprod Warning] JWT_SECRET is not set. Using fallback development secret.");
 }
 
 const rawJwtConfig: JwtConfig = {
-    secret: process.env.JWT_SECRET || (isProd ? "" : "dev-jwt-secret-hunting-lodge-change-in-production"),
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    secret: validatedEnv.JWT_SECRET || (isProd || isPreProd ? "" : "nonprod-jwt-secret-hunting-lodge-change-in-preprod-prod"),
+    expiresIn: validatedEnv.JWT_EXPIRES_IN || "7d",
 };
 
 type ExportedJwtConfig = JwtConfig & {

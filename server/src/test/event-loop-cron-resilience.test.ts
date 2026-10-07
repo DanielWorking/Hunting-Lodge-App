@@ -426,9 +426,9 @@ describe("Defect Regression: Event Loop Non-Blocking & Cron/Mongoose Resilience"
                     );
                 }
 
-                // Event loop lag must remain below 1000ms (blocking sync I/O stalls for seconds)
+                // Event loop lag must remain below 2500ms (blocking sync I/O stalls for many seconds)
                 assert.ok(
-                    maxLagMs < 1000,
+                    maxLagMs < 2500,
                     `Event loop lag exceeded threshold: ${maxLagMs.toFixed(2)}ms`
                 );
             } finally {

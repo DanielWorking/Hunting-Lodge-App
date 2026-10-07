@@ -14,6 +14,7 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
   },
+  envDir: '../env/client',
   plugins: [react()],
   server: {
     proxy: {

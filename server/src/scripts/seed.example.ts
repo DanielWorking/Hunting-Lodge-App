@@ -18,14 +18,14 @@ import ShiftReport from "../models/ShiftReport";
 import VacationRequest from "../models/VacationRequest";
 import Shift from "../models/Shift";
 
-// Safety guard to prevent accidental database wipes in production
-if (config.isProd && !process.argv.includes("--force-production")) {
+// Safety guard to prevent accidental database wipes in preprod and prod
+if (!config.isNonProd && !process.argv.includes("--force-production")) {
     console.error("\n==================================================================");
-    console.error("⛔ PRODUCTION SAFETY TRIGGERED: SEEDING BLOCKED IN PRODUCTION MODE");
+    console.error("⛔ SAFETY TRIGGERED: SEEDING BLOCKED IN PREPROD/PROD MODE");
     console.error("==================================================================");
     console.error("This script executes deleteMany() and wipes all database records!");
-    console.error("If you truly intend to wipe and re-seed the production database, run:");
-    console.error("  npm run seed -- --force-production\n");
+    console.error("If you truly intend to wipe and re-seed the preprod/prod database, run:");
+    console.error("  npm run seed:example -- --force-production\n");
     console.error("==================================================================\n");
     process.exit(1);
 }

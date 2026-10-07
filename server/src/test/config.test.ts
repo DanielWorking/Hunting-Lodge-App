@@ -5,7 +5,8 @@ import db from "../config/db";
 import keys from "../config/keys";
 import sso from "../config/sso";
 import passport from "../config/passport";
-import { parseTrustProxy, deepFreeze } from "../config/env";
+import { parseTrustProxy, deepFreeze, detectAppEnv, validateServerEnv } from "../config/env";
+import { isOriginAllowed, createCorsOptions, resolveConfiguredOrigins } from "../config/corsOptions";
 
 describe("TypeScript Configuration Modules Verification", () => {
     describe("1. Central ServerConfig (config/index.ts)", () => {
@@ -27,6 +28,15 @@ describe("TypeScript Configuration Modules Verification", () => {
             assert.equal(typeof config.sso.redirectUri, "string");
             assert.equal(typeof config.superAdmin.groupName, "string");
             assert.equal(typeof config.security.rateLimitMax, "number");
+
+            // Check tri-environment flags
+            assert.equal(typeof config.appEnv, "string");
+            assert.equal(typeof config.isNonProd, "boolean");
+            assert.equal(typeof config.isPreProd, "boolean");
+            assert.equal(typeof config.isProd, "boolean");
+            assert.equal(config.isNonProd, true, "In testing environment, appEnv should be nonprod");
+            assert.equal(config.isPreProd, false);
+            assert.equal(config.isProd, false);
         });
 
         it("should prevent in-place mutation of configuration properties", () => {
@@ -145,6 +155,99 @@ describe("TypeScript Configuration Modules Verification", () => {
             });
             assert.ok(Object.isFrozen(cyclic));
             assert.ok(Object.isFrozen(cyclic.nested));
+        });
+
+        it("should detect tri-environment AppEnv accurately", () => {
+            assert.equal(detectAppEnv("nonprod"), "nonprod");
+            assert.equal(detectAppEnv("preprod"), "preprod");
+            assert.equal(detectAppEnv("staging"), "preprod");
+            assert.equal(detectAppEnv("prod"), "prod");
+            assert.equal(detectAppEnv("production"), "prod");
+            assert.equal(detectAppEnv(undefined, "production"), "prod");
+            assert.equal(detectAppEnv(undefined, "development"), "nonprod");
+        });
+
+        it("should validate environment using Zod and report missing variables in strict environments", () => {
+            const invalidProdEnv = {
+                APP_ENV: "prod",
+                NODE_ENV: "production",
+                // Missing MONGO_URI, JWT_SECRET, SSO vars
+            };
+            const result = validateServerEnv(invalidProdEnv, "prod", false);
+            assert.equal(result.valid, false);
+            assert.ok(result.errors.length >= 3);
+            assert.ok(result.errors.some((e) => e.includes("MONGO_URI")));
+            assert.ok(result.errors.some((e) => e.includes("JWT_SECRET")));
+
+            const validNonProdEnv = {
+                APP_ENV: "nonprod",
+                NODE_ENV: "development",
+            };
+            const nonprodResult = validateServerEnv(validNonProdEnv, "nonprod", false);
+            assert.equal(nonprodResult.valid, true);
+        });
+    });
+
+    describe("7. Dynamic CORS Resolution (config/corsOptions.ts)", () => {
+        it("should allow dev origins and local loopbacks in nonprod", () => {
+            assert.equal(isOriginAllowed("http://localhost:5173", "nonprod"), true);
+            assert.equal(isOriginAllowed("http://127.0.0.1:5173", "nonprod"), true);
+            assert.equal(isOriginAllowed("http://localhost:3000", "nonprod"), true);
+            assert.equal(isOriginAllowed(undefined, "nonprod"), true);
+            assert.equal(isOriginAllowed("https://malicious.evil.com", "nonprod"), false);
+        });
+
+        it("should reject localhost in preprod and enforce configured whitelist", () => {
+            const stagingWhitelist = "https://staging.huntinglodge.app,https://qa.huntinglodge.app";
+            assert.equal(isOriginAllowed("http://localhost:5173", "preprod", stagingWhitelist), false);
+            assert.equal(isOriginAllowed("https://staging.huntinglodge.app", "preprod", stagingWhitelist), true);
+            assert.equal(isOriginAllowed("https://qa.huntinglodge.app", "preprod", stagingWhitelist), true);
+            assert.equal(isOriginAllowed("https://evil.com", "preprod", stagingWhitelist), false);
+        });
+
+        it("should strictly enforce production origin whitelist with zero wildcard reflection", () => {
+            const prodWhitelist = "https://huntinglodge.app";
+            assert.equal(isOriginAllowed("http://localhost:5173", "prod", prodWhitelist), false);
+            assert.equal(isOriginAllowed("https://huntinglodge.app", "prod", prodWhitelist), true);
+            assert.equal(isOriginAllowed("https://attacker.com", "prod", prodWhitelist), false);
+            assert.equal(isOriginAllowed(undefined, "prod", prodWhitelist), true);
+        });
+
+        it("should correctly resolve comma-separated origins and ignore wildcards", () => {
+            const origins = resolveConfiguredOrigins("https://a.com, https://b.com, * ");
+            assert.deepEqual(origins, ["https://a.com", "https://b.com"]);
+        });
+    });
+
+    describe("8. Database Security & Cross-Environment Guard (config/db.ts)", () => {
+        it("should safely mask MongoDB connection credentials in logs", () => {
+            const masked = db.maskMongoUri("mongodb+srv://adminUser:SuperSecret123@cluster0.mongodb.net/hunting_lodge_prod");
+            assert.ok(!masked.includes("SuperSecret123"));
+            assert.ok(masked.includes("adminUser:***@cluster0.mongodb.net"));
+        });
+
+        it("should block production from connecting to localhost or dev databases", () => {
+            assert.throws(() => {
+                db.validateDatabaseTarget("mongodb://localhost:27017/hunting_lodge_prod", "prod");
+            }, /cannot connect to a localhost/);
+
+            assert.throws(() => {
+                db.validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_nonprod", "prod");
+            }, /cannot connect to a non-production database/);
+
+            assert.doesNotThrow(() => {
+                db.validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_prod", "prod");
+            });
+        });
+
+        it("should block preprod from connecting to production database", () => {
+            assert.throws(() => {
+                db.validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_prod", "preprod");
+            }, /cannot connect to the production database/);
+
+            assert.doesNotThrow(() => {
+                db.validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_preprod", "preprod");
+            });
         });
     });
 });

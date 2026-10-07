@@ -18,11 +18,12 @@ dist
 .gitignore
 
 # Environment and secrets
-.env
-.env.*
-!.env.example
-!.env.production.example
-!.env.development.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.nonprod.example
+!**/.env.preprod.example
+!**/.env.prod.example
 
 # Testing, coverage, and reports
 **/test/**

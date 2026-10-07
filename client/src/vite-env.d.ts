@@ -13,12 +13,27 @@ interface ImportMetaEnv {
     readonly VITE_APP_VERSION: string;
 
     /**
+     * Target application deployment environment: "nonprod" | "preprod" | "prod".
+     */
+    readonly VITE_APP_ENV?: "nonprod" | "preprod" | "prod" | string;
+
+    /**
      * Base HTTP endpoint URL for backend API requests.
-     * In development, proxied through Vite dev server to localhost:5000.
-     * In production, defaults to relative reverse proxy path "/api".
+     * In nonprod dev, proxied through Vite dev server to localhost:5000.
+     * In preprod/prod, defaults to relative reverse proxy path "/api".
      * Fallback default in `envConfig`: "/api".
      */
     readonly VITE_API_URL?: string;
+
+    /**
+     * SSO callback path (default "/api/auth/sso/callback").
+     */
+    readonly VITE_SSO_CALLBACK_PATH?: string;
+
+    /**
+     * Enable verbose debug logging in the client console.
+     */
+    readonly VITE_ENABLE_DEBUG_LOGS?: string;
 }
 
 interface ImportMeta {

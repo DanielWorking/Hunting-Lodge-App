@@ -46,10 +46,11 @@ The codebase has complete separation between **Development** and **Production** 
 | Variable Name | Workspace | Purpose | Development Mode (Local / Auth0) | Production Mode (Enterprise / Cloud) | Required in Prod? |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `NODE_ENV` | Server | Specifies application runtime mode | `development` | `production` | **Yes** |
+| `APP_ENV` | Server | Target application environment (`nonprod` / `preprod` / `prod`) | `nonprod` | `prod` (or `preprod`) | **Yes** |
 | `PORT` | Server | Express HTTP server listen port | `5000` | `5000` (or host/container port) | Optional (Default: 5000) |
 | `TRUST_PROXY` | Server | Reverse proxy hop count for IP rate limiting | `1` | `1` (or proxy count / subnet) | Optional (Default: 1) |
 | `STATIC_FILES_PATH` | Server | Path to compiled client frontend assets | `../client/dist` (default) | `/app/client/dist` | Optional |
-| `ENV_FILE` | Server | Custom path to load environment variables from | `.env.development` | `/etc/secrets/.env` | Optional |
+| `ENV_FILE` | Server | Custom path to load environment variables from | `.env.nonprod` | `/etc/secrets/.env` | Optional |
 
 #### 2. Database Connection & Pool Tuning
 | Variable Name | Workspace | Purpose | Development Mode (Local / Auth0) | Production Mode (Enterprise / Cloud) | Required in Prod? |
@@ -109,7 +110,7 @@ The codebase has complete separation between **Development** and **Production** 
 
 ---
 
-## 🚀 Running in Development
+## 🚀 Running in Development (Nonprod)
 
 1. **Install dependencies in root:**
 
@@ -117,14 +118,14 @@ The codebase has complete separation between **Development** and **Production** 
    npm install
    ```
 
-2. **Configure Development Environment:**
-   - Backend: Copy `server/.env.development.example` to `server/.env.development` and adjust credentials if needed:
+2. **Configure Nonprod Environment:**
+   - Backend: Copy `env/server/.env.nonprod.example` to `env/server/.env.nonprod` (or `env/server/.env.nonprod.local`) and adjust credentials if needed:
      ```bash
-     cp server/.env.development.example server/.env.development
+     cp env/server/.env.nonprod.example env/server/.env.nonprod
      ```
-   - Frontend: Copy `client/.env.development.example` to `client/.env.development`:
+   - Frontend: Copy `env/client/.env.nonprod.example` to `env/client/.env.nonprod`:
      ```bash
-     cp client/.env.development.example client/.env.development
+     cp env/client/.env.nonprod.example env/client/.env.nonprod
      ```
 
 3. **Start Dev Servers (Frontend + Backend concurrently):**
@@ -146,7 +147,7 @@ The codebase has complete separation between **Development** and **Production** 
 
 ## 🗄️ Database Migrations (`migrate-mongo`)
 
-Database schema evolutions, index lifecycle, and data transformations are managed safely via `migrate-mongo`. Migration history is recorded in MongoDB's `changelog` collection.
+Database schema evolutions, index lifecycle, and data transformations are managed safely via `migrate-mongo`. Migration history is recorded in MongoDB's `changelog` collection. Connection strings are resolved automatically based on `APP_ENV` (`.env.nonprod`, `.env.preprod`, `.env.prod`).
 
 ### Available Commands:
 
@@ -170,34 +171,39 @@ Database schema evolutions, index lifecycle, and data transformations are manage
 
 ---
 
-## 🚢 Deploying to Production
+## 🚢 Tri-Environment Deployment Architecture (Nonprod, Preprod, Prod)
+
+The project supports three distinct online deployment environments:
+- **`nonprod`**: Development and integration environment (allows local dev tooling, loose CORS for dev loopbacks).
+- **`preprod`**: Staging and QA parity environment (mirrors production security, strict whitelists, separate staging database).
+- **`prod`**: Live production environment (strict CORS whitelist with zero wildcard reflection, high pool limits, stack trace suppression).
 
 ### Option A: Standard Node.js Host
 
 1. **Configure Server Environment:**
-   - Copy `server/.env.production.example` to `server/.env.production` (or `server/.env`):
+   - Copy `env/server/.env.prod.example` to `env/server/.env.prod` (or use `.env.preprod` for staging):
      ```bash
-     cp server/.env.production.example server/.env.production
+     cp env/server/.env.prod.example env/server/.env.prod
      ```
-   - Fill in your production values (`MONGO_URI`, `SSO_*`, `SUPER_ADMIN_*`).
+   - Fill in your production values (`MONGO_URI`, `JWT_SECRET`, `SSO_*`, `SUPER_ADMIN_*`).
 
 2. **Configure Client Environment:**
-   - Copy `client/.env.production.example` to `client/.env.production` (or `client/.env`):
+   - Copy `env/client/.env.prod.example` to `env/client/.env.prod` (or `.env.preprod`):
      ```bash
-     cp client/.env.production.example client/.env.production
+     cp env/client/.env.prod.example env/client/.env.prod
      ```
    - Adjust `VITE_API_URL` if serving API from a separate domain.
 
 3. **Build, Migrate & Launch:**
    ```bash
-   npm run build       # Build React SPA bundle
+   npm run build       # Build React SPA bundle & TypeScript server
    npm run migrate:up  # Apply pending database migrations & ensure indexes
-   npm start           # Launch production server
+   npm start           # Launch server
    ```
 
 ---
 
-### Option B: Containerized Deployment (Docker & OpenShift / Kubernetes v1.33+)
+### Option B: Containerized Deployment (Docker & OpenShift / Kubernetes)
 
 The repository provides an enterprise-ready, multi-stage [`Dockerfile`](file:///Dockerfile) that compiles the React SPA and packages it alongside the Express backend into a single non-root container compliant with **OpenShift `restricted-v2` Security Context Constraints (SCC)**.
 
@@ -207,13 +213,14 @@ The repository provides an enterprise-ready, multi-stage [`Dockerfile`](file:///
 docker build -t hunting-lodge-app:latest .
 ```
 
-_Optional build arguments for frontend customization:_
+_Optional build arguments for environment customization:_
 
 ```bash
 docker build \
+  --build-arg VITE_APP_ENV=prod \
   --build-arg VITE_API_URL=/api \
   --build-arg VITE_APP_VERSION=1.0.0 \
-  -t hunting-lodge-app:latest .
+  -t hunting-lodge-app:prod .
 ```
 
 #### 2. Run Container Locally (Testing)
@@ -221,18 +228,19 @@ docker build \
 ```bash
 docker run -d \
   -p 5000:5000 \
-  --env-file server/.env.production \
+  --env-file env/server/.env.prod \
   --name hunting-lodge \
-  hunting-lodge-app:latest
+  hunting-lodge-app:prod
 ```
 
-#### 3. OpenShift / Kubernetes Deployment Specifications
+#### 3. Kubernetes / OpenShift Deployment Manifests
 
-- **Container Port**: `5000` (Unprivileged, non-root `USER 1001`, GID `0` permissions).
-- **Liveness Probe**: HTTP GET `/healthz` on port `5000` (Checks process uptime & readiness).
-- **Readiness Probe**: HTTP GET `/api/health` on port `5000` (Checks active MongoDB connection).
-- **OpenShift Routing**: Single `Route` with Edge TLS termination targeting Service port `5000`. Both UI and `/api` are served on the same domain with zero CORS overhead.
-- **Environment Injection**: Inject production variables (`MONGO_URI`, `JWT_SECRET`, `SSO_*`, `SUPER_ADMIN_*`) via OpenShift `Secret` and `ConfigMap` resources.
+Tri-environment deployment manifests are located in `k8s/`:
+- `k8s/nonprod-deployment.yaml`: Deployment, Service, Route, ConfigMap & Secret templates for nonprod.
+- `k8s/preprod-deployment.yaml`: Staging & QA deployment manifest with production parity.
+- `k8s/prod-deployment.yaml`: Production deployment manifest with high availability replicas and strict resource limits.
+
+Continuous deployment automation across all 3 environments is defined in `.github/workflows/cd.yml`.
 
 ---
 

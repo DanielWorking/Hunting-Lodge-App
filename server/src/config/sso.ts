@@ -5,25 +5,25 @@
  */
 
 import "./env";
-import { isProd, deepFreeze } from "./env";
+import { isProd, isPreProd, isNonProd, deepFreeze, validatedEnv } from "./env";
 import type { SsoConfig } from "../types/config";
 
-if (!isProd && (!process.env.SSO_CLIENT_ID || !process.env.SSO_ISSUER_URL)) {
-    console.warn("⚠️  [Dev Warning] SSO variables are partially missing. SSO login may not work.");
+if (isNonProd && (!validatedEnv.SSO_CLIENT_ID || !validatedEnv.SSO_ISSUER_URL)) {
+    console.warn("⚠️  [Nonprod Warning] SSO variables are partially missing. SSO login may not work.");
 }
 
 const rawSsoConfig: SsoConfig = {
-    issuerUrl: process.env.SSO_ISSUER_URL || "",
-    clientId: process.env.SSO_CLIENT_ID || "",
-    clientSecret: process.env.SSO_CLIENT_SECRET || "",
-    redirectUri: process.env.SSO_REDIRECT_URI || "http://localhost:5173/auth/callback",
-    identifierField: process.env.SSO_IDENTIFIER_FIELD || (isProd ? "username" : "email"),
+    issuerUrl: validatedEnv.SSO_ISSUER_URL || "",
+    clientId: validatedEnv.SSO_CLIENT_ID || "",
+    clientSecret: validatedEnv.SSO_CLIENT_SECRET || "",
+    redirectUri: validatedEnv.SSO_REDIRECT_URI || (isNonProd ? "http://localhost:5173/auth/callback" : ""),
+    identifierField: validatedEnv.SSO_IDENTIFIER_FIELD || (isProd ? "username" : "email"),
     scope: "openid profile email",
-    usePkce: process.env.SSO_USE_PKCE !== "false",
-    cookieSecret: process.env.SSO_COOKIE_SECRET || process.env.JWT_SECRET || "hunting-lodge-sso-cookie-secret",
+    usePkce: validatedEnv.SSO_USE_PKCE !== "false",
+    cookieSecret: validatedEnv.SSO_COOKIE_SECRET || validatedEnv.JWT_SECRET || "hunting-lodge-sso-cookie-secret",
     cookieDomain: process.env.SSO_COOKIE_DOMAIN || undefined,
-    cookieSecure: process.env.SSO_COOKIE_SECURE ? process.env.SSO_COOKIE_SECURE === "true" : isProd,
-    sameSite: (process.env.SSO_SAME_SITE as "lax" | "strict" | "none") || "lax",
+    cookieSecure: validatedEnv.SSO_COOKIE_SECURE ? validatedEnv.SSO_COOKIE_SECURE === "true" : (isProd || isPreProd),
+    sameSite: (validatedEnv.SSO_SAME_SITE as "lax" | "strict" | "none") || "lax",
     sessionCookieName: "hunting_token",
     refreshCookieName: "hunting_refresh_token",
     stateCookieName: "hunting_oidc_state",

@@ -18,9 +18,11 @@ RUN npm ci
 # Dynamic build arguments for Vite client bundle compilation
 ARG VITE_API_URL=/api
 ARG VITE_APP_VERSION
+ARG VITE_APP_ENV=prod
 
 ENV VITE_API_URL=${VITE_API_URL} \
-    VITE_APP_VERSION=${VITE_APP_VERSION}
+    VITE_APP_VERSION=${VITE_APP_VERSION} \
+    VITE_APP_ENV=${VITE_APP_ENV}
 
 # Build both client and server using the root script
 RUN npm run build

@@ -3,7 +3,7 @@ node_modules/
 package-lock.json
 
 # Environment variables & secrets
-# Ignore all real environment files (.env, .env.development, .env.production, .env.config.*, etc.)
+# Ignore all real environment files (.env, .env.nonprod, .env.preprod, .env.prod, etc.)
 .env
 .env.*
 .env*.local
@@ -24,6 +24,5 @@ server/seed.ts
 server/src/scripts/seed.ts
 seed.ts
 
-# Deployment files
-deployment-dev.yaml
-deployment-prod.yaml
+# Deployment local overrides
+k8s/*.local.yaml

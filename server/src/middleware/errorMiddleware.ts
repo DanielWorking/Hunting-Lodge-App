@@ -42,7 +42,7 @@ export const notFoundHandler: RequestHandler = (
 /**
  * Handles unhandled application errors and formats standard JSON error responses.
  *
- * Sanitizes stack traces when running in production mode (`config.isProd`)
+ * Sanitizes stack traces when running in preprod or prod mode (`!config.isNonProd`)
  * and maps well-known errors (e.g., malformed JSON payloads, Mongoose validation)
  * to appropriate HTTP status codes and user-friendly error messages.
  */
@@ -127,9 +127,9 @@ export const errorHandler: ErrorRequestHandler = (
         code,
     };
 
-    // Include stack trace only in non-production environments
-    const isProduction = config.isProd || process.env.NODE_ENV === "production";
-    if (!isProduction && err instanceof Error && err.stack) {
+    // Include stack trace only in nonprod development environments (suppress in preprod, prod, or NODE_ENV=production)
+    const suppressStack = !config.isNonProd || process.env.NODE_ENV === "production";
+    if (!suppressStack && err instanceof Error && err.stack) {
         response.stack = err.stack;
     }
 

@@ -80,7 +80,7 @@ deploy_to_cluster:
       if [ -n "$KUBECONFIG_DATA" ]; then
         mkdir -p ~/.kube
         echo "$KUBECONFIG_DATA" | base64 -d > ~/.kube/config
-        kubectl apply -f k8s/${TARGET}-deployment.yaml -n $K8S_NAMESPACE
+        kubectl apply -f k8s/${TARGET}-deployment.local.yaml -n $K8S_NAMESPACE
         kubectl rollout status deployment/hunting-lodge-app-${TARGET} -n $K8S_NAMESPACE --timeout=300s
       fi
   rules:

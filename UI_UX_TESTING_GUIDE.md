@@ -10,7 +10,7 @@ Every test case follows a strict **GIVEN-WHEN-THEN** flow adhering to intent-dri
 
 1. [Test Environment & Setup](#1-test-environment--setup)
    - 1.1 [Prerequisites & Seed Data](#11-prerequisites--seed-data)
-   - 1.2 [Application Endpoints](#12-application-endpoints)
+   - 1.2 [Application Endpoints & Health Probes](#12-application-endpoints--health-probes)
    - 1.3 [Architectural Layer & Exception Mapping Model](#13-architectural-layer--exception-mapping-model)
 2. [User Personas & Role Matrix](#2-user-personas--role-matrix)
    - 2.1 [Access Control Matrix](#21-access-control-matrix)
@@ -20,12 +20,12 @@ Every test case follows a strict **GIVEN-WHEN-THEN** flow adhering to intent-dri
    - 3.2 [Test Case 1.2: Returning User Login & Claim Refresh (Happy Path)](#test-case-12-returning-user-login--claim-refresh-happy-path)
    - 3.3 [Test Case 1.3: Super Admin Auto-Role Assignment via OIDC Claims (Happy Path)](#test-case-13-super-admin-auto-role-assignment-via-oidc-claims-happy-path)
    - 3.4 [Test Case 1.4: Missing Token Claims & Fallback Resolution (Edge Case)](#test-case-14-missing-token-claims--fallback-resolution-edge-case)
-   - 3.5 [Test Case 1.5: Invalid SSO Authorization Code (Edge Case)](#test-case-15-invalid-sso-authorization-code-edge-case)
+   - 3.5 [Test Case 1.5: Invalid SSO Authorization Code & IdP Error Handling (Edge Case)](#test-case-15-invalid-sso-authorization-code--idp-error-handling-edge-case)
    - 3.6 [Test Case 1.6: Authentication Rate Limiting - HTTP 429 (Edge Case)](#test-case-16-authentication-rate-limiting---http-429-edge-case)
    - 3.7 [Test Case 1.7: Client In-Flight GET Request Deduplication (Session)](#test-case-17-client-in-flight-get-request-deduplication-session)
-   - 3.8 [Test Case 1.8: Global 401 Interceptor & Session Expiry Redirection (Session)](#test-case-18-global-401-interceptor--session-expiry-redirection-session)
+   - 3.8 [Test Case 1.8: Global 401 Interceptor & Silent Session Refresh Flow (Session)](#test-case-18-global-401-interceptor--silent-session-refresh-flow-session)
    - 3.9 [Test Case 1.9: In-Memory User Cache TTL (30s) & Mid-Session Deactivation (Session)](#test-case-19-in-memory-user-cache-ttl-30s--mid-session-deactivation-session)
-   - 3.10 [Test Case 1.10: Expired JWT Token Handling (Session)](#test-case-110-expired-jwt-token-handling-session)
+   - 3.10 [Test Case 1.10: Expired JWT Token Handling & Refresh Retry (Session)](#test-case-110-expired-jwt-token-handling--refresh-retry-session)
    - 3.11 [Test Case 1.11: Unauthenticated Deep Linking Interception (Session)](#test-case-111-unauthenticated-deep-linking-interception-session)
    - 3.12 [Test Case 1.12: First-Time User Feature Walkthrough & 'What's New' Modal Lifecycle (Session)](#test-case-112-first-time-user-feature-walkthrough--whats-new-modal-lifecycle-session)
 4. [Suite 2: Role-Based Access Control (RBAC) & Visibility Boundaries](#4-suite-2-role-based-access-control-rbac--visibility-boundaries)
@@ -45,7 +45,7 @@ Every test case follows a strict **GIVEN-WHEN-THEN** flow adhering to intent-dri
    - 5.1 [Test Case 3.1: Sites & Bookmarks Management (CRUD, Tags & Favorites)](#test-case-31-sites--bookmarks-management-crud-tags--favorites)
    - 5.2 [Test Case 3.2: Phone Directory Management (CRUD, Formatting & Details Modal)](#test-case-32-phone-directory-management-crud-formatting--details-modal)
    - 5.3 [Test Case 3.3: Shift Schedule Viewer (Navigation, Fullscreen & Responsive Matrix)](#test-case-33-shift-schedule-viewer-navigation-fullscreen--responsive-matrix)
-   - 5.4 [Test Case 3.4: Shift Reports Management (Auto-Detection, Tiptap Editor & Attendees)](#test-case-34-shift-reports-management-auto-detection-tiptap-editor--attendees)
+   - 5.4 [Test Case 3.4: Shift Reports Management (Auto-Detection, Tiptap Editor & Unique Compound Index)](#test-case-34-shift-reports-management-auto-detection-tiptap-editor--unique-compound-index)
    - 5.5 [Test Case 3.5: Group Settings Configuration (Shift Types, Time Slots & Reordering)](#test-case-35-group-settings-configuration-shift-types-time-slots--reordering)
    - 5.6 [Test Case 3.6: Admin User & Group Oversight (CRUD, Roles & Live Population)](#test-case-36-admin-user--group-oversight-crud-roles--live-population)
    - 5.7 [Test Case 3.7: About & Support Dialog (Dynamic Vite Version & Support Hotline)](#test-case-37-about--support-dialog-dynamic-vite-version--support-hotline)
@@ -57,11 +57,13 @@ Every test case follows a strict **GIVEN-WHEN-THEN** flow adhering to intent-dri
    - 6.5 [Test Case 4.4: User Reordering Malformed Payload (API Zod Validation)](#test-case-44-user-reordering-malformed-payload-api-zod-validation)
    - 6.6 [Test Case 4.5: Locked Shift Report Modification Invariant (`REPORT_LOCKED`)](#test-case-45-locked-shift-report-modification-invariant-report_locked)
    - 6.7 [Test Case 4.6: Deleting Group with Active Members Guard](#test-case-46-deleting-group-with-active-members-guard)
+   - 6.8 [Test Case 4.7: Duplicate Shift Report Title Rejection (Duplicate Key Guard)](#test-case-47-duplicate-shift-report-title-rejection-duplicate-key-guard)
 7. [Suite 5: Cross-Cutting & System-Wide Checks](#7-suite-5-cross-cutting--system-wide-checks)
    - 7.1 [Test Case 5.1: Light & Dark Mode Contrast Verification](#test-case-51-light--dark-mode-contrast-verification)
    - 7.2 [Test Case 5.2: Responsive Viewport Breakpoints (Mobile, Tablet, Desktop)](#test-case-52-responsive-viewport-breakpoints-mobile-tablet-desktop)
    - 7.3 [Test Case 5.3: Global Toast Notification System Auto-Dismiss Timers](#test-case-53-global-toast-notification-system-auto-dismiss-timers)
    - 7.4 [Test Case 5.4: Custom 404 Route Fallback](#test-case-54-custom-404-route-fallback)
+   - 7.5 [Test Case 5.5: Container Health Probes Verification (OpenShift / Kubernetes)](#test-case-55-container-health-probes-verification-openshift--kubernetes)
 8. [Test Execution & Sign-Off Checklist](#8-test-execution--sign-off-checklist)
 
 ---
@@ -76,41 +78,49 @@ Ensure application dependencies are installed, local databases are active, and s
 # In project root - concurrently starts server, seeds database, and boots Vite client:
 npm run dev:seed
 
-# Alternatively, run standalone database reset and seed script directly:
+# Run standard database seed script directly:
+npm run seed
+
+# Run example database reset and seed script with sample fixtures:
 npm run seed:example
 ```
 
 > [!NOTE]
-> Seeding the database resets existing collections and populates deterministic test fixtures across **8 core data models**:
+> Seeding the database resets existing collections and populates deterministic test fixtures across **10 core data models**:
 >
 > 1. **User:** Deterministic account states for automated and manual verification:
->    - **Super Admin Account:** `username: "10001"` (Display: `Admin User`, Email: `admin@dev.local`, Groups: `hunting_lodge_admin` [Manager], `noc` [Manager], `hasSeenWhatsNew: true`, `vacationBalance: 999`).
->    - **Regular Member Account:** `username: "10002"` (Display: `Regular User`, Email: `member@dev.local`, Groups: `noc` [Member], `hasSeenWhatsNew: false`, `vacationBalance: 18`).
+>    - **Super Admin Account:** `username: "10001"` (Display: `Admin User`, Email: `admin@corp.local` or `admin@dev.local`, Groups: `ADMINISTRATORS` [Manager], `noc` [Manager], `hasSeenWhatsNew: true`, `vacationBalance: 999`).
+>    - **Regular Member Account / Auth0 Test User:** `username: "dov-member"` / `"10002"` (Display: `dov-member` / `Regular User`, Email: `member@test.local`, Auth0 Password: `dov-member123`, Groups: `noc` [Member], `hasSeenWhatsNew: false`, `vacationBalance: 18`).
 > 2. **Group:**
->    - `hunting_lodge_admin` (System Protected, `isSystemGroup: true`).
+>    - `ADMINISTRATORS` (System Protected, `isSystemGroup: true`, configured via `config.superAdmin.groupName`).
 >    - `noc` (Operational Group, contains shift types and time slots).
 > 3. **Site:** Initial bookmark entries (`NOC Dashboard`, `Shift Log Tool`, `Company Portal`) with tags (`General`, `Tacti`) and user favorites.
 > 4. **Phone:** Directory contacts (`David` [Mobile], `HQ` [Landline]) with auto-formatted numbers.
-> 5. **ShiftType:** Configured within group settings (`בוקר` / Morning, `ערב` / Evening, `לילה` / Night, `חופש` / Vacation [isVacation: true], `Leave` [isVacation: true]).
+> 5. **ShiftType:** Configured within group settings (`בוקר` / Morning, `ערב` / Evening, `לילה` / Night, `אפטר` / After, `אמצע` / Middle, `שבת` / Weekend, `חופש` / Vacation [isVacation: true], `חול` / Leave [isVacation: true]).
 > 6. **TimeSlot:** Configured working slots (`Morning Shift`, `Evening Shift`, `Night Shift`, `Weekend Shift`, `Middle Shift`) linked exclusively to working shift types.
 > 7. **ShiftSchedule:** Published schedule for the current week containing scheduled member shifts and vacation entries.
-> 8. **ShiftReport:** Historical shift reports with rich HTML tasks, previous task handoffs, and attendee records.
+> 8. **ShiftReport:** Historical shift reports with rich HTML tasks, previous task handoffs, and attendee records. Guarded by compound unique index `{ groupId: 1, title: 1 }`.
 > 9. **VacationRequest:** Pre-seeded requests demonstrating lifecycle states:
 >    - 1 Approved Full-Day Request: `vacationValue: 1.0`, `status: "approved"`, `notes: "Approved annual vacation"`.
 >    - 1 Pending Half-Day Request: `vacationValue: 0.5`, `status: "pending"`, `notes: "Request for half-day personal leave"`.
 > 10. **Shift:** Shift records supporting fractional values (`vacationValue: 1.0` and `vacationValue: 0.5`) with atomic `vacationDeducted` tracking.
 
-### 1.2 Application Endpoints
+### 1.2 Application Endpoints & Health Probes
 
 - **Client Application:** `http://localhost:5173` (Vite dev server)
 - **Backend REST API:** `http://localhost:5000` (or `PORT` from `.env`)
-- **API Health / Status:** `http://localhost:5000/api/auth/me`
+- **OpenShift / Kubernetes Health Probes:**
+  - `GET /healthz` - **Liveness Probe**: Non-blocking in-memory process uptime check. Deliberately bypasses MongoDB to prevent cascading container restarts during transient DB hiccups. Returns HTTP 200 `{ "status": "UP", "uptime": ..., "environment": ... }`.
+  - `GET /api/health` - **Readiness Probe**: In-memory inspection of `mongoose.connection.readyState === 1`. Returns HTTP 200 `{ "status": "UP", "database": { "status": "connected", "readyState": 1 } }` when ready to serve traffic, or HTTP 503 `DEGRADED` to detach the pod from OpenShift endpoints when disconnected.
+  - `GET /startup` / `GET /api/startup` - **Startup Probe**: Container bootstrap check. Returns HTTP 200 `{ "status": "UP", "initialized": true }` once initial database connection succeeds, or HTTP 503 `STARTING`.
 
 #### Core API Routing Matrix:
 - **Authentication & Claims:**
-  - `GET /api/auth/me` - Session restoration and claim verification.
-  - `POST /api/auth/login` - Local and SSO callback authentication.
-  - `GET /api/auth/sso-url` - SSO IdP redirection URL generation.
+  - `GET /api/auth/me` - Session restoration and claim verification (JWT Bearer or `hunting_token` cookie).
+  - `POST /api/auth/login` - Local and SSO callback authentication (`code`, optional `state`).
+  - `GET /api/auth/sso-url` - SSO IdP redirection URL generation with PKCE challenge and state cookie.
+  - `POST /api/auth/refresh` - Silent session refresh using httpOnly `hunting_refresh_token` cookie; issues renewed session token/cookie.
+  - `POST /api/auth/logout` - Terminates session, clears httpOnly auth cookies (`hunting_token`, `hunting_refresh_token`), and issues logout redirect URL.
 - **User Management & Onboarding:**
   - `GET /api/users` - Directory listing (group-scoped or global admin).
   - `PATCH /api/users/whats-new` - First-time user feature walkthrough acknowledgement.
@@ -118,14 +128,14 @@ npm run seed:example
   - `PATCH /api/users/:id/manager-update` - Manager status and vacation quota adjustments.
   - `PUT /api/users/reorder/group` - Roster display ordering updates.
 - **Vacation Lifecycle & Quotas:**
-  - `POST /api/vacations` - Member vacation request submission (supports `0.5` and `1.0`).
+  - `POST /api/vacations` - Member vacation request submission (supports `0.5` and `1.0`, notes supported on API/schema).
   - `GET /api/vacations` - Group vacation requests query filtered by status or user.
   - `PATCH /api/vacations/:id/status` - Manager approval/rejection with atomic quota updates.
   - `GET /api/vacations/balance` - Aggregated user leave balance calculation.
 - **Shift Rostering & Operational Reports:**
   - `GET /api/schedules` & `PUT /api/schedules` - Schedule drafting and live retrieval.
-  - `POST /api/schedules/publish` - Publishing schedule with fractional leave deduction.
-  - `GET /api/reports` & `POST /api/reports` - Operational shift handoff logs.
+  - `POST /api/schedules/publish` - Publishing schedule with fractional leave deduction (`POST /api/schedules/publish`).
+  - `GET /api/reports` & `POST /api/reports` - Operational shift handoff logs (unique compound index on `{ groupId: 1, title: 1 }`).
   - `PUT /api/reports/:id` & `DELETE /api/reports/:id` - Log modification and manager deletion.
 
 ### 1.3 Architectural Layer & Exception Mapping Model
@@ -137,22 +147,23 @@ graph TD
     UI[Client UI / Form Input] -->|1. Client Validation| Val[Inline Field Warning / HelperText]
     UI -->|2. HTTP Request| Srv[Express Server]
     Srv -->|3. Zod / Middleware Check| MW{Validation / Auth Pass?}
-    MW -->|No: 400/401/403/429| Err[Error Response Payload]
+    MW -->|No: 400/401/403/409/429| Err[Error Response Payload]
     MW -->|Yes: 200/201| OK[Success JSON Response]
-    Err -->|Axios Interceptor| ToastErr[Red Toast / Login Alert Banner]
+    Err -->|Axios Interceptor| ToastErr[Red Toast / Login Alert Banner / Silent Refresh]
     OK -->|Context Handler| ToastOK[Green Toast Notification]
 ```
 
 - **Client Form Level:** Immediate field border highlights and red `helperText` (e.g. `"Name is required"`).
 - **Zod Schema Level (`400 Bad Request`):** Handled by `validateRequest` in `validationMiddleware.ts` yielding `code: "VALIDATION_ERROR"`.
-- **RBAC Security Level (`403 Forbidden`):** Handled by `authMiddleware.ts` (`FORBIDDEN_ADMIN_REQUIRED`, `FORBIDDEN_GROUP_MEMBER_REQUIRED`, `FORBIDDEN_SHIFT_MANAGER_REQUIRED`, `FORBIDDEN_SELF_DELETION`, `FORBIDDEN_SUPER_ADMIN_PROTECTED`).
+- **RBAC Security Level (`403 Forbidden`):** Handled by `authMiddleware.ts` (`FORBIDDEN_ADMIN_REQUIRED`, `FORBIDDEN_GROUP_MEMBER_REQUIRED`, `FORBIDDEN_SHIFT_MANAGER_REQUIRED`) and `usersController.ts` account safety guards (`FORBIDDEN_SELF_DELETION`, `FORBIDDEN_SUPER_ADMIN_PROTECTED`).
+- **Conflict Level (`409 Conflict`):** Handled by `errorMiddleware.ts` catching MongoDB unique index violations (e.g., `{ groupId: 1, title: 1 }`), yielding `code: "DUPLICATE_KEY"`.
 - **Global Toast Level:** Rendered via `NotificationContext.tsx` anchored at bottom-right (`variant="filled"`).
 
 > [!IMPORTANT]
 > **Server-Driven Role-Based Access Control (RBAC):**
 > Role evaluations are strictly server-driven. Responses from `/api/auth/me`, `/api/auth/login`, and `/api/users` provide explicit boolean flags:
 > - `isSuperAdmin`: Identifies the system root administrator with global oversight.
-> - `isAdmin`: Evaluated dynamically when the user is operating within an active administrative group (`isSystemGroup: true`).
+> - `isAdmin`: Evaluated dynamically when the user is operating within an active administrative group (`isSystemGroup: true`, configured as `ADMINISTRATORS`).
 > - `isShiftManager`: Evaluated dynamically per active group context based on the user's `role: "shift_manager"` assignment.
 > Legacy client-side environment configurations (such as `VITE_SUPER_ADMIN_GROUP_NAME`) have been completely eliminated. `UserContext.tsx` dynamically binds these server-provided flags to current UI state.
 
@@ -162,17 +173,17 @@ graph TD
 
 ### 2.1 Access Control Matrix
 
-| Route / Capability                     |    Unauthenticated    | Guest (`groups: []`)  | Regular Member (`member`) | Shift Manager (`shift_manager`) | System Administrator (`hunting_lodge_admin`) |
-| :------------------------------------- | :-------------------: | :-------------------: | :-----------------------: | :-----------------------------: | :------------------------------------------: |
-| **Login (`/login`)**                   |     ✅ Accessible     |   🔄 Redirects `/`    |     🔄 Redirects `/`      |        🔄 Redirects `/`         |               🔄 Redirects `/`               |
-| **Guest Screen (`/guest`)**            | 🔄 Redirects `/login` |       ✅ Landed       |     🔄 Redirects `/`      |        🔄 Redirects `/`         |               🔄 Redirects `/`               |
-| **Global Navbar**                      |       ❌ Hidden       |       ❌ Hidden       |        ✅ Visible         |     ✅ Visible (+Dot Badge)     |         ✅ Visible (+Admin Controls)         |
-| **Sites (`/`)**                        | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |      ✅ Full Access       |         ✅ Full Access          |                ✅ Full Access                |
-| **Phone Directory (`/phones`)**        | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |      ✅ Full Access       |         ✅ Full Access          |                ✅ Full Access                |
-| **Shift Schedule (`/schedule`)**       | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |     👁️ Published Only     |    ✏️ Create, Edit, Publish     |      👁️ Published Only* (Unless Manager)    |
-| **Shift Reports (`/reports`)**         | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |   👁️ View & Create/Edit   |     🗑️ Create, Edit, Delete     |      👁️ View & Create/Edit* (No Delete)     |
-| **Group Settings (`/group-settings`)** | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |  ⛔ Access Denied (`/`)   |      ✅ Full Config Access      |     ✅ Full Config Access (When Manager)     |
-| **Admin Dashboard (`/admin/users`)**   | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |  ⛔ Access Denied (`/`)   |     ⛔ Access Denied (`/`)      |      ✅ Full CRUD (When in Admin Group)      |
+| Route / Capability                     |    Unauthenticated    | Guest (`groups: []`)  | Regular Member (`member`) | Shift Manager (`shift_manager`) | System Administrator (`ADMINISTRATORS`) |
+| :------------------------------------- | :-------------------: | :-------------------: | :-----------------------: | :-----------------------------: | :-------------------------------------: |
+| **Login (`/login`)**                   |     ✅ Accessible     |   🔄 Redirects `/`    |     🔄 Redirects `/`      |        🔄 Redirects `/`         |               🔄 Redirects `/`          |
+| **Guest Screen (`/guest`)**            | 🔄 Redirects `/login` |       ✅ Landed       |     🔄 Redirects `/`      |        🔄 Redirects `/`         |               🔄 Redirects `/`          |
+| **Global Navbar**                      |       ❌ Hidden       |       ❌ Hidden       |        ✅ Visible         |     ✅ Visible (+Dot Badge)     |         ✅ Visible (+Admin Controls)    |
+| **Sites (`/`)**                        | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |      ✅ Full Access       |         ✅ Full Access          |                ✅ Full Access           |
+| **Phone Directory (`/phones`)**        | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |      ✅ Full Access       |         ✅ Full Access          |                ✅ Full Access           |
+| **Shift Schedule (`/schedule`)**       | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |     👁️ Published Only     |    ✏️ Create, Edit, Publish     |      👁️ Published Only* (Unless Manager) |
+| **Shift Reports (`/reports`)**         | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |   👁️ View & Create/Edit   |     🗑️ Create, Edit, Delete     |      👁️ View & Create/Edit* (No Delete)|
+| **Group Settings (`/group-settings`)** | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |  ⛔ Access Denied (`/`)   |      ✅ Full Config Access      |     ✅ Full Config Access (When Manager)|
+| **Admin Dashboard (`/admin/users`)**   | ⛔ Redirects `/login` | ⛔ Redirects `/guest` |  ⛔ Access Denied (`/`)   |     ⛔ Access Denied (`/`)      |      ✅ Full CRUD (When in Admin Group) |
 
 > [!IMPORTANT]
 > **Administrative Scope Invariant for Shift Schedule & Reports:**
@@ -183,7 +194,7 @@ graph TD
 
 Permissions in `UserContext.tsx` and server authorization middleware are dynamically scoped to the **Active Group Context**:
 
-1. **Administrative Elevation:** A user only receives `isAdmin: true` when their active group in the Navbar is set to `hunting_lodge_admin`. When switching to an operational group such as `noc`, system administrative privileges do not grant operational manager rights.
+1. **Administrative Elevation:** A user only receives `isAdmin: true` when their active group in the Navbar is set to `ADMINISTRATORS` (or `config.superAdmin.groupName` where `isSystemGroup: true`). When switching to an operational group such as `noc`, system administrative privileges do not grant operational manager rights.
 2. **Shift Schedule Guard:** System Administrators have **Published Only** access on `/schedule`. Only a user explicitly assigned `role: "shift_manager"` in the active group can create, edit, save drafts, or publish schedules (`saveSchedule` and `publishSchedule` in `schedulesController.ts`).
 3. **Shift Reports Guard:** System Administrators have **View & Create/Edit** access on `/reports`. Only a user explicitly assigned `role: "shift_manager"` in the active group can delete shift reports (`deleteReport` in `reportsController.ts`).
 4. **Managerial Tenancy:** A user only receives `isShiftManager: true` if their membership for the **currently active group** has `role: "shift_manager"`.
@@ -229,12 +240,12 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ### Test Case 1.3: Super Admin Auto-Role Assignment via OIDC Claims (Happy Path)
 
-- **Objective:** Verify that incoming SSO token claims with administrative groups automatically link the account to the system admin group.
+- **Objective:** Verify that incoming SSO token claims with administrative groups automatically link the account to the system admin group `ADMINISTRATORS`.
 - **Preconditions:** SSO user provides claim `groups: ["ADMINISTRATORS"]` or matches `config.superAdmin.groupName`.
 - **GIVEN:** Unassigned or new user logs in via SSO.
 - **WHEN:** Token claims contain the administrative role.
 - **THEN:**
-  1. `authController.ts` dynamically adds an entry to `user.groups` with `groupId: hunting_lodge_admin` and `role: "shift_manager"`.
+  1. `authController.ts` dynamically adds an entry to `user.groups` with `groupId: ADMINISTRATORS` and `role: "shift_manager"`.
   2. The admin group document adds the user `_id` to its `members` array.
   3. Client lands on `/` with red avatar badge and red **"Users & Groups"** navigation button visible.
 - **Must Not:** Require manual database intervention to grant administrative onboarding.
@@ -257,26 +268,25 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ---
 
-### Test Case 1.5: Invalid SSO Authorization Code (Edge Case)
+### Test Case 1.5: Invalid SSO Authorization Code & IdP Error Handling (Edge Case)
 
-- **Objective:** Verify deterministic error notification when the SSO authorization code exchange fails or is rejected.
-- **Preconditions:** Browser receives an invalid, tampered, or expired authorization code `code=invalid_xyz`.
-- **GIVEN:** User visits `http://localhost:5173/auth/callback?code=invalid_xyz`.
-- **WHEN:** Client submits the code to `POST /api/auth/login`.
+- **Objective:** Verify deterministic error notification and redirection when the SSO authorization code exchange fails or the IdP returns an explicit error parameter.
+- **Preconditions:**
+  - Scenario A: Browser receives an invalid, tampered, or expired authorization code `code=invalid_xyz`.
+  - Scenario B: Identity provider redirects back with error query parameters: `/auth/callback?error=access_denied&error_description=User%20declined%20consent`.
+- **GIVEN:** User visits the SSO callback route.
+- **WHEN:**
+  - In Scenario A: Client submits the invalid code to `POST /api/auth/login`. Server rejects with HTTP 401 `{ "message": "SSO Authentication failed", "error": "Invalid authorization code or provider error" }`.
+  - In Scenario B: `SSOCallback.tsx` parses URL parameters and detects `error` and `error_description`.
 - **THEN:**
-  1. Server rejects with HTTP 401:
-     ```json
-     {
-       "message": "SSO Authentication failed",
-       "error": "Invalid authorization code or provider error"
-     }
-     ```
-  2. `SSOCallback.tsx` redirects to `http://localhost:5173/login?error=sso_failed`.
-  3. `LoginFeedback.tsx` renders a red alert banner above the login button:
+  1. `SSOCallback.tsx` immediately extracts the error parameter and executes `navigate("/login?error=" + encodeURIComponent(errorParam), { replace: true })`.
+  2. Browser navigates to `/login?error=...`.
+  3. `LoginFeedback.tsx` detects `urlError` and renders a red alert banner above the login button:
      ```text
      "Authentication failed. Please try again."
      ```
-- **Must Not:** Leave the application in an infinite loading spinner loop.
+  4. The application does not freeze on `ThinkingLoader.tsx` or enter a redirect loop.
+- **Must Not:** Leave the application in an infinite loading spinner loop or flash unhandled exceptions.
 - **Failure Consequence:** Confusing white screen or stuck loader on auth failure.
 
 ---
@@ -284,7 +294,7 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 ### Test Case 1.6: Authentication Rate Limiting - HTTP 429 (Edge Case)
 
 - **Objective:** Verify that brute-force requests to `/api/auth/sso-url` or `/api/auth/login` trigger the rate limiter.
-- **Preconditions:** Backend rate limiter configured with max 50 requests per 15-minute window.
+- **Preconditions:** Backend rate limiter configured with max 50 requests per 15-minute window (`authRateLimiter`).
 - **GIVEN:** A client makes 51 rapid requests to `/api/auth/sso-url` within 1 minute.
 - **WHEN:** The 51st request hits the server.
 - **THEN:**
@@ -319,21 +329,34 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ---
 
-### Test Case 1.8: Global 401 Interceptor & Session Expiry Redirection (Session)
+### Test Case 1.8: Global 401 Interceptor & Silent Session Refresh Flow (Session)
 
-- **Objective:** Verify that any authenticated API call returning HTTP 401 immediately purges local session tokens and redirects to the login screen with an alert.
-- **Preconditions:** User is logged in with `hunting_token` stored in `localStorage`.
+- **Objective:** Verify that when an authenticated API call receives HTTP 401 Unauthorized, the client executes a silent session refresh before forcing session termination.
+- **Preconditions:** User is logged in with active `hunting_token` in `localStorage` and valid httpOnly `hunting_refresh_token` session cookie.
 - **GIVEN:** User is browsing `http://localhost:5173/phones`.
-- **WHEN:** A background request returns HTTP 401 (e.g. forced revocation or invalidated secret).
+- **WHEN:** A background request receives HTTP 401 (e.g. access JWT expired after TTL).
 - **THEN:**
-  1. `apiClient.ts` response interceptor purges `hunting_token`, `hunting_userId`, and `hunting_groupId`.
-  2. Browser redirects to `http://localhost:5173/login?error=session_expired`.
-  3. Login page displays a red alert banner:
-     ```text
-     "Authentication failed. Please try again."
-     ```
-- **Must Not:** Retain broken JWTs in `localStorage` or loop repeatedly.
-- **Failure Consequence:** Stale tokens causing broken, unresponsive UI states.
+  1. `apiClient.ts` response interceptor intercepts the HTTP 401.
+  2. If `originalRequest._retry` is false and the request is not an auth route (`/auth/refresh`, `/auth/login`), the interceptor marks `_retry = true` and invokes `attemptRefresh()`.
+  3. **Concurrent Request Deduplication:** If multiple concurrent requests trigger 401 simultaneously, they share the single in-flight `refreshPromise` rather than dispatching redundant `/auth/refresh` calls.
+  4. **Silent Refresh Success Flow:**
+     - Client calls `POST /api/auth/refresh` with `withCredentials: true`.
+     - Server issues a renewed token and updates cookies.
+     - Interceptor updates `localStorage.setItem("hunting_token", newToken)`.
+     - Interceptor updates `originalRequest.headers.Authorization = "Bearer " + newToken` and re-executes the original request via `axiosInstance(originalRequest)`.
+     - User experiences zero interruption or page flickers.
+  5. **Refresh Failure Fallback (Session Expiry):**
+     - If `/api/auth/refresh` itself returns HTTP 401 or 403 (refresh token expired or invalid):
+       - `apiClient.ts` removes `hunting_token`, `hunting_userId`, and `hunting_groupId` from `localStorage`.
+       - If current route is not `/login` or `/auth/callback`, navigates to: `window.location.href = "/login?error=session_expired"`.
+       - `LoginFeedback.tsx` displays red alert banner:
+         ```text
+         "Authentication failed. Please try again."
+         ```
+  6. **Network Error Resilience:**
+     - If a non-401/403 network error (e.g. timeout, connection reset) occurs during the refresh attempt, the client retains stored credentials to avoid prematurely wiping local sessions during transient network hiccups.
+- **Must Not:** Retain broken JWTs upon confirmed refresh failure or enter an infinite retry loop.
+- **Failure Consequence:** Unnecessary user logouts on routine token expirations, or stuck sessions on expired tokens.
 
 ---
 
@@ -352,16 +375,16 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
        "code": "USER_INACTIVE"
      }
      ```
-  3. Client catches the 401 and forces redirect to `/login?error=session_expired`.
+  3. Client catches the 401, attempts silent refresh (which also fails due to inactive account), purges credentials, and redirects to `/login?error=session_expired`.
 - **Must Not:** Allow deactivated users to indefinitely perform read/write actions.
 - **Failure Consequence:** Deactivated personnel retaining active system access.
 
 ---
 
-### Test Case 1.10: Expired JWT Token Handling (Session)
+### Test Case 1.10: Expired JWT Token Handling & Refresh Retry (Session)
 
-- **Objective:** Verify that expired cryptographic tokens are rejected deterministically.
-- **Preconditions:** Client holds a token with `exp` in the past.
+- **Objective:** Verify that expired cryptographic tokens are rejected by backend middleware and trigger the client-side silent refresh mechanism.
+- **Preconditions:** Client holds a token with `exp` timestamp in the past.
 - **GIVEN:** Request is dispatched with expired Bearer token in the `Authorization` header.
 - **WHEN:** `authMiddleware.ts` executes `jwt.verify` in `jwt.ts`.
 - **THEN:**
@@ -373,7 +396,8 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
        "code": "TOKEN_EXPIRED"
      }
      ```
-  3. Client redirects to `/login?error=session_expired`.
+  3. `apiClient.ts` catches HTTP 401, invokes `POST /api/auth/refresh`, and seamlessly retries the operation if refresh succeeds.
+  4. If the refresh cookie is also expired, client completes clean teardown and redirects to `/login?error=session_expired`.
 - **Must Not:** Leak internal stack traces or cryptographic keys in the response.
 - **Failure Consequence:** Security vulnerability or unexpected crash.
 
@@ -425,7 +449,7 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
      - Counter advances to `"4 of 4"`. Tag displays `"Directory"`.
      - Title: `"Phone & Site Directory"`.
      - Benefit Pill: `"✨ One-click access to critical emergency and site contacts"`.
-     - Button Transition: The primary button transitions from "Next" to **"Got it, let's explore!"** (or **"Got It, Let's Go!"**) accompanied by a checkmark icon.
+     - Button Transition: The primary button transitions from "Next" to **"Got it, let's explore!"** accompanied by a checkmark icon.
   6. **Network Exception Edge Case Check:**
      - In DevTools Network tab, simulate "Offline".
      - Click **"Got it, let's explore!"**:
@@ -453,162 +477,129 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ### Test Case 2.1: Guest User Isolation & Protected Route Interception (Guest)
 
-- **Objective:** Verify users with 0 assigned groups are confined strictly to `/guest` and cannot access operational tools.
-- **Preconditions:** Log in with an account having `groups: []`.
-- **GIVEN:** User is authenticated but unassigned to any operational unit.
-- **WHEN:** User manually enters `http://localhost:5173/schedule` in the browser address bar.
+- **Objective:** Verify users assigned to zero groups are restricted exclusively to `/guest`.
+- **Preconditions:** User `new_cadet` exists with `groups: []`.
+- **GIVEN:** User `new_cadet` logs in.
+- **WHEN:** User attempts direct navigation to `http://localhost:5173/` or `http://localhost:5173/schedule`.
 - **THEN:**
-  1. Application intercepts navigation and redirects back to `http://localhost:5173/guest`.
-  2. Navbar remains completely hidden.
-  3. Screen displays the large lock icon, `"Welcome, [Username]"`, and the warning box:
+  1. `App.tsx` intercepts route because `user.groups.length === 0`.
+  2. User is redirected to `/guest`.
+  3. Guest landing page renders with centered illustration and pending alert:
      ```text
-     "Pending Approval - You are not assigned to any group yet. Please contact your System Administrator or Team Leader to assign you permissions."
+     "Your account is pending group assignment. Please contact your system administrator."
      ```
-  4. Clicking **"Logout & Try Again"** clears tokens and returns to `/login`.
-- **Must Not:** Render sidebar links, sites, or phone numbers.
-- **Failure Consequence:** Unvetted users viewing sensitive operational schedules.
+  4. Global Navbar remains completely hidden.
+- **Must Not:** Allow guest users to read bookmarks, phones, or schedules.
+- **Failure Consequence:** Unvetted accounts accessing sensitive internal directory data.
 
 ---
 
 ### Test Case 2.2: Standard Member & Non-Manager Admin Published-Only Schedule View (Member/Admin)
 
-- **Objective:** Verify regular group members and System Administrators without explicit Shift Manager assignment can only view published schedules and cannot create, edit, save, or publish schedules.
+- **Objective:** Verify that non-manager members and administrators without explicit `shift_manager` role in the active group have strictly read-only access to published schedules.
 - **Preconditions:**
-  - Case A (Regular Member): Log in as `10002` (Regular Member in `noc`).
-  - Case B (System Administrator): Log in as System Administrator `10001` switched to an operational group where they are NOT assigned `role: "shift_manager"`.
-- **GIVEN:** User navigates to `http://localhost:5173/schedule`.
+  - Standard Member `10002` logged in (`role: "member"` in `noc`).
+  - System Administrator `10001` switched to active group `noc` without manager role in `noc`.
+- **GIVEN:** User visits `http://localhost:5173/schedule`.
 - **WHEN:** User inspects the schedule interface.
 - **THEN:**
-  1. Shifts for the published week render with assigned member names and color-coded shift blocks.
-  2. Clicking on any schedule grid cell does **NOT** open a shift selector popover (cells are inert; guarded by `isShiftManager` in `ScheduleTable.tsx`).
-  3. **"Save Changes"** (floppy disk) button is **NOT** present in the DOM (`isShiftManager` check in `ShiftSchedulePage.tsx`).
-  4. **"Publish Schedule"** button is **NOT** present in the DOM (`isShiftManager` check in `ShiftSchedulePage.tsx`).
-  5. Direct API dispatch of `PUT /api/schedules` or saving/publishing endpoints returns HTTP 403:
-     ```json
-     {
-       "message": "Forbidden: You must be an explicit Shift Manager of this group to save schedules.",
-       "code": "FORBIDDEN_SHIFT_MANAGER_REQUIRED"
-     }
-     ```
-- **Must Not:** Allow regular members or administrators without explicit group manager role to edit, save drafts, or publish schedules.
-- **Failure Consequence:** Unauthorized tampering with operational duty rosters by non-manager personnel.
+  1. Schedule grid renders only published shifts.
+  2. **"Save Changes"** (Draft) and **"Publish Schedule"** buttons are **COMPLETELY HIDDEN**.
+  3. Table cells are non-interactive: clicking or right-clicking a cell does not open the shift assignment menu.
+  4. Draft shifts (unpublished changes made by a manager) are invisible to standard members.
+- **Must Not:** Allow non-managers to edit, draft, or publish rosters.
+- **Failure Consequence:** Unauthorized alterations to operational rosters.
 
 ---
 
 ### Test Case 2.3: Standard Member & Non-Manager Admin Report Deletion Prohibition (Member/Admin)
 
-- **Objective:** Verify regular members and System Administrators without explicit Shift Manager assignment can view, create, and edit shift reports, but are strictly blocked from deleting reports.
-- **Preconditions:**
-  - Case A (Regular Member): Log in as `10002` on `http://localhost:5173/reports`.
-  - Case B (System Administrator): Log in as System Administrator `10001` switched to an operational group where they do not hold `role: "shift_manager"`.
-- **GIVEN:** User selects an existing shift report from the archive sidebar.
-- **WHEN:** User inspects the report action buttons at the bottom of the form.
+- **Objective:** Verify that report deletion is strictly reserved for Shift Managers of that group, and forbidden for standard members and non-manager administrators.
+- **Preconditions:** Authenticated in group `noc` as standard member or non-manager admin.
+- **GIVEN:** User views a shift report on `http://localhost:5173/reports`.
+- **WHEN:** User inspects the report action controls.
 - **THEN:**
-  1. The green **"Save Report"** and gray **"Discard Changes"** buttons are visible (user has View & Create/Edit rights).
-  2. The red **"Delete Report"** button is **NOT** rendered in the UI (`handleDeleteReport` in `ShiftReportPage.tsx` guarded strictly by `isShiftManager`).
-  3. Dispatching an HTTP `DELETE /api/reports/:id` via console/Postman returns HTTP 403:
+  1. The red **"Delete Report"** button is **NOT RENDERED**.
+  2. If the user crafts a direct HTTP request `DELETE /api/reports/:id`, the server responds with HTTP 403 Forbidden:
      ```json
      {
        "message": "Forbidden: Only an explicit Shift Manager of this group can delete reports.",
        "code": "FORBIDDEN_SHIFT_MANAGER_REQUIRED"
      }
      ```
-- **Must Not:** Allow deletion of shift reports by anyone other than an explicit Shift Manager of that group.
-- **Failure Consequence:** Accidental or unauthorized deletion of operational shift audit records.
+- **Must Not:** Permit report deletion by non-managers under any circumstances.
+- **Failure Consequence:** Destruction of historical audit trails and handover logs.
 
 ---
 
 ### Test Case 2.4: Shift Manager UI Badge & Group Settings Access (Manager)
 
-- **Objective:** Verify users assigned `role: "shift_manager"` receive manager indicators and configuration access.
-- **Preconditions:** Log in as `10001` with active group set to `noc` (where user holds manager role).
-- **GIVEN:** User views the top Navigation Bar.
-- **WHEN:** Inspecting header controls.
+- **Objective:** Verify Shift Managers receive role badging and administrative access to Group Settings.
+- **Preconditions:** User `10001` holds `role: "shift_manager"` in group `noc`.
+- **GIVEN:** User logs in and selects group `noc`.
+- **WHEN:** Inspecting Navbar and profile elements.
 - **THEN:**
-  1. User Avatar displays a small dot/badge.
-  2. Clicking User Avatar displays the group list with `(M)` next to `noc`.
-  3. **Group Settings** gear icon button is visible in the Navbar.
-  4. Clicking the gear icon successfully navigates to `http://localhost:5173/group-settings`.
-- **Must Not:** Render the administrative Users & Groups button unless actively in `hunting_lodge_admin`.
-- **Failure Consequence:** Confusion between group management and system administration.
+  1. Profile avatar in the Navbar displays a blue dot badge indicating manager status.
+  2. User menu includes `(Shift Manager)` tag next to role name.
+  3. Navbar includes a direct link / gear icon for **Group Settings** (`/group-settings`).
+  4. Navigating to `/group-settings` loads all configuration tabs: Shift Types, Time Slots, Members, and General Settings.
+- **Must Not:** Hide configuration controls from assigned shift managers.
+- **Failure Consequence:** Inability of team leads to manage operational configurations.
 
 ---
 
 ### Test Case 2.5: Shift Manager Schedule Edit & Draft Save (Manager)
 
-- **Objective:** Verify Shift Managers can assign shifts, clear cells, and persist draft schedules.
-- **Preconditions:** Log in as Manager (`10001` in `noc`).
-- **GIVEN:** User is at `http://localhost:5173/schedule`.
+- **Objective:** Verify Shift Managers can assign shifts, modify rosters, and save drafts without affecting the published schedule.
+- **Preconditions:** Authenticated as Shift Manager in `noc`.
+- **GIVEN:** Shift schedule page `http://localhost:5173/schedule`.
 - **WHEN:**
-  1. Manager clicks an empty cell for a user on Tuesday.
-  2. Popover menu opens displaying configured shift types (`בוקר`, `ערב`, `לילה`, `חופש`).
-  3. Manager selects `משמרת בוקר`.
-  4. Cell updates with morning shift color and title.
-  5. Manager clicks **"Save Draft"** (or Save icon) in the header toolbar.
+  1. Click an empty cell in the schedule grid.
+  2. Assign member `10002` to `Morning Shift`.
+  3. Click **"Save as Draft"**.
 - **THEN:**
-  1. Client sends `PUT /api/schedules` with draft assignment payload.
-  2. A green Toast notification appears:
+  1. Client sends `PUT /api/schedules` with the updated draft state.
+  2. Green Toast notification displays:
      ```text
      "Schedule saved as Draft"
      ```
-  3. Status badge displays `"DRAFT"` (or `"Published"` if modifying a live schedule).
-  4. Page reload confirms the assignment persists.
-- **Must Not:** Deduct vacation balances while the schedule is merely saved as Draft.
-- **Failure Consequence:** Premature deduction of leave days before schedules are confirmed.
+  3. Status badge indicates `"Draft (Unpublished Changes)"`.
+  4. When viewed in another session by regular member `10002`, the newly drafted shift is **NOT** visible.
+- **Must Not:** Overwrite published shifts before deliberate publication.
+- **Failure Consequence:** Confusion caused by members viewing unfinalized rosters.
 
 ---
 
 ### Test Case 2.6: Shift Schedule Publishing & Fractional Vacation Day Deduction (Manager)
 
-- **Objective:** Verify publishing a schedule prompts for confirmation, correctly calculates both Full-Day (1.0) and Half-Day (0.5) vacation assignments, and atomically deducts the accurate fractional leave balance.
-- **Preconditions:** Log in as Manager (`10001` in `noc`). Member `10002` has initial `vacationBalance: 18`. Draft schedule contains empty or modifiable slots for member `10002`.
-- **GIVEN:** Manager is at `http://localhost:5173/schedule`.
+- **Objective:** Verify that publishing a schedule containing vacation shifts atomically deducts fractional and full days (`0.5` and `1.0`) from members' vacation quotas.
+- **Preconditions:**
+  - Shift Manager authenticated in `noc`.
+  - Member `10002` has initial `vacationBalance: 18`.
+- **GIVEN:** Schedule table on `http://localhost:5173/schedule`.
 - **WHEN:**
-  1. **Assigning Full-Day Vacation:**
-     - Click Tuesday cell for `10002`.
-     - Popover menu opens: locate vacation shift type (e.g. `חופש`).
-     - Notice distinct fractional options:
-       - Item 1: `חופש (1.0)` with solid colored circle icon.
-       - Item 2: `חופש (0.5)` with `opacity: 0.7` colored circle icon.
-     - Click `חופש (1.0)`.
-     - Verify cell renders chip: `חופש`.
-  2. **Assigning Half-Day Vacation:**
-     - Click Wednesday cell for `10002`.
-     - Popover menu opens: click `חופש (0.5)`.
-     - Verify cell renders chip: `חופש (0.5)`.
-  3. **Publishing the Schedule:**
-     - Click **"Publish Schedule"** (or **"Update & Publish"**) button in the toolbar.
-     - `ConfirmDialog.tsx` mounts with title `"Publish Schedule?"` and message:
-       ```text
-       "Publishing will make the schedule visible to all users. Vacation days will be calculated based on assigned shifts. Continue?"
-       ```
-     - Click **"Publish"** (`confirmColor="success"`).
+  1. Manager assigns `10002` to a Full-Day Vacation (`חופש`, `vacationValue: 1.0`) on Sunday.
+  2. Manager assigns `10002` to a Half-Day Vacation (`חופש`, `vacationValue: 0.5`) on Monday.
+  3. Manager clicks **"Publish Schedule"** (`POST /api/schedules/publish`).
 - **THEN:**
-  1. Client sends publish request to `POST /api/schedules/publish`.
-  2. In `schedulesController.ts`:
-     - Server detects 2 un-deducted vacation shifts for `10002`: one `1.0` and one `0.5`.
-     - Server pre-aggregates total deduction: `1.0 + 0.5 = 1.5` days.
-     - Server atomically updates MongoDB user record:
-       ```typescript
-       await User.findOneAndUpdate(
-           { _id: userIdVal, vacationBalance: { $gte: 1.5 } },
-           { $inc: { vacationBalance: -1.5 } },
-           { returnDocument: "after" }
-       );
-       ```
-     - Server marks both shifts with `vacationDeducted: true`.
-  3. Client displays green Toast notification:
+  1. Server aggregates vacation deductions for `10002`: `1.0 + 0.5 = 1.5` days.
+  2. Server atomically decrements member's balance:
+     ```typescript
+     await User.findOneAndUpdate(
+         { _id: userIdVal, vacationBalance: { $gte: 1.5 } },
+         { $inc: { vacationBalance: -1.5 } },
+         { returnDocument: "after" }
+     );
+     ```
+  3. Server marks assigned shifts with `vacationDeducted: true` to prevent double deductions on subsequent updates.
+  4. Client displays green Toast notification:
      ```text
      "Schedule Published Successfully!"
      ```
-  4. Header status indicator transitions to `"Published"`.
-  5. Navigate to `http://localhost:5173/group-settings` -> **Members Tab**:
-     - Locate `10002` (Regular User).
-     - Vacation Balance displays `16.5` days (exactly `18 - 1.5`).
-  6. Return to `/schedule` and click **"Update & Publish"** again:
-     - Verify no further deductions occur (`vacationDeducted: true` prevents double-deductions).
-- **Must Not:** Deduct integer-only days (e.g. 2.0 instead of 1.5), deduct from balance on draft saves, or allow balances to go negative (`$gte` balance guard).
-- **Failure Consequence:** Severe leave accounting errors, loss of half-day tracking, and member quota disputes.
+  5. Schedule header transitions to `"Published"`.
+  6. Navigating to Group Settings -> Members Tab shows `10002`'s balance updated to `16.5` days.
+- **Must Not:** Deduct integer-only increments or allow balances to become negative.
+- **Failure Consequence:** Inaccurate vacation tracking and employee quota disputes.
 
 ---
 
@@ -637,7 +628,7 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 - **Objective:** Verify Super Administrators receive system-level indicators, can seamlessly switch between administrative and operational groups, and correctly inherit group-level role restrictions on schedules and reports.
 - **Preconditions:** Log in as Super Admin `10001`.
-- **GIVEN:** Active group is `hunting_lodge_admin`.
+- **GIVEN:** Active group is `ADMINISTRATORS` (or `config.superAdmin.groupName`).
 - **WHEN:** Inspecting Navbar and switching groups.
 - **THEN:**
   1. User avatar has red background (`error.main`).
@@ -697,12 +688,12 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ### Test Case 2.11: Protected System Group Lifecycle Locks (Security Invariant)
 
-- **Objective:** Verify the root administrative group (`hunting_lodge_admin`) cannot be renamed or deleted.
+- **Objective:** Verify the root administrative group (`ADMINISTRATORS` / `config.superAdmin.groupName`) cannot be renamed or deleted.
 - **Preconditions:** Viewing Groups tab in `http://localhost:5173/admin/users`.
-- **GIVEN:** Table displays `hunting_lodge_admin`.
+- **GIVEN:** Table displays `ADMINISTRATORS`.
 - **WHEN:**
-  1. Check actions column for `hunting_lodge_admin`: Delete icon button is **NOT RENDERED** (`!isSystemGroup`).
-  2. Click Edit icon for `hunting_lodge_admin`.
+  1. Check actions column for `ADMINISTRATORS`: Delete icon button is **NOT RENDERED** (`!isSystemGroup`).
+  2. Click Edit icon for `ADMINISTRATORS`.
 - **THEN:**
   1. Group Name field is disabled with helper text:
      ```text
@@ -716,54 +707,38 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ### Test Case 2.12: Vacation Request Lifecycle & Quota Management (Manager/Member)
 
-- **Objective:** Verify members can submit fractional vacation requests (`0.5` and `1.0`), view projected balance deductions in real time, and Shift Managers can approve/reject requests via `/api/vacations` with atomic balance updates.
+- **Objective:** Verify component-level `VacationModal.tsx` controls and dynamic projected balance calculation, and test the backend vacation request lifecycle (`POST /api/vacations`, `PATCH /api/vacations/:id/status`, `GET /api/vacations/balance`).
 - **Preconditions:**
   - Member `10002` is authenticated with active group `noc` (`vacationBalance: 18`).
   - Manager `10001` holds `role: "shift_manager"` in `noc`.
-- **GIVEN:** Member `10002` opens the `VacationModal.tsx` dialog to submit leave.
+- **GIVEN:** Member `10002` interacts with the `VacationModal.tsx` component.
 - **WHEN:**
-  1. **Submitting Fractional Vacation Request (Member):**
-     - Inspect `VacationModal` fields:
-       - Date header: displays selected date (e.g. `05/10/2026`).
-       - Radio group: **"Full Day (1.0 day)"** and **"Half Day (0.5 day)"**.
-       - Balance display: `"Current balance: 18 days"`.
-     - Select **"Half Day (0.5 day)"**.
-     - Verify projected balance dynamically updates: `"Projected balance: 17.5 days"`.
-     - Click **"Confirm"** (or Submit).
-     - Client calls `POST /api/vacations` with:
-       ```json
-       {
-         "groupId": "noc_id",
-         "date": "2026-10-05T00:00:00.000Z",
-         "vacationValue": 0.5,
-         "notes": "Doctor appointment"
-       }
-       ```
-     - Response returns HTTP 201 with `status: "pending"`.
-  2. **Manager Review & Approval:**
-     - Log in as Shift Manager `10001`.
-     - Query pending requests via `GET /api/vacations?groupId=noc_id&status=pending`.
-     - Locate pending request for `10002` with `vacationValue: 0.5`.
-     - Manager approves request: client sends `PATCH /api/vacations/:id/status` with:
-       ```json
-       {
-         "status": "approved"
-       }
-       ```
+  1. **Component Controls & Duration Selection:**
+     - Open `VacationModal.tsx`:
+       - Date header: formatted as `dd/MM/yyyy` (e.g. `05/10/2026`).
+       - Radio buttons: **"Full Day (1.0 day)"** (`value={1.0}`) and **"Half Day (0.5 day)"** (`value={0.5}`).
+       - Current balance display: `"Current balance: 18 days"`.
+     - Toggle selection to **"Half Day (0.5 day)"**.
+     - Verify projected balance dynamically updates: `"Projected balance: 17.5 days"` (`data-testid="projected-balance"`).
+     - Note: While the backend schema and TypeScript interface `VacationModalSubmitData` support optional `notes`, `VacationModal.tsx` does **not** render a UI text input for notes.
+     - Click **"Confirm"** button. The component invokes `onSubmit({ userId, date, vacationValue: 0.5 })`.
+  2. **Insufficient Balance Guard Verification:**
+     - When `currentBalance < vacationValue` (e.g., current balance is `0` or `0.2` and requesting `0.5`):
+       - An `<Alert severity="error">` is rendered:
+         ```text
+         "Insufficient vacation balance. You cannot book 0.5 day with 0.2 remaining."
+         ```
+       - The **"Confirm"** button is disabled (`disabled={isInsufficient || submitting}`).
+  3. **Backend Request Submission & Approval Lifecycle:**
+     - Client calls `POST /api/vacations` with `{ groupId: "noc_id", date: "2026-10-05T00:00:00.000Z", vacationValue: 0.5 }`.
+     - Request is created with `status: "pending"`.
+     - Shift Manager queries `GET /api/vacations?groupId=noc_id&status=pending` and approves via `PATCH /api/vacations/:id/status` with `{ "status": "approved" }`.
 - **THEN:**
-  1. Request status transitions from `"pending"` to `"approved"`.
-  2. Server updates vacation balance atomically using `$inc: { vacationBalance: -0.5 }`.
-  3. Querying `GET /api/vacations/balance?groupId=noc_id&userId=10002_id` returns updated balance `17.5`.
-  4. In Group Settings -> Members Tab, user `10002` row displays `Vacation Balance: 17.5`.
-  5. **Insufficient Quota Guard Verification:**
-     - If user balance is `0` or insufficient for requested value (e.g. balance `0.2` and request `0.5`), `VacationModal` renders red Alert:
-       ```text
-       "Insufficient vacation balance. You cannot book 0.5 day with 0.2 remaining."
-       ```
-     - The submit button is disabled.
-  6. **RBAC Guard Verification:**
-     - If regular member `10002` attempts direct `PATCH /api/vacations/:id/status`, server rejects with HTTP 403 Forbidden (`requireShiftManager`).
-- **Must Not:** Allow negative balances, permit unapproved leave deductions, or allow members to approve their own requests.
+  1. Request status transitions to `"approved"`.
+  2. Server updates user's balance atomically via `$inc: { vacationBalance: -0.5 }`.
+  3. Querying `GET /api/vacations/balance?groupId=noc_id&userId=10002_id` returns `17.5`.
+  4. Note: Operational leave scheduling in the weekly roster is executed separately via vacation shift types in `ScheduleTable.tsx` and published via `POST /api/schedules/publish` (see [Test Case 2.6](#test-case-26-shift-schedule-publishing--fractional-vacation-day-deduction-manager)).
+- **Must Not:** Allow negative balances or permit non-managers to approve leave requests.
 - **Failure Consequence:** Unchecked leave accrual, unauthorized absences, and HR accounting failures.
 
 ---
@@ -779,53 +754,44 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
   1. Click **"+ Add Site"**.
   2. Enter Title: `Monitoring Portal`, URL: `https://monitor.dev.local`, Description: `Real-time telemetry`, Tag: `General`.
   3. Click **"Create Site"**.
-  4. Click star icon on the new card.
-  5. Toggle favorites filter dropdown to "Favorites".
-  6. Click edit icon on card, update Title to `NOC Telemetry`, click **"Save Changes"**.
-  7. Click trash icon, confirm in `ConfirmDialog.tsx`.
 - **THEN:**
-  1. Creation triggers green Toast: `"New site created successfully"`.
-  2. Star icon immediately toggles and card appears in Favorites view.
-  3. Update triggers green Toast: `"Site updated successfully"`.
-  4. Deletion triggers green Toast: `"Site deleted successfully"`, card disappears.
-- **Must Not:** Leave orphaned favorite references in user documents.
-- **Failure Consequence:** Broken bookmarks and cluttered team landing pages.
+  1. Green Toast displays: `"Site created successfully"`.
+  2. Card appears in grid with initial letter avatar and tag chip `General`.
+  3. Click Star icon on the card: star fills yellow; site sorts into Favorites section.
+  4. Click tag filter `Tacti`: grid filters to show only matching cards.
+  5. Click Edit icon -> modify title to `Monitoring Portal v2` -> click **"Save Changes"**.
+  6. Click Delete icon -> confirm modal -> card disappears with green Toast: `"Site deleted successfully"`.
+- **Must Not:** Allow duplicate tags or unsanitized URLs.
+- **Failure Consequence:** Loss of access to critical operations bookmarks.
 
 ---
 
 ### Test Case 3.2: Phone Directory Management (CRUD, Formatting & Details Modal)
 
-- **Objective:** Verify contacts directory, classification tags, multi-number input formatting, and modal inspection.
+- **Objective:** Verify telephone contact directory management, multi-number formatting, and contact inspection modal.
 - **Preconditions:** Authenticated in `noc`.
-- **GIVEN:** User is at `http://localhost:5173/phones`.
+- **GIVEN:** User navigates to `http://localhost:5173/phones`.
 - **WHEN:**
   1. Click **"+ Add Contact"**.
-  2. Enter Name: `Operations Duty Officer`, Type: `Mobile`.
-  3. Add Number 1: `0501112233` -> verifies auto-format to `050-111-2233`.
-  4. Click **"+ Add Number"**, enter `0529998877` -> auto-formats to `052-999-8877`.
-  5. Enter Description: `24/7 Primary Incident Coordinator`. Click **"Save"**.
-  6. Click contact row in table.
-  7. Click edit icon, change description to `Updated Incident Desk`, save.
-  8. Click delete icon, confirm in dialog.
+  2. Name: `Emergency Ops Desk`, Type: `Red`, Numbers: `050-1234`, Description: `Direct emergency hotline`.
+  3. Click **"Save Contact"**.
 - **THEN:**
-  1. Save dispatches `POST /api/phones` and displays green Toast.
-  2. Clicking row opens `PhoneDetailsDialog.tsx` displaying complete contact card with direct `tel:` dial links.
-  3. Delete removes contact and displays green Toast.
-- **Must Not:** Allow invalid phone digits or drop secondary phone numbers.
-- **Failure Consequence:** Inability to contact duty personnel during emergency incidents.
+  1. Contact card is added under category `Red` with red phone badge.
+  2. Click contact card: `PhoneDetailsDialog.tsx` opens displaying formatted phone numbers and quick copy buttons.
+  3. Click Copy icon next to number: green Toast: `"Phone number copied to clipboard"`.
+- **Must Not:** Allow invalid phone formats or strip category tags.
+- **Failure Consequence:** Inability to rapidly establish emergency voice lines during incidents.
 
 ---
 
 ### Test Case 3.3: Shift Schedule Viewer (Navigation, Fullscreen & Responsive Matrix)
 
-- **Objective:** Verify week switching, date-picker jump, and fullscreen view on the shift schedule grid.
-- **Preconditions:** At least one published schedule exists for the current week.
-- **GIVEN:** User is at `http://localhost:5173/schedule`.
+- **Objective:** Verify schedule grid weekly navigation, full-screen expansion mode, and responsive layout.
+- **Preconditions:** Authenticated user viewing `http://localhost:5173/schedule`.
+- **GIVEN:** User is on the schedule view.
 - **WHEN:**
-  1. Click **"Next Week >"** button.
-  2. Click **"< Previous Week"** button.
-  3. Click **"Fullscreen"** icon button in the header toolbar.
-  4. Press the `Escape` key on keyboard.
+  1. Click Next Week arrow (`>`) button in the navigation header.
+  2. Click Fullscreen toggle icon.
 - **THEN:**
   1. Schedule updates week range header (e.g. `13/09/2026 - 19/09/2026`).
   2. Fullscreen mode expands table across entire monitor viewport with optimal contrast.
@@ -835,9 +801,9 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ---
 
-### Test Case 3.4: Shift Reports Management (Auto-Detection, Tiptap Editor & Attendees)
+### Test Case 3.4: Shift Reports Management (Auto-Detection, Tiptap Editor & Unique Compound Index)
 
-- **Objective:** Verify report creation with auto-populated shift times, rich-text formatting, attendee chip selection, and previous task inheritance.
+- **Objective:** Verify report creation with auto-populated shift times, rich-text formatting, attendee chip selection, unique compound index enforcement `{ groupId: 1, title: 1 }`, and background worker idempotency.
 - **Preconditions:** Authenticated in `noc`. Previous shift report exists with tasks `"Monitor gateway 4"`.
 - **GIVEN:** User is at `http://localhost:5173/reports`.
 - **WHEN:**
@@ -854,8 +820,13 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
      ```
   2. Sidebar updates with report entry under current Month/Year accordion.
   3. Form switches to saved state; rich text renders with full HTML styling.
+  4. **Compound Unique Index Guard:**
+     - The MongoDB collection enforces a unique compound index on `{ groupId: 1, title: 1 }` (established via migration `20261002000001-enforce-shift-report-unique-index.ts`).
+     - If another report is created with the identical title in the same group, MongoDB throws error 11000, mapped by `errorMiddleware.ts` to HTTP 409 `DUPLICATE_KEY` (see [Test Case 4.7](#test-case-47-duplicate-shift-report-title-rejection-duplicate-key-guard)).
+  5. **Background Shift Report Cron Job:**
+     - The automated shift report background task (`npm run cron:shift-report`, configured via `SHIFT_REPORT_CRON_SCHEDULE`) runs idempotently and relies on this unique index to prevent duplicate report creation.
 - **Must Not:** Bleed form state into subsequent reports or overwrite background draft polling.
-- **Failure Consequence:** Lost shift handoff intelligence and operational blind spots.
+- **Failure Consequence:** Lost shift handoff intelligence and duplicate operational records.
 
 ---
 
@@ -888,62 +859,44 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
      - Click **"Save"**.
      - Green Toast: `"Time slots updated"`.
   3. **Members Tab & Vacation Balance Update:**
-     - Click **Up (↑)** arrow next to Member 2 to move them above Member 1. Roster updates optimistically and persists via `PUT /api/users/reorder/group`.
-     - Edit Member 1 Vacation Balance from `18` to `20.5` (supporting fractional days). Click row Save icon.
-- **THEN:**
-  1. Shift Types and Time Slots update reliably with green toasts.
-  2. TimeSlotsTab warnings enforce strict active-duty boundaries preventing accidental non-working linkages.
-  3. Member order updates optimistically and persists.
-  4. Vacation balance dispatches `PATCH /api/users/:id/manager-update` with `{ "vacationBalance": 20.5 }` and displays green Toast: `"User updated"`.
-- **Must Not:** Allow non-managers to view or access this interface, or permit vacation types to be linked without dynamic warnings.
-- **Failure Consequence:** Corrupted automated shift reports, scheduling overlaps, and stale roster hierarchies.
+     - Locate member `10002`.
+     - Update Vacation Balance to `19.5` and toggle Shift Manager status.
+     - Click Save. Green Toast: `"User updated"`.
+- **Must Not:** Permit invalid color codes or overlapping time slot bounds.
+- **Failure Consequence:** Corrupted duty calculations and unreadable shift badges.
 
 ---
 
 ### Test Case 3.6: Admin User & Group Oversight (CRUD, Roles & Live Population)
 
-- **Objective:** Verify global administrators can create groups, edit user memberships, and inspect population statistics.
-- **Preconditions:** Authenticated as Admin `10001` with active group `hunting_lodge_admin`.
-- **GIVEN:** User is at `http://localhost:5173/admin/users`.
+- **Objective:** Verify system administrators can inspect global user rosters, assign groups, toggle active statuses, and create operational groups.
+- **Preconditions:** Authenticated as Super Admin `10001` with active group `ADMINISTRATORS`.
+- **GIVEN:** User is on `/admin/users`.
 - **WHEN:**
-  1. Switch to **"Groups"** view mode.
-  2. Click **"+ Add Group"**, Name: `Tier 3 Escalations`. Click **"Save"**.
-  3. Switch to **"Users"** view mode.
-  4. Click Edit icon on `10002` (Regular User).
-  5. In assigned groups, add `Tier 3 Escalations` with role `Shift Manager`.
-  6. Click **"Save"**.
+  1. View Users table: verify columns for Username, Display Name, Email, Groups, Roles, Status, Actions.
+  2. Click **"+ Add Group"**: Name: `cyber_ops`, Site Tags: `Security`, `SOC`. Click Create.
+  3. Edit user `10002`: assign to `cyber_ops` as `member`.
 - **THEN:**
-  1. Group creation dispatches `POST /api/groups` and shows green Toast: `"Group created successfully"`.
-  2. User update dispatches `PUT /api/users/:id` and shows green Toast: `"User updated successfully"`.
-  3. User table row immediately displays `Tier 3 Escalations` chip.
-  4. Groups view mode reflects User Count increased to `1`.
-- **Must Not:** Drop existing group assignments when adding a new one.
-- **Failure Consequence:** Broken role assignments and administrative data desynchronization.
+  1. Green Toast: `"Group created successfully"`.
+  2. Groups table shows `cyber_ops` with member count `1`.
+  3. User `10002` displays chips for both `noc` and `cyber_ops`.
+- **Must Not:** Allow duplicate group names or unassigned orphaned groups.
+- **Failure Consequence:** Administrative confusion and untracked operational teams.
 
 ---
 
 ### Test Case 3.7: About & Support Dialog (Dynamic Vite Version & Support Hotline)
 
-- **Objective:** Verify the simplified About dialog renders developer attribution, support details, and the dynamic client version pin.
-- **Preconditions:** Authenticated as any persona.
-- **GIVEN:** Top Navigation Bar is visible.
-- **WHEN:**
-  1. Click the Help (`?`) icon button in the Navbar.
-  2. Inspect `AboutDialog.tsx`.
+- **Objective:** Verify application version metadata and support contact information render accurately.
+- **Preconditions:** Authenticated user on any page.
+- **GIVEN:** Navbar help / info button is visible.
+- **WHEN:** User clicks Help (`?`) icon -> selects **About Hunting Lodge**.
 - **THEN:**
-  1. Modal opens with title `"About & Support"`.
-  2. Attribution displays:
-     - Header: `"Developed by"`
-     - Name: `"Daniel Reifer"`
-     - Role: `"System Creator & Developer"`
-  3. Support section displays:
-     - Team: `"NOC Tacti"`
-     - Prominent hotline badge: `"0305-4851"`
-  4. Dynamic version indicator at bottom displays:
-     - Format: `v1.0.0` (matching `import.meta.env.VITE_APP_VERSION` or `package.json`).
-  5. Clicking **"Close"** button, pressing `Escape`, or clicking backdrop smoothly dismisses the modal.
-- **Must Not:** Hardcode stale version numbers or omit support phone contact.
-- **Failure Consequence:** Inability for users to report emergency bugs to the NOC Tacti team.
+  1. Dialog renders application title, current semantic version (`v1.0.0`), and environment tag.
+  2. Support hotline displays `0305-4851`.
+  3. Lead developer attribution is displayed: `Daniel Reifer`.
+- **Must Not:** Hardcode stale version numbers or break dialog dismissals.
+- **Failure Consequence:** Difficulty troubleshooting client release versions during incident escalations.
 
 ---
 
@@ -951,24 +904,26 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ### 6.1 Exception-to-Toast/Warning Mapping Matrix
 
-| Trigger / Action                       |       HTTP Status & Server Code       | Server Response Payload                                                                                           | Client UI Manifestation                                                                                   | UI Location                  |
-| :------------------------------------- | :-----------------------------------: | :---------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------- | :--------------------------- |
-| **Site Form: Empty Title/URL**         |            _N/A (Client)_             | Form validation aborted                                                                                           | Red `helperText`: `"Name is required"`, `"URL is required"`                                               | Inside Site Dialog           |
-| **Site Form: Server Save Error**       |               500 / 400               | `{ "message": "Failed to save site" }`                                                                            | Red Toast: `"Error saving site"`                                                                          | Bottom-Right (6s)            |
-| **Phone Form: Empty Name**             |            _N/A (Client)_             | Form validation aborted                                                                                           | Red `helperText`: `"Name is required"`                                                                    | Inside Phone Dialog          |
-| **Phone Form: Server Duplicate**       |               400 / 409               | `{ "message": "Phone number already exists" }`                                                                    | Red Alert banner: `{serverError}`                                                                         | Top of Phone Dialog          |
-| **Member Update: Negative Vacation**   |        400 `VALIDATION_ERROR`         | `{ "message": "Vacation balance must be a non-negative number" }`                                                 | Red Toast: `"Error updating user"`                                                                        | Bottom-Right (6s)            |
-| **Reorder: Malformed Body**            |        400 `VALIDATION_ERROR`         | `{ "message": "Invalid update item format: userId must be a valid ID..." }`                                       | Red Toast: `"Failed to update order"`                                                                     | Bottom-Right (6s)            |
-| **Report Edit: Locked Report**         |          400 `REPORT_LOCKED`          | `{ "message": "This shift report is locked and cannot be edited.", "code": "REPORT_LOCKED" }`                     | Red Toast: `"Error saving report"`                                                                        | Bottom-Right (6s)            |
-| **Delete Non-Empty Group**             |         _N/A (Client Guard)_          | Delete button disabled                                                                                            | Tooltip: `"Cannot delete group with active members"`                                                      | Admin Groups Table           |
-| **Admin Self-Deletion Call**           |     403 `FORBIDDEN_SELF_DELETION`     | `{ "message": "Forbidden: Administrators cannot delete their own accounts.", "code": "FORBIDDEN_SELF_DELETION" }` | Delete icon hidden; API call rejects with Red Toast                                                       | Admin Users Table            |
-| **Super Admin Deactivation**           | 403 `FORBIDDEN_SUPER_ADMIN_PROTECTED` | `{ "message": "System Security: The root Super Admin account cannot be deactivated." }`                           | Switch disabled; API call rejects with Red Toast                                                          | Admin Users Dialog           |
-| **Token Expired Call**                 |          401 `TOKEN_EXPIRED`          | `{ "message": "Unauthorized: Token expired", "code": "TOKEN_EXPIRED" }`                                           | Red Alert banner: `"Authentication failed. Please try again."`                                            | Login Page (`/login`)        |
-| **Deactivated User Request**           |          401 `USER_INACTIVE`          | `{ "message": "Unauthorized: User not found or inactive", "code": "USER_INACTIVE" }`                              | Red Alert banner: `"Authentication failed. Please try again."`                                            | Login Page (`/login`)        |
-| **TimeSlotsTab: Vacation Linked**      |         _N/A (Client Guard)_          | Non-blocking dynamic warning                                                                                      | Inline Dialog Alert (`warning`): `"Warning: One or more selected shift types are marked as non-working..."` | Add/Edit Time Slot Dialog    |
-| **What's New: Acknowledgement Error**  |              500 / Conn               | `{ "message": "Failed to acknowledge What's New" }`                                                               | Red Error Alert: `"Unable to save your acknowledgement at this time. Please check your connection..."`     | Inside What's New Modal      |
-| **Vacation: Insufficient Balance**     |         _N/A (Client Guard)_          | Booking disabled                                                                                                  | Red Error Alert: `"Insufficient vacation balance. You cannot book {vacationValue} day..."`                | Inside VacationModal         |
-| **Vacation Status: Non-Manager**       | 403 `FORBIDDEN_SHIFT_MANAGER_REQUIRED` | `{ "message": "Forbidden: You must be an explicit Shift Manager...", "code": "FORBIDDEN_SHIFT_MANAGER_REQUIRED" }` | Request rejected; Red Toast: `"Forbidden"`                                                                | Bottom-Right (6s)            |
+| Trigger / Action                       |       HTTP Status & Server Code       | Server Response Payload                                                                                              | Client UI Manifestation                                                                                   | UI Location                  |
+| :------------------------------------- | :-----------------------------------: | :------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------- | :--------------------------- |
+| **Site Form: Empty Title/URL**         |            _N/A (Client)_             | Form validation aborted                                                                                              | Red `helperText`: `"Name is required"`, `"URL is required"`                                               | Inside Site Dialog           |
+| **Site Form: Server Save Error**       |               500 / 400               | `{ "message": "Failed to save site" }`                                                                               | Red Toast: `"Error saving site"`                                                                          | Bottom-Right (6s)            |
+| **Phone Form: Empty Name**             |            _N/A (Client)_             | Form validation aborted                                                                                              | Red `helperText`: `"Name is required"`                                                                    | Inside Phone Dialog          |
+| **Phone Form: Server Duplicate**       |               400 / 409               | `{ "message": "Phone number already exists" }`                                                                       | Red Alert banner: `{serverError}`                                                                         | Top of Phone Dialog          |
+| **Member Update: Negative Vacation**   |        400 `VALIDATION_ERROR`         | `{ "message": "Vacation balance must be a non-negative number" }`                                                    | Red Toast: `"Error updating user"`                                                                        | Bottom-Right (6s)            |
+| **Reorder: Malformed Body**            |        400 `VALIDATION_ERROR`         | `{ "message": "Invalid update item format: userId must be a valid ID..." }`                                          | Red Toast: `"Failed to update order"`                                                                     | Bottom-Right (6s)            |
+| **Report Edit: Locked Report**         |          400 `REPORT_LOCKED`          | `{ "message": "This shift report is locked and cannot be edited.", "code": "REPORT_LOCKED" }`                        | Red Toast: `"Error saving report"`                                                                        | Bottom-Right (6s)            |
+| **Report: Duplicate Title Collision**  |          409 `DUPLICATE_KEY`          | `{ "message": "Duplicate value for 'title'. An entry with this title already exists.", "code": "DUPLICATE_KEY" }`   | Red Toast: `"Error saving report"`                                                                        | Bottom-Right (6s)            |
+| **Delete Non-Empty Group**             |         _N/A (Client Guard)_          | Delete button disabled                                                                                               | Tooltip: `"Cannot delete group with active members"`                                                      | Admin Groups Table           |
+| **Admin Self-Deletion Call**           |     403 `FORBIDDEN_SELF_DELETION`     | `{ "message": "Forbidden: Administrators cannot delete their own accounts.", "code": "FORBIDDEN_SELF_DELETION" }`    | Delete icon hidden; API call rejects with Red Toast                                                       | Admin Users Table            |
+| **Super Admin Deactivation**           | 403 `FORBIDDEN_SUPER_ADMIN_PROTECTED` | `{ "message": "System Security: The root Super Admin account cannot be deactivated." }`                              | Switch disabled; API call rejects with Red Toast                                                          | Admin Users Dialog           |
+| **Expired Token / Silent Refresh**     | 401 `TOKEN_EXPIRED` -> Refresh Retried| `{ "token": "..." }` on refresh success; `{ "code": "NO_REFRESH_TOKEN" }` on refresh fail                            | Transparent retry without interruption; or redirect to `/login?error=session_expired` with red alert banner | Background / Login Screen    |
+| **Deactivated User Request**           |          401 `USER_INACTIVE`          | `{ "message": "Unauthorized: User not found or inactive", "code": "USER_INACTIVE" }`                                 | Red Alert banner: `"Authentication failed. Please try again."`                                            | Login Page (`/login`)        |
+| **Readiness Probe: DB Disconnected**   |            503 `DEGRADED`             | `{ "status": "DEGRADED", "database": { "status": "disconnected", "readyState": 0 } }`                                | Pod detached from OpenShift service routing (no 502/504 served to end users)                              | OpenShift / K8s Ingress      |
+| **TimeSlotsTab: Vacation Linked**      |         _N/A (Client Guard)_          | Non-blocking dynamic warning                                                                                         | Inline Dialog Alert (`warning`): `"Warning: One or more selected shift types are marked as non-working..."` | Add/Edit Time Slot Dialog    |
+| **What's New: Acknowledgement Error**  |              500 / Conn               | `{ "message": "Failed to acknowledge What's New" }`                                                                  | Red Error Alert: `"Unable to save your acknowledgement at this time. Please check your connection..."`     | Inside What's New Modal      |
+| **Vacation: Insufficient Balance**     |         _N/A (Client Guard)_          | Booking disabled                                                                                                     | Red Error Alert: `"Insufficient vacation balance. You cannot book {vacationValue} day..."`                | Inside VacationModal         |
+| **Vacation Status: Non-Manager**       | 403 `FORBIDDEN_SHIFT_MANAGER_REQUIRED` | `{ "message": "Forbidden: You must be an explicit Shift Manager...", "code": "FORBIDDEN_SHIFT_MANAGER_REQUIRED" }`  | Request rejected; Red Toast: `"Forbidden"`                                                                | Bottom-Right (6s)            |
 
 ---
 
@@ -1112,6 +1067,32 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ---
 
+### Test Case 4.7: Duplicate Shift Report Title Rejection (Duplicate Key Guard)
+
+- **Objective:** Verify that the compound unique index `{ groupId: 1, title: 1 }` prevents creating two shift reports with the identical title within the same group, returning HTTP 409 `DUPLICATE_KEY`.
+- **Preconditions:** Authenticated in group `noc`. A report with title `"Morning Handover 2026-10-07"` already exists in `noc`.
+- **GIVEN:** User opens `http://localhost:5173/reports` to create a new shift report.
+- **WHEN:** User enters Title `"Morning Handover 2026-10-07"`, fills the required task fields, and clicks **"Save Report"**.
+- **THEN:**
+  1. Client sends `POST /api/reports` with `{ groupId: "noc_id", title: "Morning Handover 2026-10-07", ... }`.
+  2. MongoDB driver throws a duplicate key violation (MongoServerError code 11000) on unique index `{ groupId: 1, title: 1 }`.
+  3. `errorMiddleware.ts` catches error 11000 and responds with HTTP 409 Conflict:
+     ```json
+     {
+       "message": "Duplicate value for 'title'. An entry with this title already exists.",
+       "code": "DUPLICATE_KEY"
+     }
+     ```
+  4. Client surfaces red Toast notification:
+     ```text
+     "Error saving report"
+     ```
+  5. The existing report remains unchanged and is not overwritten or corrupted.
+- **Must Not:** Overwrite existing shift logs or create duplicate reports with identical titles in the same group.
+- **Failure Consequence:** Concurrent worker collisions, duplicated handover logs, and operational confusion.
+
+---
+
 ## 7. Suite 5: Cross-Cutting & System-Wide Checks
 
 ### Test Case 5.1: Light & Dark Mode Contrast Verification
@@ -1182,22 +1163,97 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 
 ---
 
+### Test Case 5.5: Container Health Probes Verification (OpenShift / Kubernetes)
+
+- **Objective:** Verify that OpenShift and Kubernetes container lifecycle health probes respond accurately and adhere to non-blocking zero-overhead execution.
+- **Preconditions:** Backend server running on `http://localhost:5000` with MongoDB running.
+- **GIVEN:** HTTP client / container orchestrator probe runner.
+- **WHEN:**
+  1. Dispatch `GET /healthz` (Liveness Probe).
+  2. Dispatch `GET /api/health` (Readiness Probe).
+  3. Dispatch `GET /startup` or `GET /api/startup` (Startup Probe).
+- **THEN:**
+  1. **Liveness Probe (`/healthz`):**
+     - Returns HTTP 200 OK:
+       ```json
+       {
+         "status": "UP",
+         "timestamp": "2026-10-07T...",
+         "uptime": 12.345,
+         "environment": "nonprod"
+       }
+       ```
+     - Validates process responsiveness purely in-memory without querying MongoDB.
+  2. **Readiness Probe (`/api/health`):**
+     - When MongoDB is connected (`readyState === 1`): Returns HTTP 200 OK:
+       ```json
+       {
+         "status": "UP",
+         "timestamp": "2026-10-07T...",
+         "uptime": 12.345,
+         "environment": "nonprod",
+         "database": {
+           "status": "connected",
+           "readyState": 1
+         }
+       }
+       ```
+     - When MongoDB connection is severed (`readyState !== 1`): Returns HTTP 503 Service Unavailable:
+       ```json
+       {
+         "status": "DEGRADED",
+         "timestamp": "2026-10-07T...",
+         "uptime": 12.345,
+         "environment": "nonprod",
+         "database": {
+           "status": "disconnected",
+           "readyState": 0
+         }
+       }
+       ```
+     - Causes OpenShift Service endpoints to automatically isolate the pod from receiving ingress traffic.
+  3. **Startup Probe (`/startup`):**
+     - Returns HTTP 200 OK with `initialized: true` once database connection is established.
+- **Must Not:** Query database collections or perform heavy I/O in the liveness probe, which risks container termination during traffic spikes.
+- **Failure Consequence:** Unhealthy pods receiving user traffic or healthy containers killed prematurely by orchestrator liveness checks.
+
+---
+
 ## 8. Test Execution & Sign-Off Checklist
+
+### Automated Test Verification Commands
+
+Run the following commands across the workspaces to verify all unit, component, integration, and type checks:
+
+```bash
+# 1. Typecheck Server & Client:
+npm run typecheck --workspace=server
+npm run build --workspace=client
+
+# 2. Run Client Unit and Component Tests (Vitest):
+npm run test:client
+
+# 3. Run Server Backend Integration & Model Tests:
+npm run test:server
+# (Executes: node --import tsx --test src/test/**/*.test.ts src/test/**/*.test.tsx)
+```
+
+### Manual Sign-Off Verification Matrix
 
 | Suite                      | Test Case Ref | Target Area & Scenario               | Expected Deterministic Indicator                          |        Status         | Tester | Date | Notes |
 | :------------------------- | :------------ | :----------------------------------- | :-------------------------------------------------------- | :-------------------: | :----: | :--: | :---- |
 | **Suite 1: SSO & Auth**    | **1.1**       | New User Auto-Provisioning           | Redirect to `/guest`, user record in DB, hasSeenWhatsNew  | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **1.2**       | Returning User Login                 | `lastLogin` timestamp updated; land on `/`; check modal   | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.3**       | Super Admin Claim Elevation          | Dynamic assignment to `hunting_lodge_admin`               | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.3**       | Super Admin Claim Elevation          | Dynamic assignment to `ADMINISTRATORS` group              | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **1.4**       | Missing Claim Fallbacks              | Synthetic email `@organization.local` created             | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.5**       | Invalid SSO Auth Code                | Red alert: `"Authentication failed. Please try again."`   | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.5**       | Invalid SSO Auth Code / IdP Errors   | Red alert: `"Authentication failed. Please try again."`   | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **1.6**       | Auth Rate Limiting                   | HTTP 429; Red toast `"Failed to connect to SSO..."`       | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **1.7**       | In-Flight Request Deduplication      | Single HTTP request recorded in DevTools                  | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.8**       | Global 401 Interceptor               | Tokens purged; `/login?error=session_expired`             | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.8**       | Global 401 Silent Refresh Flow       | Silent retry via `/auth/refresh`; purge only on fail      | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **1.9**       | 30s Cache TTL & Deactivation         | HTTP 401 `USER_INACTIVE` after 30 seconds                 | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.10**      | Expired JWT Rejection                | HTTP 401 `TOKEN_EXPIRED`; redirect to login               | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.10**      | Expired JWT Rejection & Retry        | 401 `TOKEN_EXPIRED`; silent refresh retry; login fallback | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **1.11**      | Unauthenticated Deep Linking         | Forced redirect to `/login`; Navbar hidden                | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **1.12**      | What's New Modal Wizard Lifecycle    | 4-slide wizard; PATCH acknowledgement; reload persistent  | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **1.12**      | What's New Modal Wizard Lifecycle    | 4 slides; button `"Got it, let's explore!"`; PATCH pers.  | `[ ] Pass` `[ ] Fail` |        |      |       |
 | **Suite 2: RBAC**          | **2.1**       | Guest Route Confinement              | Intercept to `/guest`; `"Pending Approval"` box           | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **2.2**       | Member / Admin Schedule View         | Published Only; inert cells; Save/Publish hidden          | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **2.3**       | Member / Admin Report Delete Block   | View & Create/Edit only; Delete button hidden; HTTP 403   | `[ ] Pass` `[ ] Fail` |        |      |       |
@@ -1208,12 +1264,12 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 |                            | **2.8**       | Admin Navbar & Context Switch        | Red avatar & Admin button toggles on group switch         | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **2.9**       | Admin Self-Deletion Lock             | Delete button hidden for self; HTTP 403 block             | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **2.10**      | Root Super Admin Protection          | Active switch disabled; Delete button hidden              | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.11**      | System Group Lifecycle Locks         | Delete button hidden; Rename field disabled               | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **2.12**      | Vacation Request Lifecycle & Quota   | VacationModal 0.5/1.0; manager approval; balance updated  | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.11**      | System Group Lifecycle Locks         | Delete button hidden; Rename disabled for `ADMINISTRATORS`| `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **2.12**      | Vacation Request Lifecycle & Quota   | VacationModal 0.5/1.0; projected balance; manager approval| `[ ] Pass` `[ ] Fail` |        |      |       |
 | **Suite 3: Happy Path**    | **3.1**       | Sites CRUD & Tag Management          | Green toasts on save/delete; tag chips filter             | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **3.2**       | Phones Directory & Multi-Number      | Auto-formatting; `PhoneDetailsDialog` opens               | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **3.3**       | Schedule Grid & Fullscreen           | Week navigation; Fullscreen toggle via ESC                | `[ ] Pass` `[ ] Fail` |        |      |       |
-|                            | **3.4**       | Shift Reports Full Lifecycle         | Auto-shift calculation; Tiptap rich-text formatting       | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **3.4**       | Shift Reports Full Lifecycle         | Auto-shift times; Tiptap editor; unique index {group,title}| `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **3.5**       | Group Settings & Slot Guard Warnings | Active duty advisory banner; dynamic vacation Alert       | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **3.6**       | Admin Users & Groups Oversight       | Dual-table view; real-time population metrics             | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **3.7**       | About & Support Dialog               | Pin `v1.0.0`; hotline `0305-4851`; Daniel Reifer          | `[ ] Pass` `[ ] Fail` |        |      |       |
@@ -1223,10 +1279,12 @@ Permissions in `UserContext.tsx` and server authorization middleware are dynamic
 |                            | **4.4**       | Malformed Reorder Zod Payload        | HTTP 400 `VALIDATION_ERROR`; Red toast                    | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **4.5**       | Locked Shift Report Guard            | HTTP 400 `REPORT_LOCKED`; Red toast                       | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **4.6**       | Delete Non-Empty Group Guard         | Delete button disabled; member warning tooltip            | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **4.7**       | Duplicate Shift Report Title Guard   | HTTP 409 `DUPLICATE_KEY`; duplicate title blocked         | `[ ] Pass` `[ ] Fail` |        |      |       |
 | **Suite 5: Cross-Cutting** | **5.1**       | Light & Dark Mode Contrast           | Theme switch; contrast ratio; `localStorage` save         | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **5.2**       | Mobile Viewport Responsiveness       | Hamburger drawer; single column card stack                | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **5.3**       | Toast Notification Auto-Dismiss      | 3000ms for success; 6000ms for error                      | `[ ] Pass` `[ ] Fail` |        |      |       |
 |                            | **5.4**       | Custom 404 Route Fallback            | Branded 404 card with Return to Home button               | `[ ] Pass` `[ ] Fail` |        |      |       |
+|                            | **5.5**       | Container Health Probes Verification | `/healthz`, `/api/health`, `/startup` return HTTP 200 `UP`| `[ ] Pass` `[ ] Fail` |        |      |       |
 
 ---
 

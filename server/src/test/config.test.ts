@@ -6,7 +6,7 @@ import keys from "../config/keys";
 import sso from "../config/sso";
 import passport from "../config/passport";
 import { parseTrustProxy, deepFreeze, detectAppEnv, validateServerEnv } from "../config/env";
-import { isOriginAllowed, createCorsOptions, resolveConfiguredOrigins } from "../config/corsOptions";
+import { isOriginAllowed, resolveConfiguredOrigins } from "../config/corsOptions";
 
 describe("TypeScript Configuration Modules Verification", () => {
     describe("1. Central ServerConfig (config/index.ts)", () => {

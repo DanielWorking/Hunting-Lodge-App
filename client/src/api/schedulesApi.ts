@@ -20,7 +20,8 @@ import apiClient from "./apiClient";
  * @param  {string|Date}   params.date     The start date of the schedule period (e.g. week start in ISO format).
  * @returns {Promise<import("axios").AxiosResponse<any>>} Axios promise resolving to the shift schedule record.
  */
-export const getSchedule = (params: any) => apiClient.get("/schedules", { params });
+export const getSchedule = (params: any, options?: { signal?: AbortSignal }) =>
+    apiClient.get("/schedules", { params, signal: options?.signal });
 
 /**
  * Retrieves all shift schedules for a specific group.

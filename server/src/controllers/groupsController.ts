@@ -81,11 +81,12 @@ export async function getGroups(req: Request, res: Response, next?: NextFunction
             groups = await Group.find({ _id: { $in: userGroupIds } }).lean();
         }
 
-        // Query the User collection using an optimized aggregation pipeline (with fallback for unit test mocks)
+        // Query the User collection using an optimized aggregation pipeline with batch fallback
         let groupsWithCounts: GroupWithUserCount[];
-        if (mongoose.connection && mongoose.connection.readyState === 1 && typeof User.aggregate === "function") {
-            try {
-                const groupIds = groups.map((g) => g._id);
+        const groupIds = groups.map((g) => g._id);
+
+        try {
+            if (typeof User.aggregate === "function") {
                 const userCounts = await User.aggregate<{ _id: Types.ObjectId | string | null; count: number }>([
                     { $match: { "groups.groupId": { $in: groupIds } } },
                     { $project: { "groups.groupId": 1 } },
@@ -107,33 +108,47 @@ export async function getGroups(req: Request, res: Response, next?: NextFunction
                 } else {
                     throw new Error("Aggregation returned non-array");
                 }
-            } catch {
-                groupsWithCounts = await Promise.all(
-                    groups.map(async (group) => {
-                        const realCount = await User.countDocuments({
-                            "groups.groupId": group._id,
-                        });
-                        return {
-                            ...group,
-                            userCount: realCount,
-                            isSystemGroup: group.name === config.superAdmin.groupName,
-                        };
-                    }),
-                );
+            } else {
+                throw new Error("User.aggregate is unavailable");
             }
-        } else {
-            groupsWithCounts = await Promise.all(
-                groups.map(async (group) => {
-                    const realCount = await User.countDocuments({
-                        "groups.groupId": group._id,
-                    });
-                    return {
-                        ...group,
-                        userCount: realCount,
-                        isSystemGroup: group.name === config.superAdmin.groupName,
-                    };
-                }),
-            );
+        } catch (aggError: unknown) {
+            console.error("MongoDB group aggregation failed, using single batch fallback (no N+1 loops):", aggError);
+            try {
+                // Batch query all users for matching groups in a single operation
+                const userDocs = await User.find(
+                    { "groups.groupId": { $in: groupIds } },
+                    { "groups.groupId": 1 },
+                ).lean();
+
+                const countMap = new Map<string, number>();
+                if (Array.isArray(userDocs)) {
+                    for (const u of userDocs as any[]) {
+                        if (Array.isArray(u.groups)) {
+                            for (const g of u.groups) {
+                                const gid = g?.groupId && typeof g.groupId === "object" && "_id" in g.groupId
+                                    ? String(g.groupId._id)
+                                    : String(g?.groupId);
+                                if (gid) {
+                                    countMap.set(gid, (countMap.get(gid) || 0) + 1);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                groupsWithCounts = groups.map((group) => ({
+                    ...group,
+                    userCount: countMap.get(group._id ? group._id.toString() : "") || 0,
+                    isSystemGroup: group.name === config.superAdmin.groupName,
+                }));
+            } catch {
+                // Safe zero fallback if batch query also fails; prevents database overload
+                groupsWithCounts = groups.map((group) => ({
+                    ...group,
+                    userCount: 0,
+                    isSystemGroup: group.name === config.superAdmin.groupName,
+                }));
+            }
         }
 
         res.json(groupsWithCounts);

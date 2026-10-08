@@ -6,7 +6,7 @@
  * as well as full group management.
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Container, Typography, Box } from "@mui/material";
 import { Navigate } from "react-router-dom";
 import { updateUser, deleteUser } from "../api/usersApi";
@@ -62,16 +62,22 @@ export default function AdminPage() {
     const [deleteItem, setDeleteItem] = useState<User | Group | null>(null);
 
     // --- Filtering ---
-    const filteredUsers = users.filter(
-        (u) =>
-            u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (u.displayName &&
-                u.displayName.toLowerCase().includes(searchTerm.toLowerCase())),
-    );
+    const filteredUsers = useMemo(() => {
+        const lowerSearch = searchTerm.toLowerCase();
+        return users.filter(
+            (u) =>
+                u.username.toLowerCase().includes(lowerSearch) ||
+                (u.displayName &&
+                    u.displayName.toLowerCase().includes(lowerSearch)),
+        );
+    }, [users, searchTerm]);
 
-    const filteredGroups = groups.filter((g) =>
-        g.name.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
+    const filteredGroups = useMemo(() => {
+        const lowerSearch = searchTerm.toLowerCase();
+        return groups.filter((g) =>
+            g.name.toLowerCase().includes(lowerSearch),
+        );
+    }, [groups, searchTerm]);
 
     // --- Handlers ---
 

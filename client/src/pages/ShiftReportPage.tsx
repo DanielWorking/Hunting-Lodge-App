@@ -7,7 +7,7 @@
  * archive sidebar organized by date.
  */
 
-import { useState, useEffect, useRef, useCallback, type SyntheticEvent } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type SyntheticEvent } from "react";
 import {
     Container,
     Paper,
@@ -468,6 +468,8 @@ export default function ShiftReportPage() {
 
     const isDirtyRef = useRef(false);
     const selectedReportRef = useRef<ShiftReport | null>(null);
+    const reportsRef = useRef<ShiftReport[]>(reports);
+    const isMountedRef = useRef(true);
 
     // Keep synchronization refs up-to-date with current state
     useEffect(() => {
@@ -477,6 +479,10 @@ export default function ShiftReportPage() {
     useEffect(() => {
         selectedReportRef.current = selectedReport;
     }, [selectedReport]);
+
+    useEffect(() => {
+        reportsRef.current = reports;
+    }, [reports]);
 
     // Tree navigation state for the archive sidebar
     const [openYears, setOpenYears] = useState<{ [key: string]: boolean }>({});
@@ -488,10 +494,14 @@ export default function ShiftReportPage() {
 
     const [deleteReportId, setDeleteReportId] = useState<string | null>(null);
 
-    const groupUsers = users.filter((u) =>
-        u.groups.some(
-            (g) => g.groupId === currentGroup?._id,
-        ),
+    const groupUsers = useMemo(
+        () =>
+            users.filter((u) =>
+                u.groups.some(
+                    (g) => g.groupId === currentGroup?._id,
+                ),
+            ),
+        [users, currentGroup?._id],
     );
 
     const groupId = currentGroup?._id;
@@ -508,23 +518,26 @@ export default function ShiftReportPage() {
         async (isBackground = false) => {
             if (!groupId) return;
             try {
-                if (!isBackground) setLoading(true);
+                if (!isBackground && isMountedRef.current) setLoading(true);
 
                 const res = await getReports({ groupId });
+                if (!isMountedRef.current) return;
+
                 const incomingReports: ShiftReport[] = Array.isArray(res.data)
                     ? res.data
                     : [];
 
-                // Check if a new report was added (for notification purposes)
-                setReports((prevReports) => {
-                    if (
-                        incomingReports.length > prevReports.length &&
-                        prevReports.length > 0
-                    ) {
-                        showNotification("New shift report received", "info");
-                    }
-                    return incomingReports;
-                });
+                // Check if a new report was added (for notification purposes) safely outside state updater
+                if (
+                    incomingReports.length > reportsRef.current.length &&
+                    reportsRef.current.length > 0 &&
+                    isMountedRef.current
+                ) {
+                    showNotification("New shift report received", "info");
+                }
+                setReports(incomingReports);
+
+                if (!isMountedRef.current) return;
 
                 // Auto-select the most recent report ONLY if none is currently active
                 if (!selectedReportRef.current && incomingReports.length > 0) {
@@ -545,9 +558,10 @@ export default function ShiftReportPage() {
                 // When isDirtyRef.current is true, incoming polling results are shielded:
                 // selectedReport remains untouched so user edits are not reverted.
             } catch (error) {
+                if (!isMountedRef.current) return;
                 console.error(error);
             } finally {
-                if (!isBackground) setLoading(false);
+                if (!isBackground && isMountedRef.current) setLoading(false);
             }
         },
         [groupId, showNotification],
@@ -555,7 +569,7 @@ export default function ShiftReportPage() {
 
     useEffect(() => {
         if (!groupId) return;
-        let isMounted = true;
+        isMountedRef.current = true;
 
         const loadReports = async () => {
             await fetchReports(false);
@@ -564,14 +578,14 @@ export default function ShiftReportPage() {
 
         // Set up background polling every 30 seconds
         const intervalId = setInterval(() => {
-            if (isMounted) {
+            if (isMountedRef.current) {
                 void fetchReports(true); // true = silent background load
             }
         }, 30000);
 
         // Cleanup timer on unmount or group change
         return () => {
-            isMounted = false;
+            isMountedRef.current = false;
             clearInterval(intervalId);
         };
     }, [groupId, fetchReports]);
@@ -792,21 +806,23 @@ export default function ShiftReportPage() {
     };
 
     // Organize reports into a hierarchical structure for the archive tree
-    const organizedReports = reports.reduce<
-        Record<string, Record<string, Record<string, ShiftReport[]>>>
-    >((acc, report) => {
-        const date = new Date(report.startTime);
-        const year = String(date.getFullYear());
-        const month = date.toLocaleString("default", { month: "long" });
-        const day = format(date, "dd/MM/yyyy");
+    const organizedReports = useMemo(() => {
+        return reports.reduce<
+            Record<string, Record<string, Record<string, ShiftReport[]>>>
+        >((acc, report) => {
+            const date = new Date(report.startTime);
+            const year = String(date.getFullYear());
+            const month = date.toLocaleString("default", { month: "long" });
+            const day = format(date, "dd/MM/yyyy");
 
-        if (!acc[year]) acc[year] = {};
-        if (!acc[year][month]) acc[year][month] = {};
-        if (!acc[year][month][day]) acc[year][month][day] = [];
+            if (!acc[year]) acc[year] = {};
+            if (!acc[year][month]) acc[year][month] = {};
+            if (!acc[year][month][day]) acc[year][month][day] = [];
 
-        acc[year][month][day].push(report);
-        return acc;
-    }, {});
+            acc[year][month][day].push(report);
+            return acc;
+        }, {});
+    }, [reports]);
 
     /**
      * Toggles the expansion state of a year in the archive sidebar.

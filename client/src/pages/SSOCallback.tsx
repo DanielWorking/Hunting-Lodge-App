@@ -62,10 +62,7 @@ export default function SSOCallback() {
                 const token = data.token;
 
                 if (user && user._id) {
-                    // Persist the JWT token and user identifier for session persistence.
-                    if (token) {
-                        localStorage.setItem("hunting_token", token);
-                    }
+                    // Session persistence is managed exclusively via secure httpOnly cookies.
                     localStorage.setItem("hunting_userId", user._id);
 
                     if (Array.isArray(user.groups) && user.groups.length > 0) {

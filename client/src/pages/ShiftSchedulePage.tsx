@@ -22,6 +22,7 @@ import {
 } from "@mui/material";
 import { type TransitionProps } from "@mui/material/transitions";
 import React from "react";
+import axios from "axios";
 import {
     startOfWeek,
     endOfWeek,
@@ -132,40 +133,63 @@ export default function ShiftSchedulePage() {
      * 
      * @returns {Promise<void>}
      */
-    const fetchSchedule = useCallback(async () => {
-        try {
-            setLoading(true);
-            const groupId = currentGroup?._id;
+    const fetchSchedule = useCallback(
+        async (signal?: AbortSignal) => {
+            try {
+                setLoading(true);
+                const groupId = currentGroup?._id;
 
-            const response = await getSchedule({ groupId, date: weekStart.toISOString() });
+                const response = await getSchedule(
+                    { groupId, date: weekStart.toISOString() },
+                    { signal }
+                );
 
-            const data = response.data;
-            setScheduleData(data);
+                const data = response.data;
+                setScheduleData(data);
 
-            if (data && data.shifts) {
-                const parsedShifts: LocalShift[] = data.shifts.map((s: ShiftAssignment) => ({
-                    userId: String(s.userId),
-                    shiftTypeId: String(s.shiftTypeId),
-                    date: parseISO(typeof s.date === "string" ? s.date : (s.date as Date).toISOString()),
-                    vacationDeducted: s.vacationDeducted,
-                    vacationValue: s.vacationValue,
-                }));
-                setShifts(parsedShifts);
-            } else {
-                setShifts([]);
+                if (data && data.shifts) {
+                    const parsedShifts: LocalShift[] = data.shifts.map((s: ShiftAssignment) => ({
+                        userId: String(s.userId),
+                        shiftTypeId: String(s.shiftTypeId),
+                        date: parseISO(typeof s.date === "string" ? s.date : (s.date as Date).toISOString()),
+                        vacationDeducted: s.vacationDeducted,
+                        vacationValue: s.vacationValue,
+                    }));
+                    setShifts(parsedShifts);
+                } else {
+                    setShifts([]);
+                }
+            } catch (error: unknown) {
+                if (
+                    axios.isCancel(error) ||
+                    (typeof error === "object" &&
+                        error !== null &&
+                        ((error as { name?: string }).name === "CanceledError" ||
+                            (error as { name?: string }).name === "AbortError"))
+                ) {
+                    // Ignore aborted requests to prevent race-condition notification flashes
+                    return;
+                }
+                console.error(error);
+                showNotification("Error loading schedule", "error");
+            } finally {
+                if (!signal?.aborted) {
+                    setLoading(false);
+                }
             }
-        } catch (error) {
-            console.error(error);
-            showNotification("Error loading schedule", "error");
-        } finally {
-            setLoading(false);
-        }
-    }, [currentGroup?._id, weekStart, showNotification]);
+        },
+        [currentGroup?._id, weekStart, showNotification],
+    );
 
     useEffect(() => {
-        if (currentGroup) {
-            fetchSchedule();
-        }
+        if (!currentGroup) return;
+
+        const abortController = new AbortController();
+        void fetchSchedule(abortController.signal);
+
+        return () => {
+            abortController.abort();
+        };
     }, [currentGroup, fetchSchedule]);
 
     useEffect(() => {

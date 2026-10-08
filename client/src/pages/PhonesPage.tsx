@@ -6,7 +6,7 @@
  * and deleting phone numbers, as well as toggling favorite status.
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Container } from "@mui/material";
 import { createPhone, updatePhone, deletePhone, toggleFavoritePhone } from "../api/phonesApi";
 
@@ -186,34 +186,36 @@ export default function PhonesPage() {
 
     // === Filtering & Sorting Logic ===
 
-    const filteredPhones = phones.filter((phone) => {
+    const sortedPhones = useMemo(() => {
         const searchLower = searchTerm.toLowerCase();
         const searchDigits = searchTerm.replace(/\D/g, "");
 
-        const matchText =
-            phone.name.toLowerCase().includes(searchLower) ||
-            phone.description.toLowerCase().includes(searchLower);
+        const filtered = phones.filter((phone) => {
+            const matchText =
+                phone.name.toLowerCase().includes(searchLower) ||
+                phone.description.toLowerCase().includes(searchLower);
 
-        const matchNumber = phone.numbers.some((num) => {
-            const cleanNum = num.replace(/\D/g, "");
-            return (
-                num.includes(searchLower) ||
-                (searchDigits.length > 0 && cleanNum.includes(searchDigits))
-            );
+            const matchNumber = phone.numbers.some((num) => {
+                const cleanNum = num.replace(/\D/g, "");
+                return (
+                    num.includes(searchLower) ||
+                    (searchDigits.length > 0 && cleanNum.includes(searchDigits))
+                );
+            });
+
+            if (filterFav === "fav" && !phone.isFavorite) return false;
+
+            return matchText || matchNumber;
         });
 
-        if (filterFav === "fav" && !phone.isFavorite) return false;
-
-        return matchText || matchNumber;
-    });
-
-    const sortedPhones = [...filteredPhones].sort((a, b) => {
-        if (a.isFavorite && !b.isFavorite) return -1;
-        if (!a.isFavorite && b.isFavorite) return 1;
-        if (sortOrder === "name-asc") return a.name.localeCompare(b.name);
-        if (sortOrder === "name-desc") return b.name.localeCompare(a.name);
-        return 0;
-    });
+        return [...filtered].sort((a, b) => {
+            if (a.isFavorite && !b.isFavorite) return -1;
+            if (!a.isFavorite && b.isFavorite) return 1;
+            if (sortOrder === "name-asc") return a.name.localeCompare(b.name);
+            if (sortOrder === "name-desc") return b.name.localeCompare(a.name);
+            return 0;
+        });
+    }, [phones, searchTerm, filterFav, sortOrder]);
 
     // === Render ===
 

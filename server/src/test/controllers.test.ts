@@ -758,17 +758,17 @@ describe("Controller Cascading & Validation Rules", () => {
                 const userHolder = User as unknown as Record<string, unknown>;
 
                 const originalGroupFind = groupHolder.find;
-                const originalUserCount = userHolder.countDocuments;
+                const originalUserAggregate = userHolder.aggregate;
+                const originalUserFind = userHolder.find;
 
                 groupHolder.find = () => ({
                     lean: async () => [groupA, groupB, groupC],
                 });
 
-                userHolder.countDocuments = async (filter: Record<string, unknown>) => {
-                    if (filter["groups.groupId"] === groupA._id) return 1;
-                    if (filter["groups.groupId"] === groupB._id) return 5;
-                    return 0;
-                };
+                userHolder.aggregate = async () => [
+                    { _id: groupA._id, count: 1 },
+                    { _id: groupB._id, count: 5 },
+                ];
 
                 const regularAdminUser = {
                     _id: new mongoose.Types.ObjectId(),
@@ -792,7 +792,8 @@ describe("Controller Cascading & Validation Rules", () => {
                     assert.equal(list[2].userCount, 0);
                 } finally {
                     groupHolder.find = originalGroupFind;
-                    userHolder.countDocuments = originalUserCount;
+                    userHolder.aggregate = originalUserAggregate;
+                    userHolder.find = originalUserFind;
                 }
             });
         });

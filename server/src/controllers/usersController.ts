@@ -7,7 +7,7 @@
  */
 
 import { Request, Response, NextFunction } from "express";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import User, { IUser } from "../models/User";
 import Group from "../models/Group";
 import Site from "../models/Site";
@@ -254,7 +254,7 @@ export async function reorderUsers(req: Request, res: Response, next?: NextFunct
     }
 }
 
-export async function updateUser(req: Request, res: Response, _next?: NextFunction): Promise<void> {
+export async function updateUser(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
         const targetUserId = extractParamId(req.params.id);
         const requestingUser = req.user as AuthUser | undefined;
@@ -358,7 +358,45 @@ export async function updateUser(req: Request, res: Response, _next?: NextFuncti
         res.json(updatedUser);
     } catch (err: unknown) {
         console.error("Update user error:", err);
-        res.status(400).json({ message: "Invalid user update request" });
+
+        // Unmask Mongoose Schema Validation errors
+        if (
+            err instanceof mongoose.Error.ValidationError ||
+            (typeof err === "object" && err !== null && (err as { name?: string }).name === "ValidationError")
+        ) {
+            const validationErrors = Object.values(
+                (err as mongoose.Error.ValidationError).errors || {}
+            ).map((e) => e.message);
+
+            res.status(400).json({
+                message: (err as Error).message || "Validation failed",
+                code: "VALIDATION_ERROR",
+                errors: validationErrors.length > 0 ? validationErrors : undefined,
+            });
+            return;
+        }
+
+        // Unmask Mongoose Invalid ObjectId Cast Error
+        if (
+            err instanceof mongoose.Error.CastError ||
+            (typeof err === "object" && err !== null && (err as { name?: string }).name === "CastError")
+        ) {
+            const castErr = err as mongoose.Error.CastError;
+            res.status(400).json({
+                message: `Invalid format for field '${castErr.path || "field"}': ${String(castErr.value ?? "")}`,
+                code: "INVALID_IDENTIFIER",
+            });
+            return;
+        }
+
+        if (typeof next === "function") {
+            next(err);
+            return;
+        }
+
+        res.status(400).json({
+            message: err instanceof Error ? err.message : "Invalid user update request",
+        });
     }
 }
 
@@ -511,6 +549,37 @@ export async function managerUpdate(req: Request, res: Response, next?: NextFunc
         res.json(updatedUser);
     } catch (err: unknown) {
         console.error("Manager Update Error:", err);
+
+        // Unmask Mongoose Schema Validation errors
+        if (
+            err instanceof mongoose.Error.ValidationError ||
+            (typeof err === "object" && err !== null && (err as { name?: string }).name === "ValidationError")
+        ) {
+            const validationErrors = Object.values(
+                (err as mongoose.Error.ValidationError).errors || {}
+            ).map((e) => e.message);
+
+            res.status(400).json({
+                message: (err as Error).message || "Validation failed",
+                code: "VALIDATION_ERROR",
+                errors: validationErrors.length > 0 ? validationErrors : undefined,
+            });
+            return;
+        }
+
+        // Unmask Mongoose Invalid ObjectId Cast Error
+        if (
+            err instanceof mongoose.Error.CastError ||
+            (typeof err === "object" && err !== null && (err as { name?: string }).name === "CastError")
+        ) {
+            const castErr = err as mongoose.Error.CastError;
+            res.status(400).json({
+                message: `Invalid format for field '${castErr.path || "field"}': ${String(castErr.value ?? "")}`,
+                code: "INVALID_IDENTIFIER",
+            });
+            return;
+        }
+
         if (typeof next === "function") {
             next(err);
             return;

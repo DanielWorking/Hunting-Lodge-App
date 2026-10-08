@@ -134,6 +134,9 @@ let isJobRunning = false;
  */
 export function getTimeInJerusalem(date: Date = new Date()): JerusalemTime {
     try {
+        if (date !== undefined && (!(date instanceof Date) || isNaN(date.getTime()))) {
+            throw new Error(`Invalid Date provided to getTimeInJerusalem: ${String(date)}`);
+        }
         const validDate = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
         const formatter = new Intl.DateTimeFormat("en-US", {
             timeZone: "Asia/Jerusalem",
@@ -142,20 +145,32 @@ export function getTimeInJerusalem(date: Date = new Date()): JerusalemTime {
             hourCycle: "h23",
         });
         const parts = formatter.formatToParts(validDate);
-        const hourStr = parts.find((p) => p.type === "hour")?.value ?? "0";
-        const minStr = parts.find((p) => p.type === "minute")?.value ?? "0";
+        const hourStr = parts.find((p) => p.type === "hour")?.value;
+        const minStr = parts.find((p) => p.type === "minute")?.value;
+        if (hourStr === undefined || minStr === undefined) {
+            throw new Error("Intl.DateTimeFormat failed to produce hour or minute parts for Asia/Jerusalem");
+        }
         const rawHour = parseInt(hourStr, 10);
         const rawMin = parseInt(minStr, 10);
-        const hour = isNaN(rawHour) ? 0 : rawHour % 24;
-        const minute = isNaN(rawMin) ? 0 : rawMin % 60;
+        if (isNaN(rawHour) || isNaN(rawMin)) {
+            throw new Error(`Intl.DateTimeFormat produced non-numeric time parts: hour=${hourStr}, minute=${minStr}`);
+        }
+        const hour = rawHour % 24;
+        const minute = rawMin % 60;
         return { hour, minute };
-    } catch {
-        const safeDate = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
-        const hour = Number.isFinite(safeDate.getHours()) ? safeDate.getHours() % 24 : 0;
-        const minute = Number.isFinite(safeDate.getMinutes()) ? safeDate.getMinutes() % 60 : 0;
-        return { hour, minute };
+    } catch (error: unknown) {
+        const errorStack = error instanceof Error ? error.stack ?? error.message : String(error);
+        console.error("❌ [Cron] Asia/Jerusalem timezone calculation error:", errorStack);
+        throw new Error(
+            `Failed to calculate Jerusalem timezone: ${error instanceof Error ? error.message : String(error)}`
+        );
     }
 }
+
+/**
+ * Alias for getTimeInJerusalem to support getJerusalemTime naming.
+ */
+export const getJerusalemTime = getTimeInJerusalem;
 
 /**
  * Formats a Date into DD/MM/YYYY string in Asia/Jerusalem timezone.
@@ -165,6 +180,9 @@ export function getTimeInJerusalem(date: Date = new Date()): JerusalemTime {
  * @returns The formatted date string in DD/MM/YYYY format.
  */
 export function getJerusalemDateString(date: Date = new Date()): string {
+    if (date !== undefined && (!(date instanceof Date) || isNaN(date.getTime()))) {
+        throw new Error(`Invalid Date provided to getJerusalemDateString: ${String(date)}`);
+    }
     const validDate = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
     return validDate
         .toLocaleDateString("he-IL", {
@@ -182,7 +200,10 @@ export function getJerusalemDateString(date: Date = new Date()): string {
  */
 function getPartValue(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes): string {
     const part = parts.find((p) => p.type === type);
-    return part ? part.value : "0";
+    if (!part) {
+        throw new Error(`Intl.DateTimeFormat failed to produce part '${type}' for Asia/Jerusalem`);
+    }
+    return part.value;
 }
 
 /**
@@ -194,12 +215,21 @@ function getPartValue(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeForma
  * @returns Date object in UTC corresponding to the specified Jerusalem local time.
  */
 export function getJerusalemDate(refDate: Date, timeStr: string): Date {
+    if (refDate !== undefined && (!(refDate instanceof Date) || isNaN(refDate.getTime()))) {
+        throw new Error(`Invalid Date provided to getJerusalemDate: ${String(refDate)}`);
+    }
+    if (!timeStr || typeof timeStr !== "string") {
+        throw new Error(`Invalid time string provided to getJerusalemDate: ${String(timeStr)}`);
+    }
     const validRef = refDate instanceof Date && !isNaN(refDate.getTime()) ? refDate : new Date();
-    const timeParts = (timeStr ?? "").split(":");
-    const h = parseInt(timeParts[0] ?? "0", 10);
-    const m = parseInt(timeParts[1] ?? "0", 10);
-    const safeH = isNaN(h) ? 0 : Math.min(Math.max(h, 0), 23);
-    const safeM = isNaN(m) ? 0 : Math.min(Math.max(m, 0), 59);
+    const timeParts = timeStr.trim().split(":");
+    const h = parseInt(timeParts[0] ?? "", 10);
+    const m = parseInt(timeParts[1] ?? "", 10);
+    if (isNaN(h) || isNaN(m)) {
+        throw new Error(`Invalid HH:mm format provided to getJerusalemDate: ${timeStr}`);
+    }
+    const safeH = Math.min(Math.max(h, 0), 23);
+    const safeM = Math.min(Math.max(m, 0), 59);
 
     const formatter = new Intl.DateTimeFormat("en-US", {
         timeZone: "Asia/Jerusalem",
@@ -568,6 +598,7 @@ export default {
     runShiftReportGenerator,
     stopCronJobs,
     getTimeInJerusalem,
+    getJerusalemTime,
     getJerusalemDateString,
     getJerusalemDate,
     processGroupSlot,

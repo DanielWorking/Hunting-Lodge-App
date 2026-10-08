@@ -13,6 +13,7 @@ import {
     useState,
     useEffect,
     useCallback,
+    useMemo,
     useRef,
     type ReactNode,
 } from "react";
@@ -267,21 +268,24 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         };
     }, [currentGroup?._id, user, isAdmin, isRestoringSession]);
 
+    const contextValue = useMemo<DataContextType>(
+        () => ({
+            sites,
+            setSites,
+            phones,
+            setPhones,
+            users,
+            setUsers,
+            groups,
+            setGroups,
+            loading,
+            refreshData: fetchData,
+        }),
+        [sites, phones, users, groups, loading, fetchData],
+    );
+
     return (
-        <DataContext.Provider
-            value={{
-                sites,
-                setSites,
-                phones,
-                setPhones,
-                users,
-                setUsers,
-                groups,
-                setGroups,
-                loading,
-                refreshData: fetchData,
-            }}
-        >
+        <DataContext.Provider value={contextValue}>
             {children}
         </DataContext.Provider>
     );

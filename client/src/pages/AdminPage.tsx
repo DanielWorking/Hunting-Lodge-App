@@ -36,18 +36,6 @@ export default function AdminPage() {
     const { users, groups, refreshData, loading } = useData();
     const { showNotification } = useNotification();
 
-    if (isRestoringSession) {
-        return <ThinkingLoader />;
-    }
-
-    if (!isAdmin) {
-        return <Navigate to="/" replace />;
-    }
-
-    if (loading && users.length === 0 && groups.length === 0) {
-        return <ThinkingLoader />;
-    }
-
     // --- State ---
     const [viewMode, setViewMode] = useState<"users" | "groups">("users");
     const [searchTerm, setSearchTerm] = useState("");
@@ -78,6 +66,18 @@ export default function AdminPage() {
             g.name.toLowerCase().includes(lowerSearch),
         );
     }, [groups, searchTerm]);
+
+    if (isRestoringSession) {
+        return <ThinkingLoader />;
+    }
+
+    if (!isAdmin) {
+        return <Navigate to="/" replace />;
+    }
+
+    if (loading && users.length === 0 && groups.length === 0) {
+        return <ThinkingLoader />;
+    }
 
     // --- Handlers ---
 

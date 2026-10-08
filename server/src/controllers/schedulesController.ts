@@ -308,7 +308,7 @@ export async function publishSchedule(req: Request, res: Response, next?: NextFu
             // Rollback any deducted balances with exact amounts concurrently if schedule save fails
             await Promise.all(
                 deductedRecords.map((record) =>
-                    User.findByIdAndUpdate(record.userId, { $inc: { vacationBalance: record.amount } }).catch((rollbackErr: unknown) => {
+                    User.findByIdAndUpdate(record.userId, { $inc: { vacationBalance: record.amount } }).exec().catch((rollbackErr: unknown) => {
                         console.error(`[Schedules] Failed to rollback vacation balance for user ${String(record.userId)}:`, rollbackErr);
                     }),
                 ),

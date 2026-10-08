@@ -180,10 +180,6 @@ export default function PhonesPage() {
         }
     };
 
-    if (loading && phones.length === 0) {
-        return <ThinkingLoader />;
-    }
-
     // === Filtering & Sorting Logic ===
 
     const sortedPhones = useMemo(() => {
@@ -216,6 +212,10 @@ export default function PhonesPage() {
             return 0;
         });
     }, [phones, searchTerm, filterFav, sortOrder]);
+
+    if (loading && phones.length === 0) {
+        return <ThinkingLoader />;
+    }
 
     // === Render ===
 

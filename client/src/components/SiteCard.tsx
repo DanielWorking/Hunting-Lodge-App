@@ -119,7 +119,7 @@ export default function SiteCard({
                 >
                     <CardActionArea
                         component="a"
-                        href={url}
+                        href={url && /^(https?:\/\/|tel:|\/)/i.test(url) ? url : "#"}
                         target="_blank"
                         rel="noopener noreferrer"
                         sx={{ flexGrow: 1 }}

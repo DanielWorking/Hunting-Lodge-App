@@ -272,6 +272,7 @@ Configure the following variables in your Postman environment:
 
 ### 📂 API Endpoints Overview
 
+- **Health Probes (`/api/healthz`, `/api/startup`)**: Health and readiness probes for Kubernetes/OpenShift.
 - **Authentication (`/api/auth`)**: SSO callback, session verification (`/api/auth/me`), and logout.
 - **Users (`/api/users`)**: User listings, role updates, group assignments, and admin management.
 - **Groups (`/api/groups`)**: Operational groups, shift types, time slots, and notification recipients.
@@ -279,6 +280,7 @@ Configure the following variables in your Postman environment:
 - **Reports (`/api/reports`)**: Shift report submission, incident logging, and querying.
 - **Sites (`/api/sites`)**: Operational sites, descriptions, and resource links.
 - **Phones (`/api/phones`)**: Emergency and organizational phone directory entries.
+- **Vacations (`/api/vacations`)**: Vacation Submissions, Shift Manager Approvals, Balance Aggregations.
 
 ---
 

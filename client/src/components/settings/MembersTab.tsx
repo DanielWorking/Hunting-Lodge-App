@@ -124,7 +124,7 @@ export default function MembersTab() {
             const newValues = { ...editedValues };
             delete newValues[userId];
             setEditedValues(newValues);
-        } catch (error) {
+        } catch {
             showNotification("Error updating user", "error");
         }
     };
@@ -177,7 +177,7 @@ export default function MembersTab() {
                 groupId: currentGroup?._id,
                 updates,
             });
-        } catch (error) {
+        } catch {
             showNotification("Error reordering", "error");
             refreshData();
         }

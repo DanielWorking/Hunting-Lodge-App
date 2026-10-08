@@ -7,7 +7,7 @@
  */
 
 import { Request, Response, NextFunction } from "express";
-import mongoose, { Types, PopulatedDoc } from "mongoose";
+import type { Types, PopulatedDoc } from "mongoose";
 import Group, { IGroup, IShiftType, ITimeSlot } from "../models/Group";
 import User, { IUser } from "../models/User";
 import Site from "../models/Site";

@@ -168,7 +168,7 @@ export default function ShiftTypesTab() {
 
             showNotification("Shift type deleted", "success");
             refreshData();
-        } catch (error) {
+        } catch {
             showNotification("Error deleting", "error");
         } finally {
             setDeleteId(null);

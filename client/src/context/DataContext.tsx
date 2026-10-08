@@ -82,14 +82,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const userRef = useRef(user);
     const currentGroupRef = useRef(currentGroup);
     const isAdminRef = useRef(isAdmin);
-    const isRestoringSessionRef = useRef(isRestoringSession);
 
     useEffect(() => {
         userRef.current = user;
         currentGroupRef.current = currentGroup;
         isAdminRef.current = isAdmin;
-        isRestoringSessionRef.current = isRestoringSession;
-    }, [user, currentGroup, isAdmin, isRestoringSession]);
+    }, [user, currentGroup, isAdmin]);
 
     /**
      * Fetches core application entities from the backend.
@@ -99,7 +97,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const storedToken = localStorage.getItem("hunting_token");
         const storedUserId = localStorage.getItem("hunting_userId");
 
-        if (!storedToken || !storedUserId) {
+        // Rely on httpOnly cookies or stored token; requires storedUserId
+        if (!storedUserId && !storedToken) {
             setLoading(false);
             return;
         }
@@ -216,7 +215,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        if (storedToken && storedUserId && user) {
+        if ((storedUserId || storedToken) && user) {
             if (lastFetchedUserIdRef.current !== user._id) {
                 fetchData();
             }

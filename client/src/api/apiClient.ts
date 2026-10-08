@@ -99,14 +99,14 @@ axiosInstance.interceptors.response.use(
 
             // If request fails with 401 and cannot be refreshed, clear stored auth credentials
             const currentPath = window.location.pathname;
-            const hadToken = Boolean(localStorage.getItem("hunting_token"));
+            const hadSession = Boolean(localStorage.getItem("hunting_token") || localStorage.getItem("hunting_userId"));
 
             localStorage.removeItem("hunting_token");
             localStorage.removeItem("hunting_userId");
             localStorage.removeItem("hunting_groupId");
 
-            // Redirect to login if user had a token and isn't already on public auth pages
-            if (hadToken && currentPath !== "/login" && currentPath !== "/auth/callback") {
+            // Redirect to login if user had an active session and isn't already on public auth pages
+            if (hadSession && currentPath !== "/login" && currentPath !== "/auth/callback") {
                 window.location.href = "/login?error=session_expired";
             }
         }

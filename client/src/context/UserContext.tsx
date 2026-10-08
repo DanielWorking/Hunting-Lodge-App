@@ -265,7 +265,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      * @param {string} [_pass] - Optional password (currently bypassed).
      * @returns {Promise<boolean>} True if authentication succeeded.
      */
-    const login = useCallback(async (username: string, _pass?: string): Promise<boolean> => {
+    const login = useCallback(async (username: string): Promise<boolean> => {
         try {
             const response = await loginUser(username);
             const data = response.data;

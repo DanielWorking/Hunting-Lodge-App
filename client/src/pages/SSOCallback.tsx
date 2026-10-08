@@ -9,6 +9,7 @@
 
 import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import axios from "axios";
 import { loginWithCode } from "../api/authApi";
 import ThinkingLoader from "../components/ThinkingLoader";
 
@@ -59,7 +60,6 @@ export default function SSOCallback() {
                 });
                 const data = response.data;
                 const user = data.user || data;
-                const token = data.token;
 
                 if (user && user._id) {
                     // Session persistence is managed exclusively via secure httpOnly cookies.
@@ -83,8 +83,10 @@ export default function SSOCallback() {
                 }
             } catch (error: unknown) {
                 console.error("SSO Login failed during code exchange:", error);
-                const axiosErr = error as { response?: { data?: { message?: string } } };
-                const errorMsg = axiosErr?.response?.data?.message || "sso_failed";
+                const errorMsg =
+                    axios.isAxiosError(error) && error.response?.data?.message
+                        ? String(error.response.data.message)
+                        : "sso_failed";
                 navigate(`/login?error=${encodeURIComponent(errorMsg)}`, { replace: true });
             }
         };

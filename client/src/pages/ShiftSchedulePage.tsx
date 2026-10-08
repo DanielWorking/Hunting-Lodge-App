@@ -303,7 +303,7 @@ export default function ShiftSchedulePage() {
             showNotification("Schedule saved as Draft", "success");
             refreshData();
             fetchSchedule();
-        } catch (error) {
+        } catch {
             showNotification("Error saving schedule", "error");
         }
     };
@@ -319,7 +319,7 @@ export default function ShiftSchedulePage() {
         try {
             await performSave();
             setIsPublishDialogOpen(true);
-        } catch (error) {
+        } catch {
             showNotification("Error saving before publish", "error");
         }
     };
@@ -338,7 +338,7 @@ export default function ShiftSchedulePage() {
 
             refreshData();
             fetchSchedule();
-        } catch (error) {
+        } catch {
             showNotification("Error publishing", "error");
         } finally {
             setIsPublishDialogOpen(false);

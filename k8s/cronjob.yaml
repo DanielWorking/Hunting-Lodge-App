@@ -28,6 +28,7 @@ spec:
               # <YOUR_NAMESPACE>: change to the current namespace
               # <YOUR_DEPLOYMENT>: change to the current deployment
               image: image-registry.openshift-image-registry.svc:5000/<YOUR_NAMESPACE>/<YOUR_DEPLOYMENT>:latest
+              imagePullPolicy: Always
               command:
                 ["dumb-init", "--", "node", "src/scripts/runShiftReportCron.js"]
               # Container-level security context compliant with OpenShift restricted-v2 SCC

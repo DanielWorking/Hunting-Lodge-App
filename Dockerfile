@@ -1,7 +1,7 @@
 # ==============================================================================
 # Stage 1: Build (Client & Server)
 # ==============================================================================
-FROM node:26-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -30,7 +30,7 @@ RUN npm run build
 # ==============================================================================
 # Stage 2: Production Runtime (OpenShift / Kubernetes v1.33+ Compliant)
 # ==============================================================================
-FROM node:26-alpine
+FROM node:24-alpine
 
 # Install dumb-init for PID 1 signal forwarding and zombie reaping in Kubernetes
 RUN apk add --no-cache dumb-init

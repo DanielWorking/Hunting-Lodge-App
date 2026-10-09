@@ -2,21 +2,18 @@ stages:
   - validate
   - deploy
 
-# The validate stage runs the Node.js test and build suite
 validate_and_test:
   stage: validate
-  image: node:22
+  image: node:24-alpine
   script:
     - npm ci
     - npm run test:server
     - npm run test:client
-    - npm run build:server
-    - npm run build:client
+    - npm run build
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "development" || $CI_COMMIT_BRANCH =~ /^release\//'
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
-# The deploy stage handles Docker builds and Kubernetes/OpenShift deployment
 deploy_to_cluster:
   stage: deploy
   image: docker:24.0.5
@@ -26,61 +23,65 @@ deploy_to_cluster:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
   before_script:
-    # Install kubectl inside the docker image for the deployment commands
-    - apk add --no-cache curl bash
+    - apk add --no-cache curl bash gettext
     - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
     - chmod +x kubectl
     - mv kubectl /usr/local/bin/
   script:
     - |
-      # 1. Determine Target Environment
+      # 1. Resolve Target Environment
       if [ "$CI_PIPELINE_SOURCE" = "web" ] && [ -n "$ENVIRONMENT_INPUT" ]; then
         TARGET="$ENVIRONMENT_INPUT"
       elif [ "$CI_COMMIT_BRANCH" = "main" ] || [[ "$CI_COMMIT_TAG" =~ ^v[0-9] ]]; then
         TARGET="prod"
       elif [[ "$CI_COMMIT_BRANCH" =~ ^release/ ]]; then
         TARGET="preprod"
-      elif [ "$CI_COMMIT_BRANCH" = "development" ]; then
-        TARGET="nonprod"
       else
         TARGET="nonprod"
       fi
-      echo "Target deployment environment resolved to: $TARGET"
+      echo "Deploying to: $TARGET"
 
-      # 2. Namespace resolution using GitLab Variables
+      # 2. Namespace Resolution
       if [ "$TARGET" = "prod" ]; then
-        K8S_NAMESPACE="$PROD_NAMESPACE"
+        K8S_NAMESPACE="${PROD_NAMESPACE:-hunting-lodge-app-prod}"
       elif [ "$TARGET" = "preprod" ]; then
-        K8S_NAMESPACE="$PREPROD_NAMESPACE"
+        K8S_NAMESPACE="${PREPROD_NAMESPACE:-hunting-lodge-app-preprod}"
       else
-        K8S_NAMESPACE="$NONPROD_NAMESPACE"
+        K8S_NAMESPACE="${NONPROD_NAMESPACE:-hunting-lodge-app-nonprod}"
       fi
 
-      # 3. Set Image Metadata
+      # 3. Define Image & Tags
       IMAGE_REGISTRY="${OPENSHIFT_REGISTRY:-image-registry.openshift-image-registry.svc:5000}"
       IMAGE_NAME="${IMAGE_REGISTRY}/${K8S_NAMESPACE}/hunting-lodge-app-${TARGET}"
-      SHA_TAG="${TARGET}-${CI_COMMIT_SHORT_SHA}"
+      APP_TAG="${CI_COMMIT_TAG:-${TARGET}-${CI_COMMIT_SHORT_SHA}}"
 
       # 4. Build Docker Container
       docker build \
         --build-arg VITE_APP_ENV=$TARGET \
-        --build-arg VITE_APP_VERSION=$CI_COMMIT_REF_NAME \
-        -t $IMAGE_NAME:$SHA_TAG \
+        --build-arg VITE_APP_VERSION=${CI_COMMIT_TAG} \
+        -t $IMAGE_NAME:$APP_TAG \
         -t $IMAGE_NAME:latest \
         .
 
-      # 5. Login to Cluster Registry and Push
+      # 5. Push to OpenShift Internal Registry
       if [ -n "$OPENSHIFT_TOKEN" ]; then
         echo "$OPENSHIFT_TOKEN" | docker login "${OPENSHIFT_SERVER:-openshift.default.svc}" -u "${OPENSHIFT_USER:-serviceaccount}" --password-stdin
-        docker push $IMAGE_NAME:$SHA_TAG
+        docker push $IMAGE_NAME:$APP_TAG
         docker push $IMAGE_NAME:latest
       fi
 
-      # 6. Authenticate and Deploy to Kubernetes / OpenShift
+      # 6. Apply Manifests with Dynamic Substitution
       if [ -n "$KUBECONFIG_DATA" ]; then
         mkdir -p ~/.kube
         echo "$KUBECONFIG_DATA" | base64 -d > ~/.kube/config
-        kubectl apply -f k8s/${TARGET}-deployment.local.yaml -n $K8S_NAMESPACE
+        
+        # Replace namespace placeholder with resolved namespace
+        sed -i "s|<NAMESPACE>|${K8S_NAMESPACE}|g" k8s/${TARGET}-deployment.yaml
+        
+        kubectl apply -f k8s/${TARGET}-deployment.yaml -n $K8S_NAMESPACE
+        
+        # Point deployment to the explicit immutable tag
+        kubectl set image deployment/hunting-lodge-app-${TARGET} hunting-lodge-app-${TARGET}=${IMAGE_NAME}:${APP_TAG} -n $K8S_NAMESPACE
         kubectl rollout status deployment/hunting-lodge-app-${TARGET} -n $K8S_NAMESPACE --timeout=300s
       fi
   rules:

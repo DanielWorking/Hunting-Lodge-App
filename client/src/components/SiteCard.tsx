@@ -125,7 +125,8 @@ export default function SiteCard({
                         href={url && /^(https?:\/\/|tel:|\/)/i.test(url) ? url : "#"}
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={{ flexGrow: 1 }}
+                        // minHeight 0 lets this area shrink so the actions row is never clipped
+                        sx={{ flexGrow: 1, minHeight: 0, overflow: "hidden" }}
                     >
                         <CardMedia
                             component="img"
@@ -135,7 +136,7 @@ export default function SiteCard({
                             loading="lazy"
                             sx={{ objectFit: "cover" }}
                         />
-                        <CardContent>
+                        <CardContent sx={{ pb: 1, "&:last-child": { pb: 1 } }}>
                             <Typography
                                 gutterBottom
                                 variant="h6"
@@ -161,6 +162,7 @@ export default function SiteCard({
                             px: 2,
                             pb: 1,
                             mt: "auto", // Push icons to the bottom
+                            flexShrink: 0,
                         }}
                     >
                         <Tooltip title="Tag">
@@ -172,7 +174,7 @@ export default function SiteCard({
                             />
                         </Tooltip>
 
-                        <Box>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
                             <Tooltip title="Show Description">
                                 <IconButton
                                     onClick={handleFlip}
@@ -180,7 +182,7 @@ export default function SiteCard({
                                     size="small"
                                     aria-label={`Show description for ${title}`}
                                 >
-                                    <InfoIcon />
+                                    <InfoIcon fontSize="small" />
                                 </IconButton>
                             </Tooltip>
 

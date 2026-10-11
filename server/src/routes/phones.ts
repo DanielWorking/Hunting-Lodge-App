@@ -12,7 +12,7 @@ import { z } from "zod";
 import * as phonesController from "../controllers/phonesController";
 import { protect } from "../middleware/authMiddleware";
 import { validateRequest } from "../middleware/validationMiddleware";
-import { httpCache } from "../middleware/cacheMiddleware";
+import { noStore } from "../middleware/cacheMiddleware";
 
 const router = Router();
 
@@ -42,6 +42,10 @@ export const updatePhoneSchema = z.object({
 export type CreatePhoneInput = z.infer<typeof createPhoneSchema>;
 export type UpdatePhoneInput = z.infer<typeof updatePhoneSchema>;
 
+// Phone data changes on every write, so no response from this router may be cached by the client.
+// Applied before protect() so that rejected requests are covered too.
+router.use(noStore);
+
 // Ensure all routes are protected by authentication
 router.use(protect);
 
@@ -51,7 +55,7 @@ router.use(protect);
  * Dynamically adds an `isFavorite` flag based on the current user's preferences.
  * Authorization: Requires valid JWT.
  */
-router.get("/", httpCache(60, 300), phonesController.getPhones);
+router.get("/", phonesController.getPhones);
 
 /**
  * POST /

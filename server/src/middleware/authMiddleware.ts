@@ -17,6 +17,7 @@ import {
     isShiftManager,
 } from "../utils/authHelpers";
 import { BoundedLRUCache } from "../utils/lruCache";
+import ssoConfig from "../config/sso";
 
 export interface CachedUserSession {
     readonly user: UserDocument | Express.User;
@@ -173,6 +174,40 @@ export const protect: RequestHandler = async (
             if (userIdStr) {
                 userCache.set(userIdStr, { user, timestamp: Date.now() });
             }
+        }
+
+        // Verify tokenVersion to enforce active session revocation
+        const expectedVersion = typeof (user as { tokenVersion?: number }).tokenVersion === "number"
+            ? (user as { tokenVersion?: number }).tokenVersion!
+            : 0;
+        const tokenVersion = typeof decoded.tokenVersion === "number" ? decoded.tokenVersion : 0;
+
+        if (tokenVersion !== expectedVersion) {
+            if (userIdStr) {
+                userCache.delete(userIdStr);
+            }
+            invalidateTokenCache(token);
+
+            res.clearCookie(ssoConfig.sessionCookieName, {
+                httpOnly: true,
+                secure: ssoConfig.cookieSecure,
+                sameSite: ssoConfig.sameSite,
+                path: "/",
+                domain: ssoConfig.cookieDomain,
+            });
+            res.clearCookie(ssoConfig.refreshCookieName, {
+                httpOnly: true,
+                secure: ssoConfig.cookieSecure,
+                sameSite: "strict",
+                path: "/api/auth",
+                domain: ssoConfig.cookieDomain,
+            });
+
+            res.status(401).json({
+                message: "Unauthorized: Session has been revoked",
+                code: "TOKEN_REVOKED",
+            });
+            return;
         }
 
         // Attach user and token claims to request

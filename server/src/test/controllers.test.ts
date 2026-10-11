@@ -169,25 +169,8 @@ describe("Controller Cascading & Validation Rules", () => {
     });
 
     describe("Security & NoSQL Injection Protection", () => {
-        it("usersController.login should reject NoSQL operator objects and empty strings", async () => {
-            const invalidPayloads: unknown[] = [
-                { username: { $ne: null } },
-                { username: { $gt: "" } },
-                { username: "" },
-                { username: "   " },
-                { username: 123 },
-                {},
-            ];
-
-            for (const body of invalidPayloads) {
-                const req = { body } as unknown as Request;
-                const res = createMockRes();
-
-                await usersController.login(req, res as unknown as Response);
-                const json = res.jsonData as Record<string, unknown> | null;
-                assert.equal(res.statusCode, 400, `Expected 400 for payload ${JSON.stringify(body)}`);
-                assert.ok(json?.message, "Error message must be present");
-            }
+        it("usersController.login should be permanently decommissioned", () => {
+            assert.equal((usersController as Record<string, unknown>).login, undefined);
         });
 
         it("authHelpers.resolveGroup should reject unverified plain object passthrough", async () => {

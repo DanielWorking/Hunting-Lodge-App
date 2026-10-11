@@ -9,6 +9,7 @@ export interface UserTokenInput {
     readonly id?: string | null;
     readonly username: string;
     readonly email?: string | null;
+    readonly tokenVersion?: number | null;
 }
 
 /**
@@ -18,6 +19,7 @@ export interface UserTokenPayload {
     readonly userId: string;
     readonly username: string;
     readonly email: string;
+    readonly tokenVersion: number;
 }
 
 /**
@@ -27,6 +29,7 @@ export interface DecodedTokenPayload extends jwt.JwtPayload {
     readonly userId?: string;
     readonly username?: string;
     readonly email?: string;
+    readonly tokenVersion?: number;
 }
 
 /**
@@ -42,10 +45,12 @@ export function generateToken(user: UserTokenInput): string {
     }
 
     const userId = user._id != null ? user._id.toString() : (user.id ?? "");
+    const tokenVersion = typeof user.tokenVersion === "number" ? user.tokenVersion : 0;
     const payload: UserTokenPayload = {
         userId,
         username: user.username || "",
         email: user.email || "",
+        tokenVersion,
     };
 
     const secret = config.jwt.secret;

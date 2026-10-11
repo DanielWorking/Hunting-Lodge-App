@@ -2,11 +2,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hunting-lodge-app-nonprod
-  namespace: <NAMESPACE>
+  namespace: danielrei-dev
   labels:
     app: hunting-lodge-app-nonprod
     app.kubernetes.io/name: hunting-lodge-app-nonprod
-    app.kubernetes.io/part-of: <NAMESPACE>
+    app.kubernetes.io/part-of: danielrei-dev
     app.kubernetes.io/component: backend
     environment: nonprod
 spec:
@@ -24,7 +24,7 @@ spec:
       labels:
         app: hunting-lodge-app-nonprod
         app.kubernetes.io/name: hunting-lodge-app-nonprod
-        app.kubernetes.io/part-of: <NAMESPACE>
+        app.kubernetes.io/part-of: danielrei-dev
         app.kubernetes.io/component: backend
         environment: nonprod
     spec:
@@ -35,7 +35,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: hunting-lodge-app-nonprod
-          image: image-registry.openshift-image-registry.svc:5000/<NAMESPACE>/hunting-lodge-app-nonprod:latest
+          image: image-registry.openshift-image-registry.svc:5000/danielrei-dev/hunting-lodge-app-nonprod:sites-fix-20261011
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -290,11 +290,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: hunting-lodge-app-nonprod-service
-  namespace: <NAMESPACE>
+  namespace: danielrei-dev
   labels:
     app: hunting-lodge-app-nonprod
     app.kubernetes.io/name: hunting-lodge-app-nonprod
-    app.kubernetes.io/part-of: <NAMESPACE>
+    app.kubernetes.io/part-of: danielrei-dev
     app.kubernetes.io/component: backend
     environment: nonprod
 spec:
@@ -311,13 +311,13 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   name: hunting-lodge-app-nonprod-route
-  namespace: <NAMESPACE>
+  namespace: danielrei-dev
   annotations:
     haproxy.router.openshift.io/ip_whitelist: "[IP_ADDRESS]"
   labels:
     app: hunting-lodge-app-nonprod
     app.kubernetes.io/name: hunting-lodge-app-nonprod
-    app.kubernetes.io/part-of: <NAMESPACE>
+    app.kubernetes.io/part-of: danielrei-dev
     app.kubernetes.io/component: backend
     environment: nonprod
 spec:

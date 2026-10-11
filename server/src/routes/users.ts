@@ -7,9 +7,7 @@
  */
 
 import { Request, Router } from "express";
-import rateLimit from "express-rate-limit";
 import { z } from "zod";
-import config from "../config";
 import * as usersController from "../controllers/usersController";
 import { protect, requireAdmin, requireShiftManager } from "../middleware/authMiddleware";
 import { validateRequest } from "../middleware/validationMiddleware";
@@ -17,12 +15,6 @@ import { validateRequest } from "../middleware/validationMiddleware";
 const router = Router();
 
 // --- Validation Schemas ---
-
-export const userLoginSchema = z.object({
-    username: z.string({ message: "Valid username is required" })
-        .trim()
-        .min(1, "Valid username is required"),
-});
 
 export const getUsersQuerySchema = z.object({
     groupId: z.string().trim().min(1).optional(),
@@ -64,35 +56,9 @@ export const managerUpdateSchema = z.object({
     displayName: z.string().optional(),
 }).passthrough();
 
-export type UserLoginInput = z.infer<typeof userLoginSchema>;
 export type ReorderUsersInput = z.infer<typeof reorderUsersSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type ManagerUpdateInput = z.infer<typeof managerUpdateSchema>;
-
-// Rate limiter for public local login endpoint
-export const loginRateLimiter = rateLimit({
-    windowMs: config.security.rateLimitWindowMs || 15 * 60 * 1000,
-    max: Math.min(config.security.rateLimitMax || 100, 30),
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        message: "Too many login attempts, please try again after 15 minutes",
-        code: "RATE_LIMIT_EXCEEDED",
-    },
-});
-
-// --- Public Routes ---
-
-/**
- * POST /login
- * Handles local user login. Public endpoint protected by rate limiting.
- */
-router.post(
-    "/login",
-    loginRateLimiter,
-    validateRequest({ body: userLoginSchema }),
-    usersController.login,
-);
 
 // --- Protected Routes ---
 router.use(protect);

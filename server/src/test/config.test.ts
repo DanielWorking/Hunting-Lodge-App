@@ -4,7 +4,6 @@ import config from "../config";
 import db from "../config/db";
 import keys from "../config/keys";
 import sso from "../config/sso";
-import passport from "../config/passport";
 import { parseTrustProxy, deepFreeze, detectAppEnv, validateServerEnv } from "../config/env";
 import { isOriginAllowed, resolveConfiguredOrigins } from "../config/corsOptions";
 
@@ -62,7 +61,6 @@ describe("TypeScript Configuration Modules Verification", () => {
             assert.ok(config.dbConfig);
             assert.ok(config.jwtConfig);
             assert.ok(config.ssoConfig);
-            assert.ok(config.passportConfig);
         });
     });
 
@@ -114,15 +112,9 @@ describe("TypeScript Configuration Modules Verification", () => {
         });
     });
 
-    describe("5. Passport SSO Adapter (config/passport.ts)", () => {
-        it("should export PassportConfig without mutating ssoConfig", () => {
-            assert.ok(Object.isFrozen(passport), "passportConfig should be frozen");
-            assert.equal(passport.session, false);
-            assert.equal(passport.clientId, sso.clientId);
-            assert.equal(passport.redirectUri, sso.redirectUri);
-
-            // Ensure sso is not mutated with session
-            assert.equal((sso as unknown as Record<string, unknown>).session, undefined);
+    describe("5. Passport SSO Adapter Decommission", () => {
+        it("should ensure passportConfig is removed from central config", () => {
+            assert.equal((config as Record<string, unknown>).passportConfig, undefined);
         });
     });
 

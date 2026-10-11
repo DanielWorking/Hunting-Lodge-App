@@ -6,7 +6,7 @@
  * and performing CRUD operations on both sites and tags.
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 // ... (imports remain unchanged)
 import {
     Container,
@@ -56,7 +56,12 @@ import WhatsNewModal from "../components/modals/WhatsNewModal";
 export default function SitesPage() {
     const { user, isAuthenticated, currentGroup, markWhatsNewSeen } = useUser();
     const { showNotification } = useNotification();
-    const { sites, groups, refreshData, loading } = useData();
+    const { sites, setSites, groups, refreshData, loading } = useData();
+
+    // Site ids with a favorite request in flight: blocks double taps and disables the heart while pending.
+    // The ref answers synchronously for back-to-back taps; the state drives the rendered disabled flag.
+    const pendingFavoriteIdsRef = useRef<Set<string>>(new Set());
+    const [pendingFavoriteIds, setPendingFavoriteIds] = useState<ReadonlySet<string>>(() => new Set());
 
     // What's New modal display state for fully authenticated group members on homepage
     const [whatsNewDismissed, setWhatsNewDismissed] = useState(false);
@@ -144,21 +149,26 @@ export default function SitesPage() {
 
     /**
      * Persists site changes (create or update) to the server.
+     * The list is updated from the server's response; a background refresh then reconciles it.
      *
      * @param {Partial<SiteCardType>} formData The site data to be saved.
+     * @returns {Promise<boolean>} True when the server saved the site, false otherwise.
      */
-    const handleSaveSite = async (formData: Partial<SiteCardType>) => {
-        if (!activeGroup) return;
+    const handleSaveSite = async (formData: Partial<SiteCardType>): Promise<boolean> => {
+        if (!activeGroup) return false;
 
         const groupIdToSend = activeGroup._id;
 
         try {
             if (editingSite) {
                 const siteId = editingSite._id;
-                await updateSite(siteId, {
+                const { data: updated } = await updateSite(siteId, {
                     ...formData,
                     groupId: groupIdToSend,
                 });
+                setSites((prev) =>
+                    prev.map((site) => (site._id === siteId ? { ...site, ...updated } : site)),
+                );
                 showNotification("Site updated successfully", "success");
             } else {
                 await createSite({
@@ -168,9 +178,11 @@ export default function SitesPage() {
                 showNotification("New site created successfully", "success");
             }
             refreshData();
+            return true;
         } catch (error) {
             console.error(error);
             showNotification("Error saving site", "error");
+            return false;
         }
     };
 
@@ -191,6 +203,7 @@ export default function SitesPage() {
             const idToDelete = deleteSiteItem._id;
             try {
                 await deleteSite(idToDelete);
+                setSites((prev) => prev.filter((site) => site._id !== idToDelete));
                 showNotification("Site deleted successfully", "success");
                 refreshData();
             } catch (error) {
@@ -208,13 +221,26 @@ export default function SitesPage() {
      * @param {SiteCardType} site The site to toggle.
      */
     const handleToggleFavorite = async (site: SiteCardType) => {
+        const siteId = site._id;
+        if (pendingFavoriteIdsRef.current.has(siteId)) return;
+
+        pendingFavoriteIdsRef.current.add(siteId);
+        setPendingFavoriteIds(new Set(pendingFavoriteIdsRef.current));
+
         try {
-            const siteId = site._id;
-            await toggleFavoriteSite(siteId);
+            const { data: updated } = await toggleFavoriteSite(siteId);
+            setSites((prev) =>
+                prev.map((item) =>
+                    item._id === siteId ? { ...item, favoritedBy: updated.favoritedBy } : item,
+                ),
+            );
             refreshData();
         } catch (error) {
             console.error(error);
             showNotification("Error updating favorite", "error");
+        } finally {
+            pendingFavoriteIdsRef.current.delete(siteId);
+            setPendingFavoriteIds(new Set(pendingFavoriteIdsRef.current));
         }
     };
 
@@ -557,6 +583,7 @@ export default function SitesPage() {
                                 onToggleFavorite={() =>
                                     handleToggleFavorite(site)
                                 }
+                                isFavoritePending={pendingFavoriteIds.has(site._id)}
                             />
                         </Grid>
                     ))}

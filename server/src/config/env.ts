@@ -48,9 +48,15 @@ if (customEnvPath && fs.existsSync(customEnvPath)) {
     const standardSecret = path.join(envServerDir, ".env");
     if (fs.existsSync(standardSecret)) dotenv.config({ path: standardSecret });
 
-    // 3. Tri-environment config/secrets (.env.<env>)
-    const envSecret = path.join(envServerDir, `.env.${initialAppEnv}`);
+    // 3. Tri-environment config/secrets (.env.config.<env>, .env.secret.<env>, .env.<env>)
+    const envConfig = path.join(envServerDir, `.env.config.${initialAppEnv}`);
+    if (fs.existsSync(envConfig)) dotenv.config({ path: envConfig, override: true });
+
+    const envSecret = path.join(envServerDir, `.env.secret.${initialAppEnv}`);
     if (fs.existsSync(envSecret)) dotenv.config({ path: envSecret, override: true });
+
+    const envLegacy = path.join(envServerDir, `.env.${initialAppEnv}`);
+    if (fs.existsSync(envLegacy)) dotenv.config({ path: envLegacy, override: true });
 
     // 4. Local developer overrides (.env.<env>.local)
     const envLocal = path.join(envServerDir, `.env.${initialAppEnv}.local`);

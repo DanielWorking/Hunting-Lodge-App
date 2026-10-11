@@ -82,18 +82,13 @@ describe("Migrated TypeScript API Routes & Schema Validation Suite", () => {
             assert.equal(res.status, 401, "Expected 401 Unauthorized for unauthenticated GET /me");
         });
 
-        it("POST /api/users/login rejects empty payload with 400 and VALIDATION_ERROR", async () => {
+        it("POST /api/users/login is permanently decommissioned and gated by authentication (401)", async () => {
             const res = await fetch(`${baseUrl}/api/users/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({}),
+                body: JSON.stringify({ username: "testuser" }),
             });
-            const data = (await res.json()) as ApiErrorResponse;
-
-            assert.equal(res.status, 400);
-            assert.equal(data.code, "VALIDATION_ERROR");
-            assert.ok(Array.isArray(data.errors));
-            assert.ok(data.errors.some((e) => e.field === "username"));
+            assert.equal(res.status, 401);
         });
     });
 

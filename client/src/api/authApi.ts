@@ -8,6 +8,7 @@
 
 import type { AxiosResponse } from "axios";
 import apiClient from "./apiClient";
+import type { User } from "../types";
 
 export interface SsoUrlResponse {
     url: string;
@@ -20,8 +21,9 @@ export interface SsoLoginPayload {
 }
 
 export interface SsoLoginResponse {
-    user: any;
-    token: string;
+    user: User;
+    token?: string;
+    success?: boolean;
 }
 
 export interface SsoRefreshResponse {
@@ -83,5 +85,5 @@ export const logoutUser = (): Promise<AxiosResponse<SsoLogoutResponse>> =>
  *
  * @returns {Promise<AxiosResponse<any>>} Axios promise resolving with the current user's profile and group roles.
  */
-export const getMe = (): Promise<AxiosResponse<any>> =>
-    apiClient.get("/auth/me");
+export const getMe = (): Promise<AxiosResponse<User>> =>
+    apiClient.get<User>("/auth/me");

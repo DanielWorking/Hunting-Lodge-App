@@ -27,6 +27,9 @@ export interface OidcUserProfile extends AuthUser {
     readonly lastLogin?: string;
     readonly vacationBalance?: number;
     readonly favoritePhones?: ReadonlyArray<Types.ObjectId | string>;
+    readonly tokenVersion?: number;
+    readonly ssoIssuer?: string;
+    readonly ssoSubject?: string;
     readonly [key: string]: unknown;
 }
 

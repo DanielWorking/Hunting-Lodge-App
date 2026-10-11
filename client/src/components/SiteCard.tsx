@@ -38,6 +38,8 @@ interface SiteCardProps {
     onDelete?: () => void;
     /** Callback to toggle the site's favorite status. */
     onToggleFavorite?: () => void;
+    /** True while a favorite request for this site is in flight; disables the heart. */
+    isFavoritePending?: boolean;
 }
 
 /**
@@ -54,6 +56,7 @@ export default function SiteCard({
     onEdit,
     onDelete,
     onToggleFavorite,
+    isFavoritePending = false,
 }: SiteCardProps) {
     const { title, url, imageUrl, description, isFavorite, tag } = data;
     const [isFlipped, setIsFlipped] = useState(false);
@@ -188,25 +191,29 @@ export default function SiteCard({
                                         : "Add to Favorites"
                                 }
                             >
-                                <IconButton
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onToggleFavorite?.();
-                                    }}
-                                    color={isFavorite ? "error" : "default"}
-                                    size="small"
-                                    aria-label={
-                                        isFavorite
-                                            ? `Remove ${title} from favorites`
-                                            : `Add ${title} to favorites`
-                                    }
-                                >
-                                    {isFavorite ? (
-                                        <FavoriteIcon fontSize="small" />
-                                    ) : (
-                                        <FavoriteBorderIcon fontSize="small" />
-                                    )}
-                                </IconButton>
+                                {/* Wrapper keeps the Tooltip working while the button is disabled */}
+                                <span style={{ display: "inline-flex" }}>
+                                    <IconButton
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onToggleFavorite?.();
+                                        }}
+                                        color={isFavorite ? "error" : "default"}
+                                        size="small"
+                                        disabled={isFavoritePending}
+                                        aria-label={
+                                            isFavorite
+                                                ? `Remove ${title} from favorites`
+                                                : `Add ${title} to favorites`
+                                        }
+                                    >
+                                        {isFavorite ? (
+                                            <FavoriteIcon fontSize="small" />
+                                        ) : (
+                                            <FavoriteBorderIcon fontSize="small" />
+                                        )}
+                                    </IconButton>
+                                </span>
                             </Tooltip>
 
                             {onEdit && (

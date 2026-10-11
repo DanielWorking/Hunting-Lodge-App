@@ -34,6 +34,9 @@ export interface IUser {
     username: string;
     displayName?: string;
     email: string;
+    ssoIssuer?: string;
+    ssoSubject?: string;
+    tokenVersion: number;
     groups: IUserGroup[];
     isActive: boolean;
     lastLogin?: string;
@@ -112,6 +115,19 @@ const UserSchema = new Schema<IUser>(
             type: Boolean,
             default: false,
         },
+        ssoIssuer: {
+            type: String,
+            trim: true,
+        },
+        ssoSubject: {
+            type: String,
+            trim: true,
+        },
+        tokenVersion: {
+            type: Number,
+            default: 0,
+            required: true,
+        },
     },
     { timestamps: true },
 );
@@ -119,6 +135,16 @@ const UserSchema = new Schema<IUser>(
 // Optimize multi-key lookups for group-filtered user listings and member count aggregations
 UserSchema.index({ "groups.groupId": 1 });
 UserSchema.index({ "groups.groupId": 1, "groups.order": 1 });
+UserSchema.index(
+    { ssoIssuer: 1, ssoSubject: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            ssoIssuer: { $type: "string", $gt: "" },
+            ssoSubject: { $type: "string", $gt: "" },
+        },
+    }
+);
 
 const User: UserModel = (mongoose.models.User as UserModel) || mongoose.model<IUser, UserModel>("User", UserSchema);
 

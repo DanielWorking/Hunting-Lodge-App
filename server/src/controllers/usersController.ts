@@ -11,7 +11,6 @@ import mongoose, { Types } from "mongoose";
 import User, { IUser } from "../models/User";
 import Group from "../models/Group";
 import Site from "../models/Site";
-import { generateToken } from "../utils/jwt";
 import {
     isAdmin,
     isSuperAdminUser,
@@ -26,10 +25,6 @@ import { invalidateUserCache } from "../middleware/authMiddleware";
 function extractParamId(param: string | string[] | undefined): string {
     if (!param) return "";
     return Array.isArray(param) ? param[0] : param;
-}
-
-export interface UserLoginRequestBody {
-    username?: string;
 }
 
 export interface ReorderUpdateItem {
@@ -63,41 +58,6 @@ export interface ManagerUpdateRequestBody {
 
 export interface GetUsersRequestQuery {
     groupId?: string;
-}
-
-export async function login(req: Request, res: Response, next?: NextFunction): Promise<void> {
-    try {
-        const body = (req.body || {}) as UserLoginRequestBody;
-        const rawUsername = body.username;
-        if (!rawUsername || typeof rawUsername !== "string" || !rawUsername.trim()) {
-            res.status(400).json({ message: "Valid username is required" });
-            return;
-        }
-
-        const username = rawUsername.trim();
-        const user = await User.findOne({ username });
-
-        if (!user) {
-            res.status(404).json({ message: "User not found" });
-            return;
-        }
-
-        user.lastLogin = new Date().toISOString();
-        if (user.isActive === false) {
-            user.isActive = true;
-        }
-
-        const updatedUser = await user.save();
-        const token = generateToken(updatedUser);
-        res.json({ user: updatedUser, token });
-    } catch (err: unknown) {
-        console.error("Login error:", err);
-        if (typeof next === "function") {
-            next(err);
-            return;
-        }
-        res.status(500).json({ message: "Login failed" });
-    }
 }
 
 /**
@@ -298,9 +258,14 @@ export async function updateUser(req: Request, res: Response, next?: NextFunctio
         if (favoritePhones !== undefined && Array.isArray(favoritePhones)) updateFields.favoritePhones = favoritePhones;
 
         // 4. Update user with schema validators
+        const updateOperation: Record<string, unknown> = { $set: updateFields };
+        if (isActive === false) {
+            updateOperation.$inc = { tokenVersion: 1 };
+        }
+
         const updatedUserQuery = User.findByIdAndUpdate(
             targetUserId,
-            { $set: updateFields },
+            updateOperation,
             { returnDocument: "after", runValidators: true },
         );
         const updatedUser = await (typeof (updatedUserQuery as any).lean === "function"
@@ -382,8 +347,15 @@ export async function updateUser(req: Request, res: Response, next?: NextFunctio
             (typeof err === "object" && err !== null && (err as { name?: string }).name === "CastError")
         ) {
             const castErr = err as mongoose.Error.CastError;
+            if (castErr.path && castErr.value !== undefined) {
+                res.status(400).json({
+                    message: `Invalid format for field '${castErr.path}'`,
+                    code: "INVALID_IDENTIFIER",
+                });
+                return;
+            }
             res.status(400).json({
-                message: `Invalid format for field '${castErr.path || "field"}': ${String(castErr.value ?? "")}`,
+                message: "Invalid user update request",
                 code: "INVALID_IDENTIFIER",
             });
             return;
@@ -533,6 +505,9 @@ export async function managerUpdate(req: Request, res: Response, next?: NextFunc
         // 3. Apply updates (displayName is strictly omitted to preserve SSO immutability)
         if (isModifyingActive) {
             targetUser.isActive = Boolean(isActive);
+            if (targetUser.isActive === false) {
+                targetUser.tokenVersion = (targetUser.tokenVersion || 0) + 1;
+            }
         }
 
         if (isModifyingVacation) {
@@ -573,8 +548,15 @@ export async function managerUpdate(req: Request, res: Response, next?: NextFunc
             (typeof err === "object" && err !== null && (err as { name?: string }).name === "CastError")
         ) {
             const castErr = err as mongoose.Error.CastError;
+            if (castErr.path && castErr.value !== undefined) {
+                res.status(400).json({
+                    message: `Invalid format for field '${castErr.path}'`,
+                    code: "INVALID_IDENTIFIER",
+                });
+                return;
+            }
             res.status(400).json({
-                message: `Invalid format for field '${castErr.path || "field"}': ${String(castErr.value ?? "")}`,
+                message: "Invalid user update request",
                 code: "INVALID_IDENTIFIER",
             });
             return;
@@ -641,7 +623,6 @@ export async function acknowledgeWhatsNew(req: Request, res: Response, next?: Ne
 }
 
 export default {
-    login,
     getUsers,
     reorderUsers,
     updateUser,

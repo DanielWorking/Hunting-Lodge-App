@@ -44,10 +44,6 @@ export interface SsoConfig {
     readonly clockTolerance: number;
 }
 
-export interface PassportConfig extends SsoConfig {
-    readonly session?: boolean;
-}
-
 export interface SuperAdminConfig {
     readonly id: string;
     readonly username: string;
@@ -79,7 +75,6 @@ export interface ServerConfig {
     readonly database: DatabaseConfig;
     readonly jwt: JwtConfig;
     readonly sso: SsoConfig;
-    readonly passport?: PassportConfig;
     readonly superAdmin: SuperAdminConfig;
     readonly security: SecurityConfig;
     readonly logging: LoggingConfig;

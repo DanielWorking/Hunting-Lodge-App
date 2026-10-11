@@ -19,7 +19,6 @@ import {
 import dbConfig from "./db";
 import jwtConfig from "./keys";
 import ssoConfig from "./sso";
-import passportConfig from "./passport";
 import createCorsOptions from "./corsOptions";
 import type { ServerConfig } from "../types/config";
 
@@ -37,7 +36,6 @@ const rawConfig: ServerConfig = {
     database: dbConfig,
     jwt: jwtConfig,
     sso: ssoConfig,
-    passport: passportConfig,
     superAdmin: {
         id: validatedEnv.SUPER_ADMIN_ID,
         username: validatedEnv.SUPER_ADMIN_USERNAME,
@@ -64,7 +62,6 @@ type ExportedServerConfig = ServerConfig & {
     readonly dbConfig: typeof dbConfig;
     readonly jwtConfig: typeof jwtConfig;
     readonly ssoConfig: typeof ssoConfig;
-    readonly passportConfig: typeof passportConfig;
     readonly createCorsOptions: typeof createCorsOptions;
 };
 
@@ -75,7 +72,6 @@ const combinedConfig: ExportedServerConfig = {
     dbConfig,
     jwtConfig,
     ssoConfig,
-    passportConfig,
     createCorsOptions,
 };
 

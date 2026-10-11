@@ -18,7 +18,6 @@ import {
 } from "react";
 import axios from "axios";
 import { getMe, logoutUser } from "../api/authApi";
-import { loginUser } from "../api/usersApi";
 import type { User, Group, GroupRole } from "../types";
 
 /**
@@ -218,15 +217,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      */
     useEffect(() => {
         const restoreSession = async () => {
-            const storedToken = localStorage.getItem("hunting_token");
-            const storedUserId = localStorage.getItem("hunting_userId");
-
-            // Rely on httpOnly cookies; do not require JWT in localStorage if userId is stored
-            if (!storedToken && !storedUserId) {
-                setIsRestoringSession(false);
-                return;
-            }
-
             if (isRestoringRef.current) return;
             isRestoringRef.current = true;
 
@@ -244,10 +234,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                     await logout();
                 }
             } catch (error: unknown) {
-                console.error("Session restoration failed:", error);
-                // Only clear the stored session if the backend explicitly rejected the token (401)
+                // If backend explicitly rejected the session (401), clean up local state quietly
                 if (axios.isAxiosError(error) && error.response?.status === 401) {
-                    await logout();
+                    setUser(null);
+                    setCurrentGroup(null);
+                    localStorage.removeItem("hunting_token");
+                    localStorage.removeItem("hunting_userId");
+                    localStorage.removeItem("hunting_groupId");
+                } else {
+                    console.error("Session restoration failed:", error);
                 }
             } finally {
                 setIsRestoringSession(false);
@@ -260,38 +255,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
     /**
      * Authenticates the user and initializes the session.
-     *
-     * @param {string} username - User login identifier.
-     * @param {string} [_pass] - Optional password (currently bypassed).
-     * @returns {Promise<boolean>} True if authentication succeeded.
+     * Deprecated in favor of SSO authentication via OpenID Connect.
      */
-    const login = useCallback(async (username: string): Promise<boolean> => {
-        try {
-            const response = await loginUser(username);
-            const data = response.data;
-            const foundUser = data.user || data;
-            const token = data.token;
-
-            if (foundUser) {
-                const safeUser = normalizeUser(foundUser);
-
-                setUser(safeUser);
-
-                if (token) {
-                    localStorage.setItem("hunting_token", token);
-                }
-                localStorage.setItem("hunting_userId", safeUser._id);
-
-                if (safeUser.groups.length > 0) {
-                    localStorage.setItem("hunting_groupId", safeUser.groups[0].groupId);
-                }
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error("Login failed:", error);
-            return false;
-        }
+    const login = useCallback(async (_username: string): Promise<boolean> => {
+        console.warn("Local username login has been deprecated in favor of SSO.");
+        return false;
     }, []);
 
     /**

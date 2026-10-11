@@ -17,18 +17,6 @@ const axiosInstance = axios.create({
     },
 });
 
-// Request Interceptor: Attach JWT Bearer token to all outgoing requests
-axiosInstance.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem("hunting_token");
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error: unknown) => Promise.reject(error),
-);
-
 // Shared in-flight refresh promise to prevent multiple concurrent refresh calls
 let refreshPromise: Promise<string | null> | null = null;
 
@@ -39,7 +27,7 @@ const attemptRefresh = async (): Promise<string | null> => {
 
     refreshPromise = (async (): Promise<string | null> => {
         try {
-            const response = await axios.post<{ token?: string }>(
+            await axios.post(
                 `${envConfig.apiUrl}/auth/refresh`,
                 {},
                 {
@@ -47,11 +35,7 @@ const attemptRefresh = async (): Promise<string | null> => {
                     headers: { "X-Requested-With": "XMLHttpRequest" },
                 }
             );
-            const newToken = response.data?.token;
-            if (newToken) {
-                localStorage.setItem("hunting_token", newToken);
-            }
-            return newToken || "refreshed";
+            return "refreshed";
         } catch (err: unknown) {
             // Only return null (signaling expired session) on explicit 401/403
             if (axios.isAxiosError(err) && err.response && (err.response.status === 401 || err.response.status === 403)) {
@@ -74,21 +58,18 @@ axiosInstance.interceptors.response.use(
         if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
             const originalRequest = error.config as (AxiosRequestConfig & { _retry?: boolean });
             const requestUrl = originalRequest?.url || "";
-
+            const hadSession = Boolean(localStorage.getItem("hunting_userId"));
             const isAuthRoute =
                 requestUrl.includes("/auth/refresh") ||
                 requestUrl.includes("/auth/login") ||
-                requestUrl.includes("/users/login");
+                requestUrl.includes("/auth/logout") ||
+                (requestUrl.includes("/auth/me") && !hadSession);
 
             if (!originalRequest?._retry && !isAuthRoute) {
                 originalRequest._retry = true;
                 try {
                     const refreshResult = await attemptRefresh();
                     if (refreshResult) {
-                        const token = localStorage.getItem("hunting_token");
-                        if (token && originalRequest.headers) {
-                            originalRequest.headers.Authorization = `Bearer ${token}`;
-                        }
                         return axiosInstance(originalRequest);
                     }
                 } catch {
@@ -99,7 +80,6 @@ axiosInstance.interceptors.response.use(
 
             // If request fails with 401 and cannot be refreshed, clear stored auth credentials
             const currentPath = window.location.pathname;
-            const hadSession = Boolean(localStorage.getItem("hunting_token") || localStorage.getItem("hunting_userId"));
 
             localStorage.removeItem("hunting_token");
             localStorage.removeItem("hunting_userId");

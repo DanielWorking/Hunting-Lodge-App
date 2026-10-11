@@ -102,6 +102,23 @@ app.use((req: Request, _res: Response, next: NextFunction): void => {
 app.use(express.json());
 app.use(stripImmutableFields);
 
+// Defense-in-depth CSRF guard: block cross-site mutating requests on state-changing API endpoints
+app.use((req: Request, res: Response, next: NextFunction): void => {
+    const isMutating = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
+    if (isMutating && req.path.startsWith("/api/")) {
+        // Exempt public OIDC callback/exchange endpoints
+        if (req.path === "/api/auth/login" || req.path === "/api/auth/sso-url") {
+            return next();
+        }
+        const secFetchSite = req.headers["sec-fetch-site"];
+        if (secFetchSite === "cross-site") {
+            res.status(403).json({ message: "Cross-site request blocked", code: "CSRF_DETECTED" });
+            return;
+        }
+    }
+    next();
+});
+
 // Apply rate limiting to API requests; skip auth paths and OpenShift probe polling endpoints
 const limiter = rateLimit({
     windowMs: config.security.rateLimitWindowMs,
@@ -109,7 +126,6 @@ const limiter = rateLimit({
     message: "Too many requests from this IP, please try again after 15 minutes",
     skip: (req) =>
         req.path.startsWith("/api/auth") ||
-        req.path === "/api/users/login" ||
         req.path === "/api/health" ||
         req.path === "/healthz" ||
         req.path === "/startup" ||

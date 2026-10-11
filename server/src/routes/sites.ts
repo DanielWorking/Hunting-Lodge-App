@@ -12,7 +12,7 @@ import { z } from "zod";
 import * as sitesController from "../controllers/sitesController";
 import { protect, requireGroupMember } from "../middleware/authMiddleware";
 import { validateRequest } from "../middleware/validationMiddleware";
-import { httpCache } from "../middleware/cacheMiddleware";
+import { noStore } from "../middleware/cacheMiddleware";
 
 const router = Router();
 
@@ -48,6 +48,10 @@ export type GetSitesQueryInput = z.infer<typeof getSitesQuerySchema>;
 export type CreateSiteInput = z.infer<typeof createSiteSchema>;
 export type UpdateSiteInput = z.infer<typeof updateSiteSchema>;
 
+// Site data changes on every write, so no response from this router may be cached by the client.
+// Applied before protect() so that rejected requests are covered too.
+router.use(noStore);
+
 // Ensure all site routes are protected by authentication
 router.use(protect);
 
@@ -59,7 +63,6 @@ router.use(protect);
 router.get(
     "/",
     validateRequest({ query: getSitesQuerySchema }),
-    httpCache(60, 300),
     sitesController.getSites,
 );
 

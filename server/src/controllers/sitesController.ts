@@ -258,6 +258,11 @@ export async function updateSite(req: Request, res: Response, next?: NextFunctio
         const updatedSite = await (typeof (updatedSiteQuery as any).lean === "function"
             ? (updatedSiteQuery as any).lean()
             : updatedSiteQuery);
+        // A missing document means nothing was written; never report success for it
+        if (!updatedSite) {
+            res.status(404).json({ message: "Site not found" });
+            return;
+        }
         res.json(updatedSite);
     } catch (err: unknown) {
         if (typeof next === "function") {
@@ -296,7 +301,12 @@ export async function deleteSite(req: Request, res: Response, next?: NextFunctio
             return;
         }
 
-        await Site.findByIdAndDelete(siteId);
+        // Only confirm the deletion when a document was actually removed
+        const deletedSite = await Site.findByIdAndDelete(siteId);
+        if (!deletedSite) {
+            res.status(404).json({ message: "Site not found" });
+            return;
+        }
         res.json({ message: "Site deleted" });
     } catch (err: unknown) {
         if (typeof next === "function") {
@@ -310,7 +320,7 @@ export async function deleteSite(req: Request, res: Response, next?: NextFunctio
 export async function toggleFavorite(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
         const siteId = extractParamId(req.params.id);
-        const site = await Site.findById(siteId);
+        const site = await Site.findById(siteId).select("groupId").lean();
         if (!site) {
             res.status(404).json({ message: "Site not found" });
             return;
@@ -335,17 +345,34 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
         }
 
         const userIdStr = rawUserId.toString();
-        const favoritedBy = Array.isArray(site.favoritedBy) ? [...site.favoritedBy] : [];
-        const index = favoritedBy.findIndex((id) => (id ? id.toString() : "") === userIdStr);
+        const userId = Types.ObjectId.isValid(userIdStr) ? new Types.ObjectId(userIdStr) : userIdStr;
 
-        if (index === -1) {
-            favoritedBy.push(Types.ObjectId.isValid(userIdStr) ? new Types.ObjectId(userIdStr) : userIdStr);
-        } else {
-            favoritedBy.splice(index, 1);
+        // One atomic write: the pipeline adds the user when absent and removes them when present,
+        // judged against the stored array. Reading the whole array, editing it and saving it back
+        // lost updates when two toggles overlapped (double tap, or two devices).
+        const storedFavorites = { $ifNull: ["$favoritedBy", []] };
+        const updatedSite = await Site.findOneAndUpdate(
+            { _id: siteId },
+            [
+                {
+                    $set: {
+                        favoritedBy: {
+                            $cond: [
+                                { $in: [userId, storedFavorites] },
+                                { $filter: { input: storedFavorites, as: "fav", cond: { $ne: ["$$fav", userId] } } },
+                                { $concatArrays: [storedFavorites, [userId]] },
+                            ],
+                        },
+                    },
+                },
+            ],
+            // updatePipeline is required by Mongoose for aggregation-pipeline updates
+            { returnDocument: "after", updatePipeline: true },
+        );
+        if (!updatedSite) {
+            res.status(404).json({ message: "Site not found" });
+            return;
         }
-        site.favoritedBy = favoritedBy;
-
-        const updatedSite = await site.save();
         res.json(updatedSite);
     } catch (err: unknown) {
         if (typeof next === "function") {

@@ -48,13 +48,14 @@ export function isOriginAllowed(
         return true;
     }
 
+    // Reject wildcard origins when credentials are enabled
+    if (origin === "*") {
+        return false;
+    }
+
     const configuredList = resolveConfiguredOrigins(configuredOrigins);
 
     if (appEnv === "nonprod") {
-        // If explicitly set to boolean true in nonprod, allow all
-        if (configuredOrigins === true) {
-            return true;
-        }
         // Allow localhost and local loopbacks
         if (DEFAULT_DEV_ORIGINS.includes(origin)) {
             return true;
@@ -95,6 +96,10 @@ export function createCorsOptions(
 ): CorsOptions {
     return {
         origin: (origin, callback) => {
+            if (origin === "*") {
+                callback(new Error("Wildcard CORS origin is rejected when credentials are enabled"), false);
+                return;
+            }
             if (isOriginAllowed(origin, appEnv, configuredOrigins)) {
                 callback(null, true);
             } else {
@@ -110,7 +115,6 @@ export function createCorsOptions(
             "Accept",
             "Origin",
         ],
-        exposedHeaders: ["Set-Cookie"],
         maxAge: 86400, // 24 hours preflight cache
     };
 }

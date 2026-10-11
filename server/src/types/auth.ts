@@ -44,6 +44,7 @@ export interface OidcTransientState {
  * User claims extracted from the verified OIDC ID token or UserInfo endpoint.
  */
 export interface SsoClaimsRecord {
+    readonly iss?: string;
     readonly sub?: string;
     readonly name?: string;
     readonly preferred_username?: string;
@@ -67,7 +68,8 @@ export interface SsoUrlResponse {
  */
 export interface SsoSessionResponse {
     readonly user: Record<string, unknown>;
-    readonly token: string;
+    readonly token?: string;
+    readonly success?: boolean;
 }
 
 /**

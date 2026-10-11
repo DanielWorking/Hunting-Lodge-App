@@ -9,14 +9,18 @@
 
 import crypto from "crypto";
 import https from "https";
+import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
 import { Issuer, BaseClient, TokenSet, custom, generators } from "openid-client";
 import User from "../models/User";
 import Group from "../models/Group";
 import config from "../config";
 import ssoConfig from "../config/sso";
-import { generateToken } from "../utils/jwt";
+import { generateToken, verifyToken } from "../utils/jwt";
 import { isSuperAdminUser, isAdmin, AuthUser } from "../utils/authHelpers";
+import { invalidateUserCache } from "../middleware/authMiddleware";
+import { resolveOrProvisionUser } from "../utils/ssoIdentity";
 import type { SsoLoginInput } from "../routes/auth";
 import type {
     CompanyTokenSet,
@@ -199,8 +203,16 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
         const rawStateCookie = req.cookies?.[ssoConfig.stateCookieName];
         const transientState = verifyAndParseCookie<OidcTransientState>(rawStateCookie, ssoConfig.cookieSecret);
 
-        // Enforce state match: if a transient state cookie was stored, state parameter is required and must match
-        if (transientState && (!state || transientState.state !== state)) {
+        if (!transientState) {
+            res.status(401).json({
+                message: "SSO Authentication failed",
+                error: "Missing or invalid OIDC state cookie",
+                code: "NO_STATE_COOKIE",
+            });
+            return;
+        }
+
+        if (!state || transientState.state !== state) {
             res.status(401).json({
                 message: "SSO Authentication failed",
                 error: "OIDC state verification failed: state parameter mismatch",
@@ -257,131 +269,9 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
             token_type: tokenSet.token_type || "Bearer",
         };
 
-        // Extract user claims safely
+        // Extract user claims safely and resolve/provision user
         const claims = (tokenSet.claims() || {}) as SsoClaimsRecord;
-
-        // Read configuration from SSO config module
-        const identifierMode = ssoConfig.identifierField || "email";
-
-        let dbUsername: string;
-        let dbDisplayName: string;
-        let dbEmail: string;
-        let searchCriteria: Record<string, unknown>;
-
-        // Extract raw string claims with safe fallbacks
-        const rawName = typeof claims.name === "string" ? claims.name.trim() : "";
-        const rawPrefUsername = typeof claims.preferred_username === "string" ? claims.preferred_username.trim() : "";
-        const rawNickname = typeof claims.nickname === "string" ? claims.nickname.trim() : "";
-        const rawSub = typeof claims.sub === "string" ? claims.sub.trim() : "";
-        const rawEmail = typeof claims.email === "string" ? claims.email.trim().toLowerCase() : "";
-
-        // Full name display from SSO claims, with fallback to nickname, username, or sub
-        dbDisplayName = rawName || rawPrefUsername || rawNickname || rawSub;
-        dbEmail = rawEmail;
-
-        if (identifierMode === "username") {
-            // Production / Organizational mode (Card / Smartcard / AD SSO)
-            dbUsername = rawPrefUsername || rawNickname || rawName || rawSub;
-            if (!dbDisplayName) {
-                dbDisplayName = dbUsername;
-            }
-            if (!dbEmail && dbUsername) {
-                dbEmail = `${dbUsername.replace(/[^a-zA-Z0-9._-]/g, "")}@organization.local`.toLowerCase();
-            }
-            searchCriteria = { username: dbUsername };
-        } else {
-            // Development / Home mode (Auth0 / Google OAuth2)
-            dbUsername = rawName || rawEmail || rawNickname || rawPrefUsername || rawSub;
-            if (!dbDisplayName) {
-                dbDisplayName = rawName || rawNickname || dbUsername;
-            }
-            if (!dbEmail && dbUsername) {
-                dbEmail = `${dbUsername.replace(/[^a-zA-Z0-9._-]/g, "")}@organization.local`.toLowerCase();
-            }
-            searchCriteria = dbEmail ? { email: dbEmail } : { username: dbUsername };
-        }
-
-        if (!dbUsername) {
-            res.status(401).json({
-                message: "SSO Authentication failed",
-                error: "Unable to extract user identity from SSO token claims",
-            });
-            return;
-        }
-
-        let user = await User.findOne(searchCriteria);
-
-        const claimGroups = Array.isArray(claims.groups)
-            ? (claims.groups as string[])
-            : Array.isArray(claims.roles)
-            ? (claims.roles as string[])
-            : [];
-        const isSuperAdminByClaim = claimGroups.includes(config.superAdmin.groupName) || claimGroups.includes("ADMINISTRATORS") || claimGroups.includes("admin");
-        const isSuperAdmin = isSuperAdminByClaim || isSuperAdminUser({ username: dbUsername, email: dbEmail });
-
-        if (user) {
-            if (!user.isActive) {
-                user.isActive = true;
-            }
-            if (dbDisplayName && (!user.displayName || user.displayName === user.username)) {
-                user.displayName = dbDisplayName;
-            }
-            if (dbEmail && !user.email) {
-                user.email = dbEmail;
-            }
-            user.lastLogin = new Date().toISOString();
-
-            if (isSuperAdmin) {
-                const adminGroup = await Group.findOne({ name: config.superAdmin.groupName });
-                if (adminGroup) {
-                    const hasAdminGroup = user.groups.some((g) => {
-                        const gid = g.groupId && typeof g.groupId === "object" && "_id" in g.groupId
-                            ? String((g.groupId as { _id?: unknown })._id)
-                            : String(g.groupId);
-                        return gid === adminGroup._id.toString();
-                    });
-                    if (!hasAdminGroup) {
-                        user.groups.push({
-                            groupId: adminGroup._id,
-                            role: "shift_manager",
-                            order: 0,
-                        });
-                        await Group.updateOne(
-                            { _id: adminGroup._id },
-                            { $addToSet: { members: user._id } }
-                        );
-                    }
-                }
-            }
-
-            await user.save();
-        } else {
-            user = new User({
-                username: dbUsername,
-                displayName: dbDisplayName,
-                email: dbEmail,
-                isActive: true,
-                groups: [],
-                lastLogin: new Date().toISOString(),
-            });
-
-            if (isSuperAdmin) {
-                const adminGroup = await Group.findOne({ name: config.superAdmin.groupName });
-                if (adminGroup) {
-                    user.groups.push({
-                        groupId: adminGroup._id,
-                        role: "shift_manager",
-                        order: 0,
-                    });
-                    await Group.updateOne(
-                        { _id: adminGroup._id },
-                        { $addToSet: { members: user._id } }
-                    );
-                }
-            }
-
-            await user.save();
-        }
+        const user = await resolveOrProvisionUser(claims, ssoConfig.issuerUrl);
 
         const userWithToObject = user as unknown as { toObject?: () => Record<string, unknown> };
         const userObj: Record<string, unknown> = typeof userWithToObject.toObject === "function"
@@ -439,8 +329,7 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
             domain: ssoConfig.cookieDomain,
         });
 
-        // Dual mode: return user object and token for backward compatibility
-        res.json({ user: userObj, token });
+        res.json({ user: userObj, success: true });
     } catch (error: unknown) {
         console.error("SSO Login Error:", error);
         const errCode = (error as { code?: string })?.code;
@@ -469,7 +358,7 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
  */
 export async function refreshToken(req: Request, res: Response, _next?: NextFunction): Promise<void> {
     try {
-        const rawRefreshToken = req.cookies?.[ssoConfig.refreshCookieName] || (req.body && (req.body as Record<string, unknown>).refreshToken);
+        const rawRefreshToken = req.cookies?.[ssoConfig.refreshCookieName];
 
         if (!rawRefreshToken || typeof rawRefreshToken !== "string") {
             res.status(401).json({
@@ -556,7 +445,6 @@ export async function refreshToken(req: Request, res: Response, _next?: NextFunc
         res.json({
             success: true,
             message: "Session refreshed",
-            token,
         });
     } catch (error: unknown) {
         console.error("Session refresh error:", error);
@@ -582,24 +470,26 @@ export async function refreshToken(req: Request, res: Response, _next?: NextFunc
         res.clearCookie(ssoConfig.refreshCookieName, {
             httpOnly: true,
             secure: ssoConfig.cookieSecure,
-            sameSite: ssoConfig.sameSite,
+            sameSite: "strict",
             path: "/api/auth",
             domain: ssoConfig.cookieDomain,
         });
         res.status(401).json({
             message: "Session refresh failed",
             code: "REFRESH_FAILED",
-            error: error instanceof Error ? error.message : String(error),
+            error: !config.isNonProd ? "Session refresh failed" : (error instanceof Error ? error.message : String(error)),
         });
     }
 }
 
 /**
  * Terminates the application session, clears all auth cookies,
+ * increments user tokenVersion for server-side revocation,
  * and provides OIDC RP-initiated logout URL if supported.
  */
-export async function logout(_req: Request, res: Response, next?: NextFunction): Promise<void> {
+export async function logout(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
+        // 1. Always clear authentication and session cookies first
         res.clearCookie(ssoConfig.sessionCookieName, {
             httpOnly: true,
             secure: ssoConfig.cookieSecure,
@@ -610,17 +500,41 @@ export async function logout(_req: Request, res: Response, next?: NextFunction):
         res.clearCookie(ssoConfig.refreshCookieName, {
             httpOnly: true,
             secure: ssoConfig.cookieSecure,
-            sameSite: ssoConfig.sameSite,
+            sameSite: "strict",
             path: "/api/auth",
             domain: ssoConfig.cookieDomain,
         });
         res.clearCookie(ssoConfig.stateCookieName, {
             httpOnly: true,
             secure: ssoConfig.cookieSecure,
-            sameSite: ssoConfig.sameSite,
+            sameSite: "lax",
             path: "/api/auth",
             domain: ssoConfig.cookieDomain,
         });
+
+        // 2. Extract user identity and increment tokenVersion in DB for session revocation
+        let userId: string | undefined = (req.user as { _id?: unknown; id?: string })?._id?.toString() || req.user?.id;
+        if (!userId) {
+            const rawToken = req.cookies?.[ssoConfig.sessionCookieName];
+            if (rawToken) {
+                try {
+                    const decoded = verifyToken(rawToken);
+                    userId = decoded.userId;
+                } catch {
+                    const unverified = jwt.decode(rawToken) as { userId?: string } | null;
+                    userId = unverified?.userId;
+                }
+            }
+        }
+
+        if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+            try {
+                await User.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } });
+                invalidateUserCache(userId);
+            } catch (dbErr) {
+                console.warn("Could not increment tokenVersion on logout:", dbErr);
+            }
+        }
 
         let logoutUrl: string | undefined;
         try {
@@ -641,8 +555,8 @@ export async function logout(_req: Request, res: Response, next?: NextFunction):
                     post_logout_redirect_uri: postLogoutRedirectUri,
                 });
             }
-        } catch {
-            // OIDC client unavailable or endSessionUrl not configured; continue smoothly
+        } catch (endSessionErr) {
+            console.warn("Failed to generate OIDC endSessionUrl:", endSessionErr);
         }
 
         const response: SsoLogoutResponse = {

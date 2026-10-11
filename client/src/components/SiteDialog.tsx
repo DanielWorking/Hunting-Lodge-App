@@ -28,8 +28,11 @@ interface SiteDialogProps {
     open: boolean;
     /** Callback function to close the dialog. */
     onClose: () => void;
-    /** Callback function triggered when the form is submitted and validated. */
-    onSave: (siteData: Partial<SiteCard>) => void;
+    /**
+     * Callback triggered when the form is submitted and validated. Resolves true when the
+     * save succeeded; the dialog closes only then, so a failed save keeps the user's edits.
+     */
+    onSave: (siteData: Partial<SiteCard>) => Promise<boolean>;
     /** Optional existing site data for pre-populating the form in edit mode. */
     initialData?: SiteCard | null;
     /** The active group context, used to retrieve available site tags. */
@@ -113,8 +116,9 @@ export default function SiteDialog({
 
     /**
      * Validates required fields and invokes the onSave callback if the form is valid.
+     * Closes the dialog only after the save reports success.
      */
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         // Validate all mandatory fields
         const newErrors = {
             title: !formData.title.trim(),
@@ -126,8 +130,10 @@ export default function SiteDialog({
         // Abort submission if any validation errors are present
         if (Object.values(newErrors).some(Boolean)) return;
 
-        onSave(formData);
-        onClose();
+        const saved = await onSave(formData);
+        if (saved) {
+            onClose();
+        }
     };
 
     return (

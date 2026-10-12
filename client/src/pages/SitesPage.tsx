@@ -234,6 +234,13 @@ export default function SitesPage() {
                     item._id === siteId ? { ...item, favoritedBy: updated.favoritedBy } : item,
                 ),
             );
+            const isNowFavorite = user?._id
+                ? (updated.favoritedBy ?? []).includes(user._id)
+                : false;
+            showNotification(
+                isNowFavorite ? "Added to favorites" : "Removed from favorites",
+                "success",
+            );
             refreshData();
         } catch (error) {
             console.error(error);

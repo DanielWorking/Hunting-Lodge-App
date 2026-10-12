@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: shift-report-cronjob
   # <YOUR_NAMESPACE>: change to the current namespace
-  namespace: danielrei-dev
+  namespace: <YOUR_NAMESPACE>
 spec:
   # Run every minute in Asia/Jerusalem time
   schedule: "* * * * *"
@@ -27,7 +27,7 @@ spec:
             - name: shift-report-worker
               # <YOUR_NAMESPACE>: change to the current namespace
               # <YOUR_DEPLOYMENT>: change to the current deployment
-              image: image-registry.openshift-image-registry.svc:5000/danielrei-dev/hunting-lodge-app-nonprod:latest
+              image: image-registry.openshift-image-registry.svc:5000/<YOUR_NAMESPACE>/<YOUR_DEPLOYMENT>:latest
               imagePullPolicy: Always
               command:
                 ["dumb-init", "--", "node", "src/scripts/runShiftReportCron.js"]

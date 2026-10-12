@@ -95,7 +95,7 @@ export default function SiteCard({
         <Box
             sx={{
                 perspective: "1000px",
-                height: "300px", // Fixed height for smooth flip animation
+                height: "320px", // Fixed height for smooth flip animation
                 width: "100%",
             }}
         >
@@ -130,7 +130,7 @@ export default function SiteCard({
                     >
                         <CardMedia
                             component="img"
-                            height="160"
+                            height="140"
                             image={imageSrc}
                             alt={title}
                             loading="lazy"

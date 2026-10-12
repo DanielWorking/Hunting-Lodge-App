@@ -189,7 +189,7 @@ export function validateServerEnv(
         errors.forEach((err) => {
             console.error(`  - ${err}`);
         });
-        console.error(`\n👉 Please configure these in your server/.env.${currentAppEnv} or environment secrets.`);
+        console.error(`\n👉 Please configure these in env/server/.env.config.${currentAppEnv} / env/server/.env.secret.${currentAppEnv} or your environment secrets.`);
         console.error("==================================================================\n");
         process.exit(1);
     }

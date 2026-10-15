@@ -251,6 +251,13 @@ spec:
                   name: backend-config-nonprod
                   key: TRUST_PROXY
                   optional: false
+            # Nonprod only: adds error details to 5xx bodies (refused at startup in preprod/prod)
+            - name: EXPOSE_ERROR_DETAILS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config-nonprod
+                  key: EXPOSE_ERROR_DETAILS
+                  optional: true
           resources:
             requests:
               cpu: 50m

@@ -2,7 +2,7 @@
  * @module Config/CorsOptions
  *
  * Dynamic CORS configuration and origin resolution tailored per environment:
- * - nonprod: allows localhost dev servers, local loopbacks, and configured dev routes.
+ * - nonprod: like production, only origins listed in CORS_ORIGIN (local dev origins included there).
  * - preprod: strictly validates staging domains against whitelist; blocks localhost and wildcards.
  * - prod: strictly validates production origins with zero wildcard reflection and credentials safety.
  */
@@ -10,16 +10,13 @@
 import type { CorsOptions } from "cors";
 import type { AppEnv } from "./env";
 
-export const DEFAULT_DEV_ORIGINS: ReadonlyArray<string> = Object.freeze([
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:4173",
-    "http://127.0.0.1:4173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5000",
-    "http://127.0.0.1:5000",
-]);
+/**
+ * A disallowed origin is a 403 for the caller, not a server fault, and the response must not
+ * reveal the environment or the configured origins.
+ */
+function corsRejection(): Error {
+    return Object.assign(new Error("Origin not allowed"), { statusCode: 403, code: "CORS_ORIGIN_REJECTED" });
+}
 
 /**
  * Resolves a list of allowed origins from configured environment origins.
@@ -56,19 +53,9 @@ export function isOriginAllowed(
     const configuredList = resolveConfiguredOrigins(configuredOrigins);
 
     if (appEnv === "nonprod") {
-        // Allow localhost and local loopbacks
-        if (DEFAULT_DEV_ORIGINS.includes(origin)) {
-            return true;
-        }
-        try {
-            const parsed = new URL(origin);
-            if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
-                return true;
-            }
-        } catch {
-            return false;
-        }
-        // Check configured dev routes
+        // Same rule as production: only explicitly configured origins (CORS_ORIGIN). Local
+        // development origins such as http://localhost:5173 must be listed there too; there is
+        // no implicit localhost allowance. (Preprod/prod additionally refuse localhost entries.)
         return configuredList.includes(origin);
     }
 
@@ -97,13 +84,13 @@ export function createCorsOptions(
     return {
         origin: (origin, callback) => {
             if (origin === "*") {
-                callback(new Error("Wildcard CORS origin is rejected when credentials are enabled"), false);
+                callback(corsRejection(), false);
                 return;
             }
             if (isOriginAllowed(origin, appEnv, configuredOrigins)) {
                 callback(null, true);
             } else {
-                callback(new Error(`CORS origin not allowed by ${appEnv} policy: ${origin}`), false);
+                callback(corsRejection(), false);
             }
         },
         credentials: true,

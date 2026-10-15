@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import config from "../config";
-import db from "../config/db";
+import db, { maskMongoUri, validateDatabaseTarget } from "../config/db";
 import keys from "../config/keys";
 import sso from "../config/sso";
 import { parseTrustProxy, deepFreeze, detectAppEnv, validateServerEnv } from "../config/env";
@@ -54,14 +54,6 @@ describe("TypeScript Configuration Modules Verification", () => {
                 writableSecurity.corsOrigin = "https://malicious.com";
             }, TypeError);
         });
-
-        it("should provide backwards-compatible alias exports for CommonJS/ESM interop", () => {
-            assert.equal(config.default.port, config.port);
-            assert.equal(config.config.port, config.port);
-            assert.ok(config.dbConfig);
-            assert.ok(config.jwtConfig);
-            assert.ok(config.ssoConfig);
-        });
     });
 
     describe("2. Database Configuration (config/db.ts)", () => {
@@ -71,15 +63,14 @@ describe("TypeScript Configuration Modules Verification", () => {
             assert.ok(Object.isFrozen(db), "dbConfig should be frozen");
             assert.ok(Object.isFrozen(db.options), "dbOptions should be frozen");
 
-            assert.ok(db.options.serverSelectionTimeoutMS >= 30000);
+            // Pool sizes and timeouts come from each environment's MONGO_* values; only validity is asserted here
+            assert.ok(db.options.serverSelectionTimeoutMS > 0);
             assert.equal(db.options.heartbeatFrequencyMS, 10000);
-            assert.ok(db.options.maxPoolSize >= 20);
+            assert.ok(db.options.maxPoolSize >= db.options.minPoolSize);
+            // Off unless MONGO_AUTO_INDEX=true (nonprod only): preprod and prod build indexes through migrations
+            assert.equal(db.options.autoIndex, process.env.MONGO_AUTO_INDEX === "true");
             assert.equal(db.options.retryWrites, true);
             assert.equal(db.options.retryReads, true);
-
-            // Check aliases
-            assert.equal(db.mongoUri, db.uri);
-            assert.equal(db.dbOptions, db.options);
         });
     });
 
@@ -88,10 +79,6 @@ describe("TypeScript Configuration Modules Verification", () => {
             assert.ok(keys.secret, "JWT secret should exist");
             assert.ok(keys.expiresIn, "JWT expiresIn should exist");
             assert.ok(Object.isFrozen(keys), "keys should be frozen");
-
-            // Check aliases
-            assert.equal(keys.jwtConfig.secret, keys.secret);
-            assert.equal(keys.keys.secret, keys.secret);
         });
     });
 
@@ -104,11 +91,6 @@ describe("TypeScript Configuration Modules Verification", () => {
             assert.equal(typeof sso.redirectUri, "string");
             assert.equal(typeof sso.scope, "string");
             assert.equal(typeof sso.identifierField, "string");
-
-            // Check aliases
-            assert.equal(sso.ssoConfig.clientId, sso.clientId);
-            assert.equal(sso.sso.clientId, sso.clientId);
-            assert.equal(sso.default.clientId, sso.clientId);
         });
     });
 
@@ -171,22 +153,63 @@ describe("TypeScript Configuration Modules Verification", () => {
             assert.ok(result.errors.some((e) => e.includes("MONGO_URI")));
             assert.ok(result.errors.some((e) => e.includes("JWT_SECRET")));
 
-            const validNonProdEnv = {
-                APP_ENV: "nonprod",
-                NODE_ENV: "development",
+            // Nonprod has exactly the same requirements: no fallback secret or database
+            const bareNonProdEnv = { APP_ENV: "nonprod", NODE_ENV: "development" };
+            const bareNonprodResult = validateServerEnv(bareNonProdEnv, "nonprod", false);
+            assert.equal(bareNonprodResult.valid, false);
+            assert.ok(bareNonprodResult.errors.some((e) => e.includes("JWT_SECRET")));
+            assert.ok(bareNonprodResult.errors.some((e) => e.includes("MONGO_URI")));
+        });
+
+        it("should accept a complete configuration, allowing an http://localhost redirect only in nonprod", () => {
+            const complete = {
+                MONGO_URI: "mongodb://db.internal:27017/hunting_lodge",
+                JWT_SECRET: "x".repeat(32),
+                SSO_ISSUER_URL: "https://idp.example.com/",
+                SSO_CLIENT_ID: "client",
+                SSO_CLIENT_SECRET: "secret",
+                SSO_REDIRECT_URI: "http://localhost:5173/auth/callback",
+                SUPER_ADMIN_ID: "10001",
+                SUPER_ADMIN_GROUP_NAME: "ADMINISTRATORS",
             };
-            const nonprodResult = validateServerEnv(validNonProdEnv, "nonprod", false);
-            assert.equal(nonprodResult.valid, true);
+            assert.equal(validateServerEnv({ ...complete, APP_ENV: "nonprod" }, "nonprod", false).valid, true);
+            const prodResult = validateServerEnv({ ...complete, APP_ENV: "prod" }, "prod", false);
+            assert.ok(prodResult.errors.some((e) => e.includes("SSO_REDIRECT_URI")), "prod must use HTTPS");
+            const shortSecret = validateServerEnv({ ...complete, APP_ENV: "nonprod", JWT_SECRET: "too-short" }, "nonprod", false);
+            assert.ok(shortSecret.errors.some((e) => e.includes("JWT_SECRET")), "nonprod gets no weaker secret rule");
+        });
+
+        it("should allow EXPOSE_ERROR_DETAILS only in nonprod", () => {
+            const complete = {
+                MONGO_URI: "mongodb://db.internal:27017/hunting_lodge",
+                JWT_SECRET: "x".repeat(32),
+                SSO_ISSUER_URL: "https://idp.example.com/",
+                SSO_CLIENT_ID: "client",
+                SSO_CLIENT_SECRET: "secret",
+                SSO_REDIRECT_URI: "https://app.example.com/auth/callback",
+                SUPER_ADMIN_ID: "10001",
+                SUPER_ADMIN_GROUP_NAME: "ADMINISTRATORS",
+                EXPOSE_ERROR_DETAILS: "true",
+            };
+            assert.equal(validateServerEnv({ ...complete, APP_ENV: "nonprod" }, "nonprod", false).valid, true);
+            for (const env of ["preprod", "prod"] as const) {
+                const result = validateServerEnv({ ...complete, APP_ENV: env }, env, false);
+                assert.ok(result.errors.some((e) => e.includes("EXPOSE_ERROR_DETAILS")), `${env} must refuse error details`);
+            }
+            const switchedOff = validateServerEnv({ ...complete, APP_ENV: "prod", EXPOSE_ERROR_DETAILS: "false" }, "prod", false);
+            assert.equal(switchedOff.valid, true);
         });
     });
 
     describe("7. Dynamic CORS Resolution (config/corsOptions.ts)", () => {
-        it("should allow dev origins and local loopbacks in nonprod", () => {
-            assert.equal(isOriginAllowed("http://localhost:5173", "nonprod"), true);
-            assert.equal(isOriginAllowed("http://127.0.0.1:5173", "nonprod"), true);
-            assert.equal(isOriginAllowed("http://localhost:3000", "nonprod"), true);
+        it("should allow only configured origins in nonprod, like production", () => {
+            const nonprodWhitelist = "https://nonprod.huntinglodge.app,http://localhost:5173";
+            assert.equal(isOriginAllowed("http://localhost:5173", "nonprod", nonprodWhitelist), true);
+            assert.equal(isOriginAllowed("https://nonprod.huntinglodge.app", "nonprod", nonprodWhitelist), true);
+            assert.equal(isOriginAllowed("http://localhost:3000", "nonprod", nonprodWhitelist), false, "no implicit localhost allowance");
+            assert.equal(isOriginAllowed("http://127.0.0.1:5173", "nonprod"), false);
             assert.equal(isOriginAllowed(undefined, "nonprod"), true);
-            assert.equal(isOriginAllowed("https://malicious.evil.com", "nonprod"), false);
+            assert.equal(isOriginAllowed("https://malicious.evil.com", "nonprod", nonprodWhitelist), false);
         });
 
         it("should reject localhost in preprod and enforce configured whitelist", () => {
@@ -213,32 +236,32 @@ describe("TypeScript Configuration Modules Verification", () => {
 
     describe("8. Database Security & Cross-Environment Guard (config/db.ts)", () => {
         it("should safely mask MongoDB connection credentials in logs", () => {
-            const masked = db.maskMongoUri("mongodb+srv://adminUser:SuperSecret123@cluster0.mongodb.net/hunting_lodge_prod");
+            const masked = maskMongoUri("mongodb+srv://adminUser:SuperSecret123@cluster0.mongodb.net/hunting_lodge_prod");
             assert.ok(!masked.includes("SuperSecret123"));
             assert.ok(masked.includes("adminUser:***@cluster0.mongodb.net"));
         });
 
         it("should block production from connecting to localhost or dev databases", () => {
             assert.throws(() => {
-                db.validateDatabaseTarget("mongodb://localhost:27017/hunting_lodge_prod", "prod");
+                validateDatabaseTarget("mongodb://localhost:27017/hunting_lodge_prod", "prod");
             }, /cannot connect to a localhost/);
 
             assert.throws(() => {
-                db.validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_nonprod", "prod");
+                validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_nonprod", "prod");
             }, /cannot connect to a non-production database/);
 
             assert.doesNotThrow(() => {
-                db.validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_prod", "prod");
+                validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_prod", "prod");
             });
         });
 
         it("should block preprod from connecting to production database", () => {
             assert.throws(() => {
-                db.validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_prod", "preprod");
+                validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_prod", "preprod");
             }, /cannot connect to the production database/);
 
             assert.doesNotThrow(() => {
-                db.validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_preprod", "preprod");
+                validateDatabaseTarget("mongodb+srv://admin:pass@cluster.net/hunting_lodge_preprod", "preprod");
             });
         });
     });

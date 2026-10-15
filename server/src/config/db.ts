@@ -6,13 +6,13 @@
  */
 
 import "./env";
-import { appEnv, isNonProd, deepFreeze, AppEnv, validatedEnv } from "./env";
+import { appEnv, deepFreeze, AppEnv, validatedEnv } from "./env";
 import type { DatabaseConfig, DatabaseOptions } from "../types/config";
 
 /**
  * Masks user credentials in MongoDB connection URI for secure logging.
  */
-function maskMongoUri(uri: string): string {
+export function maskMongoUri(uri: string): string {
     return uri.replace(/\/\/(.*):(.*)@/, "//$1:***@");
 }
 
@@ -20,7 +20,7 @@ function maskMongoUri(uri: string): string {
  * Enforces cross-environment database connection isolation.
  * Prevents prod from pointing to dev/local databases, preprod from touching prod, etc.
  */
-function validateDatabaseTarget(uri: string, currentAppEnv: AppEnv): void {
+export function validateDatabaseTarget(uri: string, currentAppEnv: AppEnv): void {
     const lower = uri.toLowerCase();
 
     if (currentAppEnv === "prod") {
@@ -54,14 +54,13 @@ function validateDatabaseTarget(uri: string, currentAppEnv: AppEnv): void {
     }
 }
 
-// SDAM Tuning per Environment:
-// nonprod: max 20, min 2, timeout 30000ms, autoIndex true
-// preprod: max 30, min 5, timeout 10000ms, autoIndex false
-// prod:    max 50, min 10, timeout 5000ms, autoIndex false
-const defaultMaxPoolSize = appEnv === "prod" ? 50 : appEnv === "preprod" ? 30 : 20;
-const defaultMinPoolSize = appEnv === "prod" ? 10 : appEnv === "preprod" ? 5 : 2;
-const defaultSelectionTimeout = appEnv === "prod" ? 5000 : appEnv === "preprod" ? 10000 : 30000;
-const defaultAutoIndex = appEnv === "nonprod";
+// Connection defaults are production values in every environment; each deployment overrides them
+// through its MONGO_* variables (nonprod's config file relaxes them for development, including
+// MONGO_AUTO_INDEX=true). Without that override, indexes come only from migrations (npm run migrate:up).
+const defaultMaxPoolSize = 50;
+const defaultMinPoolSize = 10;
+const defaultSelectionTimeout = 5000;
+const defaultAutoIndex = false;
 
 const options: DatabaseOptions = {
     autoIndex: validatedEnv.MONGO_AUTO_INDEX !== undefined
@@ -81,11 +80,8 @@ const options: DatabaseOptions = {
     retryReads: true,
 };
 
-const rawDatabaseUri = validatedEnv.MONGO_URI || "mongodb://localhost:27017/hunting_lodge_db";
-
-if (isNonProd && !process.env.MONGO_URI) {
-    console.warn("⚠️  [Nonprod Warning] MONGO_URI is not set. Database connection will likely fail.");
-}
+// MONGO_URI is required at startup by validateServerEnv; there is no local fallback database
+const rawDatabaseUri = validatedEnv.MONGO_URI || "";
 
 // Apply cross-environment guard during initialization (bypass only in unit tests if needed)
 if (process.env.NODE_ENV !== "test") {
@@ -97,31 +93,6 @@ const rawDatabaseConfig: DatabaseConfig = {
     options,
 };
 
-type ExportedDbConfig = DatabaseConfig & {
-    readonly default: DatabaseConfig;
-    readonly databaseConfig: DatabaseConfig;
-    readonly dbConfig: DatabaseConfig;
-    readonly dbOptions: DatabaseOptions;
-    readonly options: DatabaseOptions;
-    readonly mongoUri: string;
-    readonly uri: string;
-    readonly maskMongoUri: typeof maskMongoUri;
-    readonly validateDatabaseTarget: typeof validateDatabaseTarget;
-};
+const databaseConfig = deepFreeze(rawDatabaseConfig);
 
-const combinedDb: ExportedDbConfig = {
-    ...rawDatabaseConfig,
-    default: rawDatabaseConfig,
-    databaseConfig: rawDatabaseConfig,
-    dbConfig: rawDatabaseConfig,
-    dbOptions: rawDatabaseConfig.options,
-    options: rawDatabaseConfig.options,
-    mongoUri: rawDatabaseConfig.uri,
-    uri: rawDatabaseConfig.uri,
-    maskMongoUri,
-    validateDatabaseTarget,
-};
-
-const exportedDb: ExportedDbConfig = deepFreeze(combinedDb);
-
-export = exportedDb;
+export default databaseConfig;

@@ -56,6 +56,8 @@ export interface SecurityConfig {
     readonly rateLimitMax: number;
     readonly rateLimitWindowMs: number;
     readonly trustProxy: boolean | number | string;
+    /** Adds error details (name, message, stack) to 5xx bodies. Nonprod only. */
+    readonly exposeErrorDetails: boolean;
 }
 
 export interface LoggingConfig {
@@ -115,6 +117,7 @@ export interface ServerProcessEnv {
     readonly RATE_LIMIT_MAX?: string;
     readonly RATE_LIMIT_WINDOW_MS?: string;
     readonly TRUST_PROXY?: string;
+    readonly EXPOSE_ERROR_DETAILS?: string;
     readonly LOG_FORMAT?: string;
     readonly STATIC_FILES_PATH?: string;
     readonly SHIFT_REPORT_CRON_SCHEDULE?: string;

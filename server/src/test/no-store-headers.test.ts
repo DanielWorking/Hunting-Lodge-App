@@ -61,8 +61,8 @@ describe("site and phone routers send no-store headers on every response", () =>
         assert.equal(res.headers.get("pragma"), "no-cache");
     });
 
-    it("PUT /api/sites/:id carries no-store", async () => {
-        const res = await fetch(`${base}/api/sites/abc123`, { method: "PUT" });
+    it("PATCH /api/sites/:id carries no-store", async () => {
+        const res = await fetch(`${base}/api/sites/abc123`, { method: "PATCH" });
         assert.equal(res.status, 401);
         assert.equal(res.headers.get("cache-control"), NO_STORE);
     });
@@ -74,8 +74,8 @@ describe("site and phone routers send no-store headers on every response", () =>
         assert.equal(res.headers.get("pragma"), "no-cache");
     });
 
-    it("PUT /api/phones/:id carries no-store", async () => {
-        const res = await fetch(`${base}/api/phones/abc123`, { method: "PUT" });
+    it("PATCH /api/phones/:id carries no-store", async () => {
+        const res = await fetch(`${base}/api/phones/abc123`, { method: "PATCH" });
         assert.equal(res.status, 401);
         assert.equal(res.headers.get("cache-control"), NO_STORE);
     });

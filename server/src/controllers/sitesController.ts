@@ -48,19 +48,20 @@ export async function getSites(req: Request, res: Response, next?: NextFunction)
         const requestingUser = req.user as AuthUser | undefined;
 
         if (groupId && typeof groupId === "string") {
+            // Resolve first so a missing group answers 404 rather than a misleading 403
+            const group = await resolveGroup(groupId);
+            if (!group) {
+                res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
+                return;
+            }
+
             // Check explicit access to specific group
-            const hasAccess = await isGroupMember(requestingUser, groupId);
+            const hasAccess = await isGroupMember(requestingUser, group);
             if (!hasAccess) {
                 res.status(403).json({
                     message: "Forbidden: You are not a member of this group.",
                     code: "FORBIDDEN_GROUP_MEMBER_REQUIRED",
                 });
-                return;
-            }
-
-            const group = await resolveGroup(groupId);
-            if (!group) {
-                res.json([]);
                 return;
             }
 
@@ -93,7 +94,7 @@ export async function getSites(req: Request, res: Response, next?: NextFunction)
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
@@ -103,13 +104,13 @@ export async function createSite(req: Request, res: Response, next?: NextFunctio
 
     try {
         if (!groupId || typeof groupId !== "string") {
-            res.status(400).json({ message: "Target groupId is required." });
+            res.status(400).json({ message: "Target groupId is required.", code: "VALIDATION_ERROR" });
             return;
         }
 
         const group = await resolveGroup(groupId);
         if (!group) {
-            res.status(404).json({ message: "Target group not found." });
+            res.status(404).json({ message: "Target group not found.", code: "NOT_FOUND" });
             return;
         }
 
@@ -135,7 +136,7 @@ export async function createSite(req: Request, res: Response, next?: NextFunctio
             ? existingSiteQuery.lean()
             : existingSiteQuery);
         if (existingSite) {
-            res.status(400).json({ message: "A resource with this link already exists in this group." });
+            res.status(400).json({ message: "A resource with this link already exists in this group.", code: "DUPLICATE_RESOURCE" });
             return;
         }
 
@@ -155,7 +156,7 @@ export async function createSite(req: Request, res: Response, next?: NextFunctio
             next(err);
             return;
         }
-        res.status(400).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(400).json({ message: err instanceof Error ? err.message : String(err), code: "BAD_REQUEST" });
     }
 }
 
@@ -171,7 +172,7 @@ export async function updateSite(req: Request, res: Response, next?: NextFunctio
             ? currentSiteQuery.lean()
             : currentSiteQuery);
         if (!currentSite) {
-            res.status(404).json({ message: "Site not found" });
+            res.status(404).json({ message: "Site not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -203,13 +204,14 @@ export async function updateSite(req: Request, res: Response, next?: NextFunctio
         if (body.groupId && typeof body.groupId === "string") {
             const newGroup = await resolveGroup(body.groupId);
             if (!newGroup) {
-                res.status(404).json({ message: "Group not found" });
+                res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
                 return;
             }
             const hasNewGroupAccess = await isGroupMember(requestingUser, newGroup._id);
             if (!hasNewGroupAccess) {
                 res.status(403).json({
                     message: "Forbidden: You are not a member of the destination group.",
+                    code: "FORBIDDEN_GROUP_MEMBER_REQUIRED",
                 });
                 return;
             }
@@ -236,6 +238,7 @@ export async function updateSite(req: Request, res: Response, next?: NextFunctio
             if (duplicateSite) {
                 res.status(400).json({
                     message: "A resource with this link already exists in this group.",
+                    code: "DUPLICATE_RESOURCE",
                 });
                 return;
             }
@@ -260,7 +263,7 @@ export async function updateSite(req: Request, res: Response, next?: NextFunctio
             : updatedSiteQuery);
         // A missing document means nothing was written; never report success for it
         if (!updatedSite) {
-            res.status(404).json({ message: "Site not found" });
+            res.status(404).json({ message: "Site not found", code: "NOT_FOUND" });
             return;
         }
         res.json(updatedSite);
@@ -269,7 +272,7 @@ export async function updateSite(req: Request, res: Response, next?: NextFunctio
             next(err);
             return;
         }
-        res.status(400).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(400).json({ message: err instanceof Error ? err.message : String(err), code: "BAD_REQUEST" });
     }
 }
 
@@ -285,7 +288,7 @@ export async function deleteSite(req: Request, res: Response, next?: NextFunctio
             ? currentSiteQuery.lean()
             : currentSiteQuery);
         if (!currentSite) {
-            res.status(404).json({ message: "Site not found" });
+            res.status(404).json({ message: "Site not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -304,7 +307,7 @@ export async function deleteSite(req: Request, res: Response, next?: NextFunctio
         // Only confirm the deletion when a document was actually removed
         const deletedSite = await Site.findByIdAndDelete(siteId);
         if (!deletedSite) {
-            res.status(404).json({ message: "Site not found" });
+            res.status(404).json({ message: "Site not found", code: "NOT_FOUND" });
             return;
         }
         res.json({ message: "Site deleted" });
@@ -313,7 +316,7 @@ export async function deleteSite(req: Request, res: Response, next?: NextFunctio
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
@@ -322,7 +325,7 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
         const siteId = extractParamId(req.params.id);
         const site = await Site.findById(siteId).select("groupId").lean();
         if (!site) {
-            res.status(404).json({ message: "Site not found" });
+            res.status(404).json({ message: "Site not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -340,7 +343,7 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
 
         const rawUserId = requestingUser?._id || req.user?.id;
         if (!rawUserId) {
-            res.status(401).json({ message: "Unauthorized" });
+            res.status(401).json({ message: "Unauthorized", code: "UNAUTHORIZED" });
             return;
         }
 
@@ -370,7 +373,7 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
             { returnDocument: "after", updatePipeline: true },
         );
         if (!updatedSite) {
-            res.status(404).json({ message: "Site not found" });
+            res.status(404).json({ message: "Site not found", code: "NOT_FOUND" });
             return;
         }
         res.json(updatedSite);
@@ -379,7 +382,7 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 

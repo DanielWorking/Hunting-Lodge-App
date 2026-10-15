@@ -14,7 +14,7 @@ import {
     requireShiftManager,
 } from "../middleware/authMiddleware";
 
-import { notFoundHandler, errorHandler } from "../middleware/errorMiddleware";
+import { notFoundHandler, errorHandler, createErrorHandler } from "../middleware/errorMiddleware";
 import { stripImmutableFields, sanitizePayload, IMMUTABLE_SSO_FIELDS } from "../middleware/sanitizationMiddleware";
 
 interface MockJsonPayload {
@@ -358,7 +358,7 @@ describe("Migrated TypeScript Middleware Suite", () => {
             assert.ok(res.jsonPayload?.message?.includes("groupId"));
         });
 
-        it("errorHandler should handle generic 500 errors and sanitize stack in production", () => {
+        it("errorHandler should handle generic 500 errors and never send a stack trace, in any mode", () => {
             const genericErr = new Error("Critical database failure");
             const res = createMockResponse();
 
@@ -376,10 +376,43 @@ describe("Migrated TypeScript Middleware Suite", () => {
                 envHolder.NODE_ENV = "development";
                 const devRes = createMockResponse();
                 errorHandler(genericErr, { method: "GET", originalUrl: "/api/crash" } as unknown as Request, devRes as unknown as Response, () => {});
-                assert.ok(devRes.jsonPayload?.stack, "Stack trace included in non-production mode");
+                assert.equal(devRes.jsonPayload?.stack, undefined, "Non-production behaves like production: no stack trace");
+                assert.equal(devRes.jsonPayload?.details, undefined, "No details unless EXPOSE_ERROR_DETAILS is on");
             } finally {
                 envHolder.NODE_ENV = originalEnv;
             }
+        });
+
+        it("adds details { name, message, stack } to 5xx bodies when error details are on, keeping the generic contract", () => {
+            const res = createMockResponse();
+            createErrorHandler({ exposeErrorDetails: true })(
+                new TypeError("Cannot read properties of undefined"),
+                { method: "GET", originalUrl: "/api/crash" } as unknown as Request,
+                res as unknown as Response,
+                () => {},
+            );
+
+            assert.equal(res.statusCode, 500);
+            assert.equal(res.jsonPayload?.message, "Internal server error");
+            assert.equal(res.jsonPayload?.code, "INTERNAL_ERROR");
+            const details = res.jsonPayload?.details as { name: string; message: string; stack?: string };
+            assert.equal(details.name, "TypeError");
+            assert.equal(details.message, "Cannot read properties of undefined");
+            assert.match(String(details.stack), /TypeError/);
+        });
+
+        it("never adds details to 4xx bodies, even when error details are on", () => {
+            const res = createMockResponse();
+            const notAllowed = Object.assign(new Error("Origin not allowed"), { statusCode: 403, code: "CORS_ORIGIN_REJECTED" });
+            createErrorHandler({ exposeErrorDetails: true })(
+                notAllowed,
+                { method: "GET", originalUrl: "/api/sites" } as unknown as Request,
+                res as unknown as Response,
+                () => {},
+            );
+
+            assert.equal(res.statusCode, 403);
+            assert.equal(res.jsonPayload?.details, undefined);
         });
     });
 

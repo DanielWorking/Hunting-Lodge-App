@@ -10,6 +10,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import * as phonesController from "../controllers/phonesController";
+import { PHONE_TYPES } from "../models/Phone";
 import { protect } from "../middleware/authMiddleware";
 import { validateRequest } from "../middleware/validationMiddleware";
 import { noStore } from "../middleware/cacheMiddleware";
@@ -22,11 +23,16 @@ export const phoneIdParamSchema = z.object({
     id: z.string().trim().min(1, "Phone ID is required"),
 });
 
+// Mirrors the Phone model's required `type` enum so bad input fails here with field-level errors
+const phoneTypeSchema = z.enum(PHONE_TYPES, {
+    message: `Phone type is required and must be one of: ${PHONE_TYPES.join(", ")}`,
+});
+
 export const createPhoneSchema = z.object({
     name: z.string({ message: "Contact name is required" }).trim().min(1, "Contact name is required"),
     numbers: z.array(z.union([z.string(), z.number()]), { message: "At least one phone number is required" })
         .min(1, "At least one phone number is required"),
-    type: z.string().optional(),
+    type: phoneTypeSchema,
     description: z.string().optional(),
 }).passthrough();
 
@@ -35,7 +41,7 @@ export const updatePhoneSchema = z.object({
     numbers: z.array(z.union([z.string(), z.number()]))
         .min(1, "At least one phone number is required")
         .optional(),
-    type: z.string().optional(),
+    type: phoneTypeSchema.optional(),
     description: z.string().optional(),
 }).passthrough();
 
@@ -70,12 +76,13 @@ router.post(
 );
 
 /**
- * PUT /:id
- * Updates an existing phone contact entry.
+ * PATCH /:id
+ * Partially updates an existing phone contact entry: only the fields present in the
+ * body are changed; omitted fields keep their stored values.
  * Ensures that updated numbers do not conflict with other existing contacts.
  * Authorization: Requires valid JWT.
  */
-router.put(
+router.patch(
     "/:id",
     validateRequest({ params: phoneIdParamSchema, body: updatePhoneSchema }),
     phonesController.updatePhone,
@@ -84,6 +91,7 @@ router.put(
 /**
  * PATCH /:id/favorite
  * Toggles the favorite status of a specific phone contact for the current user.
+ * Adding a favorite requires the contact to exist (404 otherwise); removing one always succeeds.
  * Authorization: Requires valid JWT.
  */
 router.patch(

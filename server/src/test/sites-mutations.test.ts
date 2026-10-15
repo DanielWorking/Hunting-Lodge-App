@@ -77,7 +77,7 @@ describe("sitesController mutations only report success for real persistence", (
         await sitesController.updateSite(memberRequest({ title: "Renamed" }), res as unknown as Response);
 
         assert.equal(res.statusCode, 404);
-        assert.deepEqual(res.jsonData, { message: "Site not found" });
+        assert.deepEqual(res.jsonData, { message: "Site not found", code: "NOT_FOUND" });
     });
 
     it("updateSite responds 200 with the updated document when one is written", async () => {
@@ -102,7 +102,7 @@ describe("sitesController mutations only report success for real persistence", (
         await sitesController.deleteSite(memberRequest(), res as unknown as Response);
 
         assert.equal(res.statusCode, 404);
-        assert.deepEqual(res.jsonData, { message: "Site not found" });
+        assert.deepEqual(res.jsonData, { message: "Site not found", code: "NOT_FOUND" });
     });
 
     it("deleteSite responds 200 with a confirmation only when a document was deleted", async () => {
@@ -162,6 +162,6 @@ describe("sitesController mutations only report success for real persistence", (
         await sitesController.toggleFavorite(memberRequest(), res as unknown as Response);
 
         assert.equal(res.statusCode, 404);
-        assert.deepEqual(res.jsonData, { message: "Site not found" });
+        assert.deepEqual(res.jsonData, { message: "Site not found", code: "NOT_FOUND" });
     });
 });

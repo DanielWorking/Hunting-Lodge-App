@@ -45,13 +45,23 @@ export interface PhoneDuplicateQueryFilter {
     _id?: { $ne: Types.ObjectId | string };
 }
 
+export interface DuplicateNumberConflict {
+    number: string;
+    contactName: string;
+}
+
 /**
- * Helper function to check for duplicate phone numbers across the collection.
- * 
+ * Helper function to find a duplicate phone number across the collection.
+ *
  * Searches for any existing phone documents that contain any of the provided
  * numbers, optionally excluding a specific document ID (useful for updates).
+ *
+ * @returns The first conflicting number and the contact holding it, or null when all numbers are free.
  */
-export async function checkDuplicateNumbers(numbers: string[], excludeId: string | null = null): Promise<void> {
+export async function findDuplicateNumber(
+    numbers: string[],
+    excludeId: string | null = null,
+): Promise<DuplicateNumberConflict | null> {
     const query: PhoneDuplicateQueryFilter = {
         numbers: { $in: numbers },
     };
@@ -60,12 +70,23 @@ export async function checkDuplicateNumbers(numbers: string[], excludeId: string
     }
 
     const existing = await Phone.findOne(query);
-    if (existing) {
-        const conflictNumber = numbers.find((n) => existing.numbers.includes(n));
-        throw new Error(
-            `The number ${conflictNumber || ""} already exists in contact "${existing.name}"`,
-        );
+    if (!existing) {
+        return null;
     }
+    return {
+        number: numbers.find((n) => existing.numbers.includes(n)) || "",
+        contactName: existing.name,
+    };
+}
+
+/**
+ * A duplicate number is a client input conflict, never a server fault: answer 409 with a stable code.
+ */
+function sendDuplicateNumberConflict(res: Response, conflict: DuplicateNumberConflict): void {
+    res.status(409).json({
+        message: `The number ${conflict.number} already exists in contact "${conflict.contactName}"`,
+        code: "DUPLICATE_PHONE_NUMBER",
+    });
 }
 
 export async function getPhones(req: Request, res: Response, next?: NextFunction): Promise<void> {
@@ -88,7 +109,7 @@ export async function getPhones(req: Request, res: Response, next?: NextFunction
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
@@ -98,11 +119,11 @@ export async function createPhone(req: Request, res: Response, next?: NextFuncti
         const { name, numbers, type, description } = body;
 
         if (!name || typeof name !== "string" || !name.trim()) {
-            res.status(400).json({ message: "Contact name is required" });
+            res.status(400).json({ message: "Contact name is required", code: "VALIDATION_ERROR" });
             return;
         }
         if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
-            res.status(400).json({ message: "At least one phone number is required" });
+            res.status(400).json({ message: "At least one phone number is required", code: "VALIDATION_ERROR" });
             return;
         }
 
@@ -111,7 +132,11 @@ export async function createPhone(req: Request, res: Response, next?: NextFuncti
         );
 
         // 1. Check for duplicate numbers across all contacts
-        await checkDuplicateNumbers(cleanedNumbers);
+        const conflict = await findDuplicateNumber(cleanedNumbers);
+        if (conflict) {
+            sendDuplicateNumberConflict(res, conflict);
+            return;
+        }
 
         const phone = new Phone({
             name: name.trim(),
@@ -126,7 +151,7 @@ export async function createPhone(req: Request, res: Response, next?: NextFuncti
             next(err);
             return;
         }
-        res.status(400).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(400).json({ message: err instanceof Error ? err.message : String(err), code: "BAD_REQUEST" });
     }
 }
 
@@ -139,7 +164,7 @@ export async function updatePhone(req: Request, res: Response, next?: NextFuncti
 
         if (name !== undefined) {
             if (typeof name !== "string" || !name.trim()) {
-                res.status(400).json({ message: "Valid contact name is required" });
+                res.status(400).json({ message: "Valid contact name is required", code: "VALIDATION_ERROR" });
                 return;
             }
             updateData.name = name.trim();
@@ -147,14 +172,18 @@ export async function updatePhone(req: Request, res: Response, next?: NextFuncti
 
         if (numbers !== undefined) {
             if (!Array.isArray(numbers) || numbers.length === 0) {
-                res.status(400).json({ message: "At least one phone number is required" });
+                res.status(400).json({ message: "At least one phone number is required", code: "VALIDATION_ERROR" });
                 return;
             }
             const cleanedNumbers: string[] = numbers.map((n) =>
                 typeof n === "string" ? n.trim() : String(n),
             );
             // Check for duplicate numbers (excluding the current contact ID)
-            await checkDuplicateNumbers(cleanedNumbers, phoneId);
+            const conflict = await findDuplicateNumber(cleanedNumbers, phoneId);
+            if (conflict) {
+                sendDuplicateNumberConflict(res, conflict);
+                return;
+            }
             updateData.numbers = cleanedNumbers;
         }
 
@@ -175,7 +204,7 @@ export async function updatePhone(req: Request, res: Response, next?: NextFuncti
             ? (updatedPhoneQuery as any).lean()
             : updatedPhoneQuery);
         if (!updatedPhone) {
-            res.status(404).json({ message: "Phone contact not found" });
+            res.status(404).json({ message: "Phone contact not found", code: "NOT_FOUND" });
             return;
         }
         res.json(updatedPhone);
@@ -184,7 +213,7 @@ export async function updatePhone(req: Request, res: Response, next?: NextFuncti
             next(err);
             return;
         }
-        res.status(400).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(400).json({ message: err instanceof Error ? err.message : String(err), code: "BAD_REQUEST" });
     }
 }
 
@@ -193,14 +222,15 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
         const requestingUser = req.user as AuthUser | undefined;
         const userId = requestingUser?._id || req.user?.id;
         if (!userId) {
-            res.status(401).json({ message: "Unauthorized" });
+            res.status(401).json({ message: "Unauthorized", code: "UNAUTHORIZED" });
             return;
         }
 
         const phoneId = extractParamId(req.params.id);
         const phoneObjId = Types.ObjectId.isValid(phoneId) ? new Types.ObjectId(phoneId) : phoneId;
 
-        // Atomic conditional pull if already favorited
+        // Atomic conditional pull if already favorited. Removal never requires the contact to
+        // still exist, so a stale reference to a deleted contact can always be cleared.
         const pulled = await User.findOneAndUpdate(
             { _id: userId, favoritePhones: phoneObjId },
             { $pull: { favoritePhones: phoneObjId } },
@@ -213,6 +243,13 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
             return;
         }
 
+        // Adding requires the contact to exist, otherwise the user would keep a phantom reference
+        const phoneExists = await Phone.exists({ _id: phoneObjId });
+        if (!phoneExists) {
+            res.status(404).json({ message: "Phone contact not found", code: "NOT_FOUND" });
+            return;
+        }
+
         // Atomic addToSet if not favorited
         const added = await User.findByIdAndUpdate(
             userId,
@@ -221,7 +258,7 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
         );
 
         if (!added) {
-            res.status(404).json({ message: "User not found" });
+            res.status(404).json({ message: "User not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -232,7 +269,7 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
@@ -241,7 +278,7 @@ export async function deletePhone(req: Request, res: Response, next?: NextFuncti
         const phoneId = extractParamId(req.params.id);
         const deletedPhone = await Phone.findByIdAndDelete(phoneId);
         if (!deletedPhone) {
-            res.status(404).json({ message: "Phone contact not found" });
+            res.status(404).json({ message: "Phone contact not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -258,12 +295,12 @@ export async function deletePhone(req: Request, res: Response, next?: NextFuncti
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
 export default {
-    checkDuplicateNumbers,
+    findDuplicateNumber,
     getPhones,
     createPhone,
     updatePhone,

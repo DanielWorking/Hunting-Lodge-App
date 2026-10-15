@@ -25,24 +25,23 @@ export const groupIdParamSchema = z.object({
     id: z.string().trim().min(1, "Group ID is required"),
 });
 
-export const groupTagParamSchema = z.object({
-    id: z.string().trim().min(1, "Group ID is required"),
-    tagName: z.string().trim().min(1, "Tag name is required"),
-});
-
 export const createGroupSchema = z.object({
-    name: z.string().trim().min(1).optional(),
-    id: z.string().trim().min(1).optional(),
-}).refine((data) => (data.name && data.name.trim().length > 0) || (data.id && data.id.trim().length > 0), {
-    message: "Group name is required",
+    name: z.string({ message: "Group name is required" }).trim().min(1, "Group name is required"),
 });
 
 export const addTagSchema = z.object({
     tagName: z.string({ message: "Tag name is required" }).trim().min(1, "Tag name is required"),
 });
 
+// Tag names travel in the body or the query string, never in the path: names may contain "/",
+// spaces or other reserved characters (e.g. "Tier 1 / Alpha")
 export const renameTagSchema = z.object({
+    tagName: z.string({ message: "Tag name is required" }).trim().min(1, "Tag name is required"),
     newTagName: z.string({ message: "New tag name is required" }).trim().min(1, "New tag name is required"),
+});
+
+export const deleteTagQuerySchema = z.object({
+    tagName: z.string({ message: "Tag name is required" }).trim().min(1, "Tag name is required"),
 });
 
 export const updateSettingsSchema = z.object({
@@ -64,6 +63,7 @@ export const updateGroupSchema = z.object({
 export type CreateGroupInput = z.infer<typeof createGroupSchema>;
 export type AddTagInput = z.infer<typeof addTagSchema>;
 export type RenameTagInput = z.infer<typeof renameTagSchema>;
+export type DeleteTagQueryInput = z.infer<typeof deleteTagQuerySchema>;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 export type UpdateGroupInput = z.infer<typeof updateGroupSchema>;
 
@@ -103,25 +103,29 @@ router.post(
 );
 
 /**
- * PUT /:id/tags/:tagName
+ * PUT /:id/tags
  * Renames an existing tag and updates all associated sites.
+ * Body: `{ tagName, newTagName }`. The names are body fields, not path segments, so they may
+ * contain "/", spaces or any other character.
  * Authorization: Requires explicit group membership.
  */
 router.put(
-    "/:id/tags/:tagName",
-    validateRequest({ params: groupTagParamSchema, body: renameTagSchema }),
+    "/:id/tags",
+    validateRequest({ params: groupIdParamSchema, body: renameTagSchema }),
     requireGroupMember((req: Request) => req.params.id),
     groupsController.renameTag,
 );
 
 /**
- * DELETE /:id/tags/:tagName
+ * DELETE /:id/tags?tagName=…
  * Deletes a tag and moves all associated sites to the "General" tag.
+ * The name is a query parameter (URL-encoded as usual), because some proxies and clients drop
+ * DELETE bodies. Answers 404 NOT_FOUND when the group has no such tag.
  * Authorization: Requires explicit group membership.
  */
 router.delete(
-    "/:id/tags/:tagName",
-    validateRequest({ params: groupTagParamSchema }),
+    "/:id/tags",
+    validateRequest({ params: groupIdParamSchema, query: deleteTagQuerySchema }),
     requireGroupMember((req: Request) => req.params.id),
     groupsController.deleteTag,
 );
@@ -144,11 +148,12 @@ router.put(
 // === GENERAL GROUP UPDATE (Admin Only) ===
 
 /**
- * PUT /:id
- * Updates general group metadata.
+ * PATCH /:id
+ * Partially updates general group metadata: only the fields present in the body
+ * (name, settings, siteTags) are changed; omitted fields keep their stored values.
  * Authorization: Restricted to Administrators.
  */
-router.put(
+router.patch(
     "/:id",
     requireAdmin,
     validateRequest({ params: groupIdParamSchema, body: updateGroupSchema }),

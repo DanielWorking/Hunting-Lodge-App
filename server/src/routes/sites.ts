@@ -79,11 +79,12 @@ router.post(
 );
 
 /**
- * PUT /:id
- * Updates an existing resource entry.
- * Authorization: User must be a member of the site's group or an Administrator.
+ * PATCH /:id
+ * Partially updates an existing resource entry: only the fields present in the body
+ * are changed; omitted fields keep their stored values.
+ * Authorization: User must be an explicit member of the site's group (Administrators included; controller-enforced).
  */
-router.put(
+router.patch(
     "/:id",
     validateRequest({ params: siteIdParamSchema, body: updateSiteSchema }),
     sitesController.updateSite,

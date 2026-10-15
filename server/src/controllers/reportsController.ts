@@ -6,9 +6,9 @@
  * detection based on shift schedules, and historical task tracking.
  * 
  * Enforces strict group boundaries:
- * - Only explicit group members can view, create, and update reports.
+ * - Only explicit group members (including the group's Shift Manager) can view, create, and update reports.
  * - Only explicit Shift Managers of the group can delete reports.
- * Migrated to strict TypeScript with zero `any` and strict lock invariant checks.
+ * Reports cannot be locked: any group member may edit any report of the group.
  */
 
 import { Request, Response, NextFunction } from "express";
@@ -16,8 +16,8 @@ import { Types } from "mongoose";
 import ShiftReport, { IShiftReportAttendee } from "../models/ShiftReport";
 import ShiftSchedule from "../models/ShiftSchedule";
 import { ITimeSlot } from "../models/Group";
-import User from "../models/User";
-import { resolveGroup, isGroupMember, isShiftManager, isAdmin, AuthUser } from "../utils/authHelpers";
+import { resolveGroup, isGroupMember, isShiftManager, AuthUser } from "../utils/authHelpers";
+import { loadAutomaticAttendees, matchTimeSlot, scheduledUserIds } from "../services/reportAttendees";
 
 export interface GetReportsRequestQuery {
     groupId?: string;
@@ -41,7 +41,6 @@ export interface CreateReportRequestBody {
 export interface UpdateReportRequestBody {
     currentTasks?: string;
     attendees?: IShiftReportAttendee[];
-    isLocked?: boolean;
     previousTasks?: string;
     [key: string]: unknown;
 }
@@ -62,23 +61,24 @@ export async function getReports(req: Request, res: Response, next?: NextFunctio
         const query = (req.query || {}) as GetReportsRequestQuery;
         const { groupId, year, month, day } = query;
         if (!groupId || typeof groupId !== "string") {
-            res.status(400).json({ message: "Missing groupId" });
+            res.status(400).json({ message: "Missing groupId", code: "VALIDATION_ERROR" });
+            return;
+        }
+
+        // Resolve first so a missing group answers 404 rather than a misleading 403
+        const group = await resolveGroup(groupId);
+        if (!group) {
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
             return;
         }
 
         const requestingUser = req.user as AuthUser | undefined;
-        const hasAccess = await isGroupMember(requestingUser, groupId);
+        const hasAccess = await isGroupMember(requestingUser, group);
         if (!hasAccess) {
             res.status(403).json({
                 message: "Forbidden: You are not a member of this group.",
                 code: "FORBIDDEN_GROUP_MEMBER_REQUIRED",
             });
-            return;
-        }
-
-        const group = await resolveGroup(groupId);
-        if (!group) {
-            res.status(404).json({ message: "Group not found" });
             return;
         }
 
@@ -159,7 +159,7 @@ export async function getReports(req: Request, res: Response, next?: NextFunctio
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
@@ -169,23 +169,24 @@ export async function createReport(req: Request, res: Response, next?: NextFunct
         const { groupId, title, startTime, endTime } = body;
 
         if (!groupId || typeof groupId !== "string") {
-            res.status(400).json({ message: "Target groupId is required" });
+            res.status(400).json({ message: "Target groupId is required", code: "VALIDATION_ERROR" });
+            return;
+        }
+
+        // Resolve first so a missing group answers 404 rather than a misleading 403
+        const group = await resolveGroup(groupId);
+        if (!group) {
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
             return;
         }
 
         const requestingUser = req.user as AuthUser | undefined;
-        const hasAccess = await isGroupMember(requestingUser, groupId);
+        const hasAccess = await isGroupMember(requestingUser, group);
         if (!hasAccess) {
             res.status(403).json({
                 message: "Forbidden: You are not a member of this group.",
                 code: "FORBIDDEN_GROUP_MEMBER_REQUIRED",
             });
-            return;
-        }
-
-        const group = await resolveGroup(groupId);
-        if (!group) {
-            res.status(404).json({ message: "Group not found" });
             return;
         }
 
@@ -228,42 +229,9 @@ export async function createReport(req: Request, res: Response, next?: NextFunct
 
         const timeSlots = (group.settings as { timeSlots?: ITimeSlot[] })?.timeSlots;
         if (schedule && Array.isArray(timeSlots)) {
-            const reportStartHour = reportStart.getHours();
-            const reportStartMinute = reportStart.getMinutes();
-            const reportTimeVal = reportStartHour * 60 + reportStartMinute;
-
-            // Match report start time with defined time slots in group settings
-            const matchingSlot = timeSlots.find((slot) => {
-                if (!slot.startTime || typeof slot.startTime !== "string") return false;
-                const [h, m] = slot.startTime.split(":").map(Number);
-                const slotTimeVal = h * 60 + m;
-                return Math.abs(slotTimeVal - reportTimeVal) < 5;
-            });
-
-            const relevantShiftTypeIds = matchingSlot
-                ? (matchingSlot.linkedShiftTypes || []).map((id) => id.toString())
-                : null;
-
-            // Filter shifts that match the date and optionally the shift type
-            const shiftsToday = (schedule.shifts || []).filter((s: any) => {
-                const isSameDate = new Date(s.date).toDateString() === reportStart.toDateString();
-                const isRelevantType = relevantShiftTypeIds
-                    ? relevantShiftTypeIds.includes(s.shiftTypeId.toString())
-                    : true;
-                return isSameDate && isRelevantType;
-            });
-
-            const userIds = shiftsToday.map((s: any) => s.userId);
-            const usersQuery = User.find({ _id: { $in: userIds } }).select("_id username");
-            const users = await (typeof (usersQuery as any).lean === "function"
-                ? (usersQuery as any).lean()
-                : usersQuery);
-
-            attendees = (users || []).map((u: any) => ({
-                userId: u._id,
-                name: u.username,
-                isManual: false,
-            }));
+            // Slot and day are matched on Jerusalem time, exactly as the cron and the publish re-sync do
+            const userIds = scheduledUserIds(schedule.shifts, matchTimeSlot(timeSlots, reportStart), reportStart);
+            attendees = await loadAutomaticAttendees(group._id, userIds);
         }
 
         const newReport = new ShiftReport({
@@ -285,7 +253,7 @@ export async function createReport(req: Request, res: Response, next?: NextFunct
             next(err);
             return;
         }
-        res.status(400).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(400).json({ message: err instanceof Error ? err.message : String(err), code: "BAD_REQUEST" });
     }
 }
 
@@ -294,14 +262,14 @@ export async function updateReport(req: Request, res: Response, next?: NextFunct
         const reportId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
         let reportQuery: any = ShiftReport.findById(reportId);
         if (typeof reportQuery?.select === "function") {
-            const selected = reportQuery.select("groupId isLocked");
+            const selected = reportQuery.select("groupId");
             if (selected) reportQuery = selected;
         }
         const report = await (typeof reportQuery?.lean === "function"
             ? reportQuery.lean()
             : reportQuery);
         if (!report) {
-            res.status(404).json({ message: "Report not found" });
+            res.status(404).json({ message: "Report not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -317,21 +285,12 @@ export async function updateReport(req: Request, res: Response, next?: NextFunct
             return;
         }
 
-        // Lock invariant check: If report is locked, reject edits for non-administrators
-        if (report.isLocked && !isAdmin(requestingUser)) {
-            res.status(400).json({
-                message: "This shift report is locked and cannot be edited.",
-                code: "REPORT_LOCKED",
-            });
-            return;
-        }
-
+        // Only these fields are writable; anything else in the body is ignored
         const body = (req.body || {}) as UpdateReportRequestBody;
-        const { currentTasks, attendees, isLocked, previousTasks } = body;
+        const { currentTasks, attendees, previousTasks } = body;
         const updateData: Record<string, unknown> = {};
         if (currentTasks !== undefined) updateData.currentTasks = currentTasks;
         if (attendees !== undefined) updateData.attendees = attendees;
-        if (isLocked !== undefined) updateData.isLocked = isLocked;
         if (previousTasks !== undefined) updateData.previousTasks = previousTasks;
 
         const updatedReportQuery = ShiftReport.findByIdAndUpdate(
@@ -349,7 +308,7 @@ export async function updateReport(req: Request, res: Response, next?: NextFunct
             next(err);
             return;
         }
-        res.status(400).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(400).json({ message: err instanceof Error ? err.message : String(err), code: "BAD_REQUEST" });
     }
 }
 
@@ -365,7 +324,7 @@ export async function deleteReport(req: Request, res: Response, next?: NextFunct
             ? reportQuery.lean()
             : reportQuery);
         if (!report) {
-            res.status(404).json({ message: "Report not found" });
+            res.status(404).json({ message: "Report not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -388,7 +347,7 @@ export async function deleteReport(req: Request, res: Response, next?: NextFunct
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 

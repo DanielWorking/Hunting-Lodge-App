@@ -2,9 +2,17 @@
  * @module SeedExample
  *
  * Example database seeding script for local development and initial environment bootstrap.
- * Resets existing collections and populates structured sample data including
- * administrative & operational groups, users, shift types, time slots,
- * directory contacts, sites, shift schedules, shift reports, and vacation requests.
+ * Copy it to seed.ts (git-ignored) and replace the sample data with your own.
+ * Populates the operational groups (with their shift types and time slots), directory
+ * contacts and sites, and makes sure the administrators group exists.
+ *
+ * It creates no users: everyone gets an account at their first SSO login. The Super Admin
+ * (SUPER_ADMIN_* settings) is added to the administrators group then, and grants everyone
+ * else access by adding them to groups on the Admin page.
+ *
+ * Without flags (nonprod only, or with --force-production) it first wipes every collection.
+ * --idempotent never wipes: it seeds only when no group other than the administrators group
+ * exists, and otherwise does nothing. The k8s seed Job runs it this way in every environment.
  */
 
 import mongoose, { Types } from "mongoose";
@@ -16,49 +24,27 @@ import Phone from "../models/Phone";
 import ShiftSchedule from "../models/ShiftSchedule";
 import ShiftReport from "../models/ShiftReport";
 import VacationRequest from "../models/VacationRequest";
-import Shift from "../models/Shift";
+import { ensureAdminGroup } from "../services/adminGroup";
+
+// Check CLI flags
+const isIdempotent: boolean = process.argv.includes("--idempotent");
+const forceProduction: boolean = process.argv.includes("--force-production");
 
 // Safety guard to prevent accidental database wipes in preprod and prod
-if (!config.isNonProd && !process.argv.includes("--force-production")) {
+if (!config.isNonProd && !forceProduction && !isIdempotent) {
     console.error("\n==================================================================");
     console.error("⛔ SAFETY TRIGGERED: SEEDING BLOCKED IN PREPROD/PROD MODE");
     console.error("==================================================================");
     console.error("This script executes deleteMany() and wipes all database records!");
     console.error("If you truly intend to wipe and re-seed the preprod/prod database, run:");
-    console.error("  npm run seed:example -- --force-production\n");
+    console.error("  npm run seed -- --force-production\n");
+    console.error("For safe, idempotent initial bootstrap in production/CI/CD, run:");
+    console.error("  npm run seed -- --idempotent\n");
     console.error("==================================================================\n");
     process.exit(1);
 }
 
-// Operational mode detection (Local email vs. Organizational card/AD username)
-const AUTH_MODE: string = config.sso.identifierField;
-console.log(`⚙️  Seeding in Auth Mode: ${AUTH_MODE} [Environment: ${config.env}]`);
-
-interface SeedUserIdentity {
-    readonly username: string;
-    readonly displayName: string;
-    readonly email: string;
-}
-
-/** Predefined administrative user data derived from server configuration. */
-const adminUserData: SeedUserIdentity = {
-    username: config.superAdmin.id,
-    displayName: config.superAdmin.username,
-    email: config.superAdmin.email || "admin@corp.local",
-};
-
-/**
- * Predefined regular user data matching Auth0 SSO configuration.
- * Auth0 Test Credentials:
- *   - Username: dov-member
- *   - Email: member@test.local
- *   - Auth0 Login Password: dov-member123 (authenticated externally by Auth0 SSO)
- */
-const regularUserData: SeedUserIdentity = {
-    username: "dov-member",
-    displayName: "dov-member",
-    email: "member@test.local",
-};
+console.log(`⚙️  Seeding [Environment: ${config.env}]`);
 
 // 1. Generate ObjectIds for Shift Types so Time Slots can link directly to them
 const shiftTypeMorningId: Types.ObjectId = new mongoose.Types.ObjectId();
@@ -182,53 +168,39 @@ const phones: readonly PhoneSeed[] = [
     },
 ];
 
-interface WeekRange {
-    readonly startOfWeekDate: Date;
-    readonly endOfWeekDate: Date;
-    readonly weekDays: readonly Date[];
-}
-
 /**
- * Calculates start and end timestamps for the current week (Sunday to Saturday).
- */
-function getCurrentWeekRange(): WeekRange {
-    const now: Date = new Date();
-    const dayOfWeek: number = now.getDay(); // 0 is Sunday
-    const startOfWeekDate: Date = new Date(now);
-    startOfWeekDate.setDate(now.getDate() - dayOfWeek);
-    startOfWeekDate.setHours(0, 0, 0, 0);
-
-    const endOfWeekDate: Date = new Date(startOfWeekDate);
-    endOfWeekDate.setDate(startOfWeekDate.getDate() + 6);
-    endOfWeekDate.setHours(23, 59, 59, 999);
-
-    const weekDays: Date[] = Array.from({ length: 7 }, (_, i: number): Date => {
-        const d: Date = new Date(startOfWeekDate);
-        d.setDate(startOfWeekDate.getDate() + i);
-        return d;
-    });
-
-    return { startOfWeekDate, endOfWeekDate, weekDays };
-}
-
-/**
- * Main execution function to clear and seed all MongoDB collections with sample data.
+ * Main execution function: wipes the collections (unless --idempotent) and seeds them.
+ * When --idempotent is supplied, does nothing if the database is already seeded.
  */
 const importData = async (): Promise<void> => {
     try {
         await mongoose.connect(config.mongoUri, config.database ? config.database.options : {});
         console.log("✅ MongoDB Connected...");
 
-        // Wipe existing collections in safe dependency order
-        await VacationRequest.deleteMany({});
-        await Shift.deleteMany({});
-        await ShiftReport.deleteMany({});
-        await ShiftSchedule.deleteMany({});
-        await Site.deleteMany({});
-        await Phone.deleteMany({});
-        await User.deleteMany({});
-        await Group.deleteMany({});
-        console.log("🗑️  Old Data Destroyed across all collections...");
+        if (isIdempotent) {
+            console.log("🔍 Checking whether the database is already seeded (--idempotent)...");
+            // The server creates the administrators group itself at startup, so only other groups count
+            const seededGroup = await Group.exists({ name: { $ne: config.superAdmin.groupName } });
+            if (seededGroup) {
+                console.log("\n==================================================");
+                console.log("ℹ️  IDEMPOTENT CHECK: Database already seeded!");
+                console.log("   Skipping seed operations.");
+                console.log("==================================================\n");
+                await mongoose.disconnect();
+                process.exit(0);
+            }
+            console.log("🌱 No seeded data found. Proceeding with initial seed...");
+        } else {
+            // Full reset: wipe existing collections in safe dependency order
+            await VacationRequest.deleteMany({});
+            await ShiftReport.deleteMany({});
+            await ShiftSchedule.deleteMany({});
+            await Site.deleteMany({});
+            await Phone.deleteMany({});
+            await User.deleteMany({});
+            await Group.deleteMany({});
+            console.log("🗑️  Old Data Destroyed across all collections...");
+        }
 
         // Ensure indexes match current schema (drops obsolete indexes and applies compound indexes)
         try {
@@ -239,7 +211,6 @@ const importData = async (): Promise<void> => {
             await ShiftSchedule.syncIndexes();
             await ShiftReport.syncIndexes();
             await VacationRequest.syncIndexes();
-            await Shift.syncIndexes();
             console.log("📐 Indexes Synchronized...");
         } catch (idxErr: unknown) {
             const msg: string = idxErr instanceof Error ? idxErr.message : String(idxErr);
@@ -249,14 +220,9 @@ const importData = async (): Promise<void> => {
         // Validate that no non-active shift types (vacation, after, not in country / Leave) are linked to time slots
         validateSeedTimeSlots(NOC_TIME_SLOTS, NON_ACTIVE_SHIFT_TYPE_IDS);
 
-        // 1. Create Groups
+        // 1. Create Groups (the administrators group as the server creates it at startup)
+        await ensureAdminGroup();
         const createdGroups = await Group.insertMany([
-            {
-                name: config.superAdmin.groupName,
-                members: [],
-                settings: { shiftTypes: [], timeSlots: [] },
-                siteTags: ["General"],
-            },
             {
                 name: "noc",
                 members: [],
@@ -276,63 +242,10 @@ const importData = async (): Promise<void> => {
         console.log("🏢 Groups Created...");
 
         // 2. Create Phone Directory Entries
-        const createdPhones = await Phone.insertMany(phones);
+        await Phone.insertMany(phones);
         console.log("📞 Phones Created...");
 
-        // 3. Create Users
-        const users = [
-            {
-                ...adminUserData,
-                isActive: true,
-                hasSeenWhatsNew: true,
-                vacationBalance: 999,
-                groups: [
-                    {
-                        groupId: gMap[config.superAdmin.groupName],
-                        role: "shift_manager" as const,
-                        order: 0,
-                    },
-                    {
-                        groupId: gMap["noc"],
-                        role: "shift_manager" as const,
-                        order: 0,
-                    },
-                ],
-                favoritePhones: [createdPhones[0]._id],
-                lastLogin: new Date().toISOString(),
-            },
-            {
-                ...regularUserData,
-                isActive: true,
-                hasSeenWhatsNew: false,
-                vacationBalance: 18,
-                groups: [
-                    {
-                        groupId: gMap["noc"],
-                        role: "member" as const,
-                        order: 1,
-                    },
-                ],
-                favoritePhones: [],
-                lastLogin: new Date().toISOString(),
-            },
-        ];
-
-        const createdUsers = await User.insertMany(users);
-        console.log(`👤 Users Created (Admin: ${adminUserData.username}, Regular: ${regularUserData.username})...`);
-
-        // Synchronize Group.members with created user ObjectIds
-        await Group.updateOne(
-            { _id: gMap[config.superAdmin.groupName] },
-            { $set: { members: [createdUsers[0]._id] } }
-        );
-        await Group.updateOne(
-            { _id: gMap["noc"] },
-            { $set: { members: [createdUsers[0]._id, createdUsers[1]._id] } }
-        );
-        console.log("🔗 Group Members Synchronized...");
-
-        // 4. Create Site Links
+        // 3. Create Site Links
         const sites = [
             {
                 title: "NOC Dashboard",
@@ -341,7 +254,7 @@ const importData = async (): Promise<void> => {
                 description: "Main monitoring dashboard",
                 groupId: gMap["noc"],
                 tag: "General",
-                favoritedBy: [createdUsers[0]._id],
+                favoritedBy: [],
             },
             {
                 title: "Shift Log Tool",
@@ -365,125 +278,6 @@ const importData = async (): Promise<void> => {
         await Site.insertMany(sites);
         console.log("🌐 Sites Created...");
 
-        // 5. Create Sample Shift Schedule for the Current Week
-        const { startOfWeekDate, endOfWeekDate, weekDays } = getCurrentWeekRange();
-        const sampleShifts = [
-            // Sunday: Admin on Morning, Regular on Evening
-            {
-                userId: createdUsers[0]._id,
-                date: weekDays[0],
-                shiftTypeId: shiftTypeMorningId,
-                vacationDeducted: false,
-                vacationValue: 1.0 as const,
-            },
-            {
-                userId: createdUsers[1]._id,
-                date: weekDays[0],
-                shiftTypeId: shiftTypeEveningId,
-                vacationDeducted: false,
-                vacationValue: 1.0 as const,
-            },
-            // Monday: Regular on Morning, Admin on Evening
-            {
-                userId: createdUsers[1]._id,
-                date: weekDays[1],
-                shiftTypeId: shiftTypeMorningId,
-                vacationDeducted: false,
-                vacationValue: 1.0 as const,
-            },
-            {
-                userId: createdUsers[0]._id,
-                date: weekDays[1],
-                shiftTypeId: shiftTypeEveningId,
-                vacationDeducted: false,
-                vacationValue: 1.0 as const,
-            },
-            // Tuesday: Admin on Night, Regular on Middle
-            {
-                userId: createdUsers[0]._id,
-                date: weekDays[2],
-                shiftTypeId: shiftTypeNightId,
-                vacationDeducted: false,
-                vacationValue: 1.0 as const,
-            },
-            {
-                userId: createdUsers[1]._id,
-                date: weekDays[2],
-                shiftTypeId: shiftTypeMiddleId,
-                vacationDeducted: false,
-                vacationValue: 1.0 as const,
-            },
-            // Wednesday: Regular on Vacation (tests vacation day consumption)
-            {
-                userId: createdUsers[1]._id,
-                date: weekDays[3],
-                shiftTypeId: shiftTypeVacationId,
-                vacationDeducted: true,
-                vacationValue: 1.0 as const,
-            },
-        ];
-
-        await ShiftSchedule.create({
-            groupId: gMap["noc"],
-            startDate: startOfWeekDate,
-            endDate: endOfWeekDate,
-            isPublished: true,
-            shifts: sampleShifts,
-        });
-        console.log("📅 Sample Published Shift Schedule Created...");
-
-        // 6. Create Sample Shift Report
-        const reportStartTime: Date = new Date();
-        reportStartTime.setHours(8, 0, 0, 0);
-        const reportEndTime: Date = new Date();
-        reportEndTime.setHours(14, 0, 0, 0);
-
-        await ShiftReport.create({
-            groupId: gMap["noc"],
-            title: `Morning Shift - ${reportStartTime.toLocaleDateString("en-US")}`,
-            date: reportStartTime,
-            startTime: reportStartTime.toISOString(),
-            endTime: reportEndTime.toISOString(),
-            previousTasks: "<p>Continued monitoring of core infrastructure and routine backups.</p>",
-            currentTasks: "<p><strong>Shift Status:</strong> All systems operational without incident.</p><ul><li>Performed connectivity checks across all endpoints.</li><li>Scheduled server maintenance completed successfully.</li></ul>",
-            attendees: [
-                {
-                    userId: createdUsers[0]._id,
-                    name: createdUsers[0].username,
-                    isManual: false,
-                },
-            ],
-            isLocked: false,
-        });
-        console.log("📝 Sample Shift Report Created...");
-
-        // 7. Create Sample Vacation Requests
-        const pendingVacationDate: Date = new Date(weekDays[6]);
-        pendingVacationDate.setDate(pendingVacationDate.getDate() + 3);
-        pendingVacationDate.setHours(0, 0, 0, 0);
-
-        await VacationRequest.insertMany([
-            {
-                userId: createdUsers[1]._id,
-                groupId: gMap["noc"],
-                date: weekDays[3],
-                vacationValue: 1.0,
-                status: "approved",
-                notes: "Approved annual vacation",
-                reviewedBy: createdUsers[0]._id,
-                reviewedAt: new Date(),
-            },
-            {
-                userId: createdUsers[1]._id,
-                groupId: gMap["noc"],
-                date: pendingVacationDate,
-                vacationValue: 0.5,
-                status: "pending",
-                notes: "Request for half-day personal leave",
-            },
-        ]);
-        console.log("🏖️  Sample Vacation Requests Created (1 Approved, 1 Pending)...");
-
         console.log("\n==================================================");
         console.log("✨ ALL SAMPLE DATA IMPORTED SUCCESSFULLY!");
         console.log("==================================================\n");
@@ -492,12 +286,33 @@ const importData = async (): Promise<void> => {
     } catch (error: unknown) {
         const errorMsg: string = error instanceof Error ? error.message : String(error);
         console.error(`❌ Error during seeding: ${errorMsg}`);
+        try {
+            await mongoose.disconnect();
+        } catch (discErr: unknown) {
+            const discMsg: string = discErr instanceof Error ? discErr.message : String(discErr);
+            console.warn(`⚠️ [Seed Job] Secondary disconnect error: ${discMsg}`);
+        }
         process.exit(1);
     }
 };
 
+// Graceful signal handling for container termination (SIGTERM / SIGINT)
+const handleShutdown = async (signal: string): Promise<void> => {
+    console.log(`\n🛑 [Seed Job] ${signal} received. Closing database connection...`);
+    try {
+        await mongoose.disconnect();
+        console.log("🔒 [Seed Job] MongoDB connection closed cleanly.");
+    } catch (err: unknown) {
+        console.error("❌ [Seed Job] Error during disconnect:", err);
+    }
+    process.exit(1);
+};
+
+process.on("SIGTERM", () => void handleShutdown("SIGTERM"));
+process.on("SIGINT", () => void handleShutdown("SIGINT"));
+
 importData().catch((fatalError: unknown) => {
     const errorMsg: string = fatalError instanceof Error ? fatalError.message : String(fatalError);
     console.error(`❌ Fatal unhandled error during seeding: ${errorMsg}`);
-    process.exit(1);
+    void mongoose.disconnect().finally(() => process.exit(1));
 });

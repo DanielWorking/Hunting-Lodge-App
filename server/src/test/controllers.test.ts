@@ -17,6 +17,7 @@ import * as sitesController from "../controllers/sitesController";
 import * as reportsController from "../controllers/reportsController";
 import * as schedulesController from "../controllers/schedulesController";
 import * as groupsController from "../controllers/groupsController";
+import { updateReportSchema } from "../routes/reports";
 import * as authHelpers from "../utils/authHelpers";
 import { errorHandler } from "../middleware/errorMiddleware";
 
@@ -65,6 +66,10 @@ describe("Controller Cascading & Validation Rules", () => {
             });
 
             userHolder.findByIdAndDelete = async () => true;
+            // Deletion runs in one transaction; the user belongs to no group, so no schedule changes
+            const connectionHolder = User.db as unknown as Record<string, unknown>;
+            const originalTransaction = connectionHolder.transaction;
+            connectionHolder.transaction = async (work: (session: unknown) => Promise<unknown>) => work({});
 
             groupHolder.updateMany = async (filter: Record<string, unknown>, update: Record<string, Record<string, unknown>>) => {
                 if (filter.members === userId.toString() && update.$pull && update.$pull.members) {
@@ -92,6 +97,7 @@ describe("Controller Cascading & Validation Rules", () => {
                 assert.ok(groupUpdated, "Group members must be updated to remove user");
                 assert.ok(siteUpdated, "Site favoritedBy must be updated to remove user");
             } finally {
+                connectionHolder.transaction = originalTransaction;
                 userHolder.findById = originalFindById;
                 userHolder.findByIdAndDelete = originalUserDelete;
                 groupHolder.updateMany = originalGroupUpdate;
@@ -416,37 +422,76 @@ describe("Controller Cascading & Validation Rules", () => {
             }
         });
 
-        it("reportsController.updateReport should block modifications on locked reports for non-admins", async () => {
+        it("reportsController.updateReport lets a group member edit a report; the route schema strips non-editable fields", async () => {
             const reportHolder = ShiftReport as unknown as Record<string, unknown>;
             const groupHolder = Group as unknown as Record<string, unknown>;
 
             const originalFindById = reportHolder.findById;
+            const originalFindByIdAndUpdate = reportHolder.findByIdAndUpdate;
             const originalGroupFindById = groupHolder.findById;
             const reportId = new mongoose.Types.ObjectId().toString();
             const groupId = new mongoose.Types.ObjectId().toString();
 
             groupHolder.findById = async () => ({ _id: groupId });
-            reportHolder.findById = async () => ({
-                _id: reportId,
-                groupId: groupId,
-                isLocked: true,
-            });
+            reportHolder.findById = async () => ({ _id: reportId, groupId: groupId });
+            let capturedUpdate: Record<string, Record<string, unknown>> | null = null;
+            reportHolder.findByIdAndUpdate = async (_id: unknown, update: Record<string, Record<string, unknown>>) => {
+                capturedUpdate = update;
+                return { _id: reportId, groupId, ...update.$set };
+            };
 
+            const body = updateReportSchema.parse({ currentTasks: "New Tasks", title: "Renamed" });
             const req = {
                 user: { username: "regular_user", groups: [{ groupId: groupId, role: "member" }] },
                 params: { id: reportId },
-                body: { currentTasks: "New Tasks" },
+                body,
             } as unknown as Request;
 
             const res = createMockRes();
 
             try {
+                assert.equal("title" in body, false, "the route schema strips title");
                 await reportsController.updateReport(req, res as unknown as Response);
-                const json = res.jsonData as Record<string, unknown> | null;
-                assert.equal(res.statusCode, 400, "Must return 400 for locked report modification");
-                assert.equal(json?.code, "REPORT_LOCKED");
+                assert.equal(res.statusCode, 200, "a member can edit any report of the group");
+                assert.deepEqual(capturedUpdate, { $set: { currentTasks: "New Tasks" } });
             } finally {
                 reportHolder.findById = originalFindById;
+                reportHolder.findByIdAndUpdate = originalFindByIdAndUpdate;
+                groupHolder.findById = originalGroupFindById;
+            }
+        });
+
+        it("reportsController.updateReport writes only the editable fields, even when the body carries others", async () => {
+            const reportHolder = ShiftReport as unknown as Record<string, unknown>;
+            const groupHolder = Group as unknown as Record<string, unknown>;
+
+            const originalFindById = reportHolder.findById;
+            const originalFindByIdAndUpdate = reportHolder.findByIdAndUpdate;
+            const originalGroupFindById = groupHolder.findById;
+            const reportId = new mongoose.Types.ObjectId().toString();
+            const groupId = new mongoose.Types.ObjectId().toString();
+
+            groupHolder.findById = async () => ({ _id: groupId });
+            reportHolder.findById = async () => ({ _id: reportId, groupId });
+            let capturedUpdate: Record<string, Record<string, unknown>> | null = null;
+            reportHolder.findByIdAndUpdate = async (_id: unknown, update: Record<string, Record<string, unknown>>) => {
+                capturedUpdate = update;
+                return { _id: reportId, groupId };
+            };
+
+            // A caller that bypasses the route schema (the controller alone must still whitelist fields)
+            const req = {
+                user: { username: "regular_user", groups: [{ groupId: groupId, role: "member" }] },
+                params: { id: reportId },
+                body: { title: "Renamed", previousTasks: "kept" },
+            } as unknown as Request;
+
+            try {
+                await reportsController.updateReport(req, createMockRes() as unknown as Response);
+                assert.deepEqual(capturedUpdate, { $set: { previousTasks: "kept" } });
+            } finally {
+                reportHolder.findById = originalFindById;
+                reportHolder.findByIdAndUpdate = originalFindByIdAndUpdate;
                 groupHolder.findById = originalGroupFindById;
             }
         });
@@ -566,15 +611,32 @@ describe("Controller Cascading & Validation Rules", () => {
             scheduleHolder.findById = async () => ({
                 _id: scheduleId,
                 groupId: groupId,
+                isPublished: false,
                 shifts: [
                     {
                         userId: userId,
                         shiftTypeId: vacationShiftTypeId,
+                        date: new Date("2026-10-12T00:00:00.000Z"),
                         vacationDeducted: false,
                     },
                 ],
-                markModified: () => {},
-                save: async () => true,
+            });
+            // The publish commits through a revision-checked findOneAndUpdate inside a transaction
+            const originalScheduleFindOneAndUpdate = scheduleHolder.findOneAndUpdate;
+            const connectionHolder = ShiftSchedule.db as unknown as Record<string, unknown>;
+            const originalTransaction = connectionHolder.transaction;
+            connectionHolder.transaction = async (work: (session: unknown) => Promise<unknown>) => work({});
+            // The user is an active member of the group, so the publish tries to charge them
+            const originalUserFind = userHolder.find;
+            userHolder.find = async () => [{ _id: userId, username: "member", vacationBalance: 5, isActive: true }];
+            // The publish then re-syncs report attendees; no reports exist here
+            const reportHolder = ShiftReport as unknown as Record<string, unknown>;
+            const originalReportFind = reportHolder.find;
+            reportHolder.find = async () => [];
+            scheduleHolder.findOneAndUpdate = async (_filter: unknown, update: { $set: Record<string, unknown> }) => ({
+                _id: scheduleId,
+                groupId,
+                ...update.$set,
             });
 
             let capturedUserFilter: { vacationBalance?: { $gte?: number; $gt?: number } } | null = null;
@@ -597,6 +659,10 @@ describe("Controller Cascading & Validation Rules", () => {
                 assert.deepEqual(filter.vacationBalance, { $gte: 1 }, "Must enforce vacationBalance >= 1 precondition");
             } finally {
                 scheduleHolder.findById = originalScheduleFindById;
+                scheduleHolder.findOneAndUpdate = originalScheduleFindOneAndUpdate;
+                connectionHolder.transaction = originalTransaction;
+                reportHolder.find = originalReportFind;
+                userHolder.find = originalUserFind;
                 userHolder.findOneAndUpdate = originalUserFindOneAndUpdate;
                 groupHolder.findById = originalGroupFindById;
             }

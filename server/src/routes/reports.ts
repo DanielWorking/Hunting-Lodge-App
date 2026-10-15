@@ -11,7 +11,7 @@ import { Request, Router } from "express";
 import { z } from "zod";
 import * as reportsController from "../controllers/reportsController";
 import { protect, requireGroupMember } from "../middleware/authMiddleware";
-import { validateRequest } from "../middleware/validationMiddleware";
+import { validateRequest, isoDateString } from "../middleware/validationMiddleware";
 
 const router = Router();
 
@@ -31,19 +31,21 @@ export const getReportsQuerySchema = z.object({
     cursorId: z.string().optional(),
 });
 
+// title, startTime and endTime are required by the ShiftReport model, so they are required here too;
+// startTime also sets the report's `date`, so it must be a parseable ISO 8601 value.
 export const createReportSchema = z.object({
     groupId: z.string({ message: "Target groupId is required" }).trim().min(1, "Target groupId is required"),
-    title: z.string().optional(),
-    startTime: z.string().optional(),
-    endTime: z.string().optional(),
+    title: z.string({ message: "Report title is required" }).trim().min(1, "Report title is required"),
+    startTime: isoDateString("startTime"),
+    endTime: isoDateString("endTime"),
 }).passthrough();
 
+// Unknown keys are stripped: only the editable fields reach the controller
 export const updateReportSchema = z.object({
     currentTasks: z.string().optional(),
     attendees: z.array(z.record(z.string(), z.unknown())).optional(),
-    isLocked: z.boolean().optional(),
     previousTasks: z.string().optional(),
-}).passthrough();
+});
 
 export type GetReportsQueryInput = z.infer<typeof getReportsQuerySchema>;
 export type CreateReportInput = z.infer<typeof createReportSchema>;
@@ -55,7 +57,7 @@ router.use(protect);
 /**
  * GET /
  * Retrieves shift reports for a specific group, with optional temporal filtering.
- * Authorization: Requires valid JWT and group membership.
+ * Authorization: Requires valid JWT and group membership (any role, including the group's Shift Manager).
  */
 router.get(
     "/",
@@ -66,8 +68,10 @@ router.get(
 
 /**
  * POST /
- * Creates a new shift report.
- * Authorization: Requires valid JWT and group membership.
+ * Creates a new shift report. Its automatic attendees are the active group members with a
+ * published shift on the report's day, of a type linked to the time slot that starts at the
+ * report's start; day and slot are read on Jerusalem time.
+ * Authorization: Requires valid JWT and group membership (any role, including the group's Shift Manager).
  */
 router.post(
     "/",
@@ -77,11 +81,13 @@ router.post(
 );
 
 /**
- * PUT /:id
- * Updates an existing shift report.
- * Authorization: Controller enforces group membership and lock state restrictions.
+ * PATCH /:id
+ * Partially updates an existing shift report (tasks, attendees list): only the fields present in
+ * the body are changed; omitted fields keep their stored values. Any other field is ignored.
+ * Authorization: Only explicit members of the report's group (any role, including the group's
+ * Shift Manager) may modify it (controller-enforced).
  */
-router.put(
+router.patch(
     "/:id",
     validateRequest({ params: reportIdParamSchema, body: updateReportSchema }),
     reportsController.updateReport,
@@ -90,7 +96,8 @@ router.put(
 /**
  * DELETE /:id
  * Deletes a shift report from the database.
- * Authorization: Restricted to Shift Managers of the report's group or Administrators.
+ * Authorization: Restricted to the explicit Shift Manager of the report's group (controller-enforced).
+ * Administrators have no bypass: they may delete only if they also hold the Shift Manager role in that group.
  */
 router.delete(
     "/:id",

@@ -41,7 +41,6 @@ describe("Database & Query Performance Benchmark Suite", () => {
                         { userId: new Types.ObjectId() as unknown as any, name: `Worker ${i}`, isManual: false },
                         { userId: new Types.ObjectId() as unknown as any, name: `Worker ${i + 1}`, isManual: true },
                     ],
-                    isLocked: false,
                 });
             }
 

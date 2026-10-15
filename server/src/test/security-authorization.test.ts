@@ -227,7 +227,6 @@ describe("Security Authorization Gates & Input Sanitization", () => {
                 body: {
                     displayName: "Attempted Name Change",
                     vacationBalance: 999,
-                    vacationDays: 999,
                     email: "updated@example.com",
                 },
             } as unknown as Request;
@@ -242,7 +241,6 @@ describe("Security Authorization Gates & Input Sanitization", () => {
                 assert.equal(update.$set?.email, "updated@example.com");
                 assert.equal(update.$set?.displayName, undefined, "displayName must be excluded from $set");
                 assert.equal(update.$set?.vacationBalance, undefined, "vacationBalance must be excluded from $set");
-                assert.equal(update.$set?.vacationDays, undefined, "vacationDays must be excluded from $set");
             } finally {
                 userHolder.findById = originalFindById;
                 userHolder.findByIdAndUpdate = originalFindByIdAndUpdate;
@@ -258,6 +256,10 @@ describe("Security Authorization Gates & Input Sanitization", () => {
             const originalFindById = userHolder.findById;
             const originalFindByIdAndUpdate = userHolder.findByIdAndUpdate;
             const originalGroupUpdateMany = groupHolder.updateMany;
+            // A membership change runs in one transaction
+            const connectionHolder = User.db as unknown as Record<string, unknown>;
+            const originalTransaction = connectionHolder.transaction;
+            connectionHolder.transaction = async (work: (session: unknown) => Promise<unknown>) => work({});
 
             let capturedUpdate: Record<string, Record<string, unknown>> | null = null;
             let groupMembersUpdated = false;
@@ -314,6 +316,7 @@ describe("Security Authorization Gates & Input Sanitization", () => {
                 userHolder.findById = originalFindById;
                 userHolder.findByIdAndUpdate = originalFindByIdAndUpdate;
                 groupHolder.updateMany = originalGroupUpdateMany;
+                connectionHolder.transaction = originalTransaction;
             }
         });
 
@@ -522,52 +525,6 @@ describe("Security Authorization Gates & Input Sanitization", () => {
                 assert.equal(userDoc.vacationBalance, 12, "vacationBalance must be updated in MongoDB");
                 const json = res.jsonData as Record<string, unknown> | null;
                 assert.equal(json?.vacationBalance, 12);
-            } finally {
-                userHolder.findById = originalFindById;
-            }
-        });
-
-        it("AC-4b: should support vacationDays alias on managerUpdate for same-group Shift Manager", async () => {
-            const targetUserId = new mongoose.Types.ObjectId();
-            const sharedGroupId = new mongoose.Types.ObjectId();
-            const userHolder = User as unknown as Record<string, unknown>;
-            const originalFindById = userHolder.findById;
-
-            let savedUser: MockUserDoc | null = null;
-
-            const targetUserDoc: MockUserDoc = {
-                _id: targetUserId,
-                username: "shared_member",
-                vacationBalance: 18,
-                groups: [{ groupId: sharedGroupId.toString(), role: "member" }],
-                save: async function (this: MockUserDoc) {
-                    savedUser = this;
-                    return this;
-                },
-            };
-
-            userHolder.findById = async () => targetUserDoc;
-
-            const req = {
-                user: {
-                    _id: new mongoose.Types.ObjectId(),
-                    username: "group_manager",
-                    groups: [{ groupId: sharedGroupId.toString(), role: "shift_manager" }],
-                },
-                params: { id: targetUserId.toString() },
-                body: {
-                    vacationDays: 14,
-                },
-            } as unknown as Request;
-
-            const res = createMockRes();
-
-            try {
-                await usersController.managerUpdate(req, res as unknown as Response);
-                assert.equal(res.statusCode, 200);
-                assert.ok(savedUser, "savedUser must be captured");
-                const userDoc = savedUser as MockUserDoc;
-                assert.equal(userDoc.vacationBalance, 14, "vacationBalance must be updated from vacationDays alias");
             } finally {
                 userHolder.findById = originalFindById;
             }

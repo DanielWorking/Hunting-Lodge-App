@@ -25,7 +25,6 @@ export interface MutableGroup extends ResolvedGroup {
 
 export interface CreateGroupRequestBody {
     name?: string;
-    id?: string;
 }
 
 export interface AddTagRequestBody {
@@ -33,6 +32,7 @@ export interface AddTagRequestBody {
 }
 
 export interface RenameTagRequestBody {
+    tagName?: string;
     newTagName?: string;
 }
 
@@ -157,22 +157,22 @@ export async function getGroups(req: Request, res: Response, next?: NextFunction
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
 export async function createGroup(req: Request, res: Response, next?: NextFunction): Promise<void> {
     const body = (req.body || {}) as CreateGroupRequestBody;
-    const groupName = body.name || body.id;
+    const groupName = body.name;
     if (!groupName || typeof groupName !== "string" || !groupName.trim()) {
-        res.status(400).json({ message: "Group name is required" });
+        res.status(400).json({ message: "Group name is required", code: "VALIDATION_ERROR" });
         return;
     }
     const name = groupName.trim();
     try {
         const existingGroup = await Group.findOne({ name });
         if (existingGroup) {
-            res.status(400).json({ message: "Group name already exists" });
+            res.status(400).json({ message: "Group name already exists", code: "DUPLICATE_RESOURCE" });
             return;
         }
 
@@ -189,7 +189,7 @@ export async function createGroup(req: Request, res: Response, next?: NextFuncti
             next(err);
             return;
         }
-        res.status(400).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(400).json({ message: err instanceof Error ? err.message : String(err), code: "BAD_REQUEST" });
     }
 }
 
@@ -197,7 +197,7 @@ export async function addTag(req: Request, res: Response, next?: NextFunction): 
     const body = (req.body || {}) as AddTagRequestBody;
     const rawTagName = body.tagName;
     if (!rawTagName || typeof rawTagName !== "string" || !rawTagName.trim()) {
-        res.status(400).json({ message: "Tag name is required" });
+        res.status(400).json({ message: "Tag name is required", code: "VALIDATION_ERROR" });
         return;
     }
     const tagName = rawTagName.trim();
@@ -205,13 +205,13 @@ export async function addTag(req: Request, res: Response, next?: NextFunction): 
     try {
         const group = await resolveGroup<MutableGroup>(req.params.id);
         if (!group) {
-            res.status(404).json({ message: "Group not found" });
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
             return;
         }
 
         const siteTags = Array.isArray(group.siteTags) ? [...group.siteTags] : [];
         if (siteTags.includes(tagName)) {
-            res.status(400).json({ message: "Tag already exists" });
+            res.status(400).json({ message: "Tag already exists", code: "DUPLICATE_RESOURCE" });
             return;
         }
 
@@ -226,43 +226,47 @@ export async function addTag(req: Request, res: Response, next?: NextFunction): 
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
 export async function renameTag(req: Request, res: Response, next?: NextFunction): Promise<void> {
-    const rawTagName = req.params.tagName;
-    const tagName = (Array.isArray(rawTagName) ? rawTagName[0] : rawTagName) || "";
     const body = (req.body || {}) as RenameTagRequestBody;
+    const tagName = typeof body.tagName === "string" ? body.tagName.trim() : "";
     const rawNewTagName = body.newTagName;
 
+    if (!tagName) {
+        res.status(400).json({ message: "Tag name is required", code: "VALIDATION_ERROR" });
+        return;
+    }
+
     if (!rawNewTagName || typeof rawNewTagName !== "string" || !rawNewTagName.trim()) {
-        res.status(400).json({ message: "New tag name is required" });
+        res.status(400).json({ message: "New tag name is required", code: "VALIDATION_ERROR" });
         return;
     }
     const newTagName = rawNewTagName.trim();
 
     if (tagName === "General") {
-        res.status(400).json({ message: "Cannot rename General tag" });
+        res.status(400).json({ message: "Cannot rename General tag", code: "DEFAULT_TAG_PROTECTED" });
         return;
     }
 
     try {
         const group = await resolveGroup<MutableGroup>(req.params.id);
         if (!group) {
-            res.status(404).json({ message: "Group not found" });
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
             return;
         }
 
         const siteTags = Array.isArray(group.siteTags) ? [...group.siteTags] : [];
         const tagIndex = siteTags.indexOf(tagName);
         if (tagIndex === -1) {
-            res.status(404).json({ message: "Tag not found" });
+            res.status(404).json({ message: "Tag not found", code: "NOT_FOUND" });
             return;
         }
 
         if (siteTags.includes(newTagName)) {
-            res.status(400).json({ message: "New tag name already exists" });
+            res.status(400).json({ message: "New tag name already exists", code: "DUPLICATE_RESOURCE" });
             return;
         }
 
@@ -288,27 +292,39 @@ export async function renameTag(req: Request, res: Response, next?: NextFunction
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
 export async function deleteTag(req: Request, res: Response, next?: NextFunction): Promise<void> {
-    const rawTagName = req.params.tagName;
-    const tagName = (Array.isArray(rawTagName) ? rawTagName[0] : rawTagName) || "";
+    const rawTagName = (req.query || {}).tagName;
+    const tagName = typeof rawTagName === "string" ? rawTagName.trim() : "";
+
+    if (!tagName) {
+        res.status(400).json({ message: "Tag name is required", code: "VALIDATION_ERROR" });
+        return;
+    }
 
     if (tagName === "General") {
-        res.status(400).json({ message: "Cannot delete General tag" });
+        res.status(400).json({ message: "Cannot delete General tag", code: "DEFAULT_TAG_PROTECTED" });
         return;
     }
 
     try {
         const group = await resolveGroup<MutableGroup>(req.params.id);
         if (!group) {
-            res.status(404).json({ message: "Group not found" });
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
             return;
         }
 
-        const siteTags = Array.isArray(group.siteTags) ? group.siteTags.filter((t: string) => t !== tagName) : [];
+        const currentTags = Array.isArray(group.siteTags) ? group.siteTags : [];
+        // Never confirm a deletion that did not happen
+        if (!currentTags.includes(tagName)) {
+            res.status(404).json({ message: "Tag not found", code: "NOT_FOUND" });
+            return;
+        }
+
+        const siteTags = currentTags.filter((t: string) => t !== tagName);
         group.siteTags = siteTags;
         if (typeof group.save === "function") {
             await group.save();
@@ -329,7 +345,7 @@ export async function deleteTag(req: Request, res: Response, next?: NextFunction
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
@@ -341,7 +357,7 @@ export async function updateSettings(req: Request, res: Response, next?: NextFun
 
         const group = await resolveGroup<MutableGroup>(req.params.id);
         if (!group) {
-            res.status(404).json({ message: "Group not found" });
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -357,6 +373,7 @@ export async function updateSettings(req: Request, res: Response, next?: NextFun
             if (names.length !== uniqueNames.size) {
                 res.status(400).json({
                     message: "Validation Error: Duplicate shift type names are not allowed.",
+                    code: "VALIDATION_ERROR",
                 });
                 return;
             }
@@ -387,7 +404,7 @@ export async function updateSettings(req: Request, res: Response, next?: NextFun
             next(err);
             return;
         }
-        res.status(400).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(400).json({ message: err instanceof Error ? err.message : String(err), code: "BAD_REQUEST" });
     }
 }
 
@@ -399,7 +416,7 @@ export async function updateGroup(req: Request, res: Response, next?: NextFuncti
         const group = await resolveGroup<MutableGroup>(req.params.id);
 
         if (!group) {
-            res.status(404).json({ message: "Group not found" });
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -407,6 +424,7 @@ export async function updateGroup(req: Request, res: Response, next?: NextFuncti
         if (group.name === config.superAdmin.groupName) {
             res.status(403).json({
                 message: `System Security: The '${config.superAdmin.groupName}' group cannot be modified.`,
+                code: "FORBIDDEN_SYSTEM_GROUP_PROTECTED",
             });
             return;
         }
@@ -426,7 +444,7 @@ export async function updateGroup(req: Request, res: Response, next?: NextFuncti
             next(err);
             return;
         }
-        res.status(400).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(400).json({ message: err instanceof Error ? err.message : String(err), code: "BAD_REQUEST" });
     }
 }
 
@@ -434,7 +452,7 @@ export async function deleteGroup(req: Request, res: Response, next?: NextFuncti
     try {
         const group = await resolveGroup<MutableGroup>(req.params.id);
         if (!group) {
-            res.status(404).json({ message: "Group not found" });
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -442,6 +460,7 @@ export async function deleteGroup(req: Request, res: Response, next?: NextFuncti
         if (group.name === config.superAdmin.groupName) {
             res.status(403).json({
                 message: `System Security: The '${config.superAdmin.groupName}' group cannot be deleted.`,
+                code: "FORBIDDEN_SYSTEM_GROUP_PROTECTED",
             });
             return;
         }
@@ -452,6 +471,7 @@ export async function deleteGroup(req: Request, res: Response, next?: NextFuncti
         if (members.length > 0) {
             res.status(400).json({
                 message: "Cannot delete group with active members. Please remove members first.",
+                code: "GROUP_HAS_MEMBERS",
             });
             return;
         }
@@ -477,7 +497,7 @@ export async function deleteGroup(req: Request, res: Response, next?: NextFuncti
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 

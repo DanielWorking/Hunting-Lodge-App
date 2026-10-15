@@ -52,7 +52,6 @@ export const updateUserSchema = z.object({
 export const managerUpdateSchema = z.object({
     isActive: z.boolean().optional(),
     vacationBalance: z.number().min(0, "Vacation balance cannot be negative").optional(),
-    vacationDays: z.number().min(0, "Vacation balance cannot be negative").optional(),
     displayName: z.string().optional(),
 }).passthrough();
 

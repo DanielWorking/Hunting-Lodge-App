@@ -19,6 +19,7 @@ import http from "node:http";
 import jwt from "jsonwebtoken";
 import app from "../../app";
 import config from "../config";
+import { notFoundHandler } from "../middleware/errorMiddleware";
 import {
     protect,
     invalidateUserCache,
@@ -34,10 +35,16 @@ import User from "../models/User";
 describe("Comprehensive Backend Performance & Optimization Suite", () => {
     describe("1. Express Middleware Pipeline & Response Compression", () => {
         it("should compress responses exceeding 1KB with gzip when requested", async () => {
-            // Register a benchmark endpoint returning a >1KB JSON payload
+            // Register a benchmark endpoint returning a >1KB JSON payload. app.ts already ends with
+            // the 404 handler, so move the new route in front of it; otherwise the request would
+            // only ever reach the (small) 404 body.
             app.get("/api/benchmark-compression", (_req, res) => {
                 res.json({ payload: "X".repeat(4096) });
             });
+            const stack = (app as unknown as { router: { stack: Array<{ handle?: unknown }> } }).router.stack;
+            const benchmarkLayer = stack.pop();
+            const notFoundIndex = stack.findIndex((layer) => layer.handle === notFoundHandler);
+            if (benchmarkLayer) stack.splice(notFoundIndex, 0, benchmarkLayer);
 
             const server = http.createServer(app);
             await new Promise<void>((resolve) => server.listen(0, resolve));

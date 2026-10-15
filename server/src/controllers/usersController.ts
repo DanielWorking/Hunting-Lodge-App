@@ -8,9 +8,11 @@
 
 import { Request, Response, NextFunction } from "express";
 import mongoose, { Types } from "mongoose";
-import User, { IUser } from "../models/User";
-import Group from "../models/Group";
+import type { ClientSession } from "mongoose";
+import User, { IUser, toPublicUser } from "../models/User";
+import Group, { ITimeSlot } from "../models/Group";
 import Site from "../models/Site";
+import { removeFromGroupSchedules } from "../services/membershipCleanup";
 import {
     isAdmin,
     isSuperAdminUser,
@@ -21,6 +23,7 @@ import {
     AuthUser,
 } from "../utils/authHelpers";
 import { invalidateUserCache } from "../middleware/authMiddleware";
+import { extractMongooseFieldErrors } from "../middleware/errorMiddleware";
 
 function extractParamId(param: string | string[] | undefined): string {
     if (!param) return "";
@@ -44,20 +47,127 @@ export interface UpdateUserRequestBody {
     favoritePhones?: string[];
     displayName?: string;
     vacationBalance?: number;
-    vacationDays?: number;
     [key: string]: unknown;
 }
 
 export interface ManagerUpdateRequestBody {
     isActive?: boolean;
     vacationBalance?: number;
-    vacationDays?: number;
     displayName?: string;
     [key: string]: unknown;
 }
 
 export interface GetUsersRequestQuery {
     groupId?: string;
+}
+
+/** Contact and activity fields only Administrators may see for other users. */
+const ADMIN_ONLY_USER_FIELDS = new Set(["email", "lastLogin"]);
+
+/**
+ * Returns the response-safe view of `target` for `requester`: internal SSO/session fields are
+ * always removed, `vacationBalance` is kept only for a Shift Manager of one of the target's groups
+ * (not for the user themself, unless they manage a group they belong to), and email/lastLogin only
+ * for the user themself or an Administrator.
+ */
+function toVisibleUser(target: unknown, requester: AuthUser | undefined): Record<string, unknown> {
+    const targetUser = target as AuthUser;
+    const isSelf = Boolean(requester?._id && targetUser?._id && String(requester._id) === String(targetUser._id));
+    const canSeeBalance = isShiftManagerForTargetUser(requester, targetUser);
+    const canSeeContactDetails = isSelf || isAdmin(requester);
+    return Object.fromEntries(
+        Object.entries(toPublicUser(target)).filter(([field]) => {
+            if (field === "vacationBalance") return canSeeBalance;
+            if (ADMIN_ONLY_USER_FIELDS.has(field)) return canSeeContactDetails;
+            return true;
+        }),
+    );
+}
+
+/** Awaits a query as a plain object (`lean`) when the query supports it. */
+async function leanResult<T>(query: unknown): Promise<T | null> {
+    const leanable = query as { lean?: () => unknown } | null;
+    return (await (typeof leanable?.lean === "function" ? leanable.lean() : query)) as T | null;
+}
+
+/** Ids of the groups in a user's `groups` memberships (populated or not). */
+function groupIdsOf(user: unknown): string[] {
+    const memberships = (user as { groups?: Array<{ groupId?: unknown }> } | null)?.groups;
+    return (Array.isArray(memberships) ? memberships : [])
+        .map((membership) => {
+            const gid = membership?.groupId;
+            if (gid && typeof gid === "object" && "_id" in gid) {
+                return (gid as { _id?: unknown })._id?.toString();
+            }
+            return gid?.toString();
+        })
+        .filter((id): id is string => Boolean(id));
+}
+
+async function timeSlotsOf(groupId: string): Promise<ITimeSlot[] | undefined> {
+    const group = await resolveGroup(groupId);
+    return (group?.settings as { timeSlots?: ITimeSlot[] } | undefined)?.timeSlots;
+}
+
+/**
+ * Applies an Administrator's user update that sets `groups`, inside `session`'s transaction:
+ * the user write, the Group.members sync, and for each group the user leaves, the removal of their
+ * shifts from today onwards with the refund of the vacation charged for them.
+ *
+ * @returns The updated user (with the refunded balance), or null when the user does not exist.
+ */
+async function updateUserAndMemberships(
+    targetUserId: string,
+    updateOperation: Record<string, unknown>,
+    session: ClientSession,
+): Promise<AuthUser | null> {
+    // Read inside the transaction, so the groups left are exactly what this write changes
+    const before = await leanResult<AuthUser>(User.findById(targetUserId, null, { session }));
+    const updated = await leanResult<AuthUser>(User.findByIdAndUpdate(
+        targetUserId,
+        updateOperation,
+        { returnDocument: "after", runValidators: true, session },
+    ));
+    if (!before || !updated) {
+        return null;
+    }
+
+    const oldGroupIds = groupIdsOf(before);
+    const newGroupIds = groupIdsOf(updated);
+    const groupsToRemove = oldGroupIds.filter((id) => !newGroupIds.includes(id));
+    const groupsToAdd = newGroupIds.filter((id) => !oldGroupIds.includes(id));
+
+    // Sequential on purpose: operations of one transaction must not run concurrently on its session
+    if (groupsToRemove.length > 0) {
+        await Group.updateMany({ _id: { $in: groupsToRemove } }, { $pull: { members: updated._id } }, { session });
+    }
+    if (groupsToAdd.length > 0) {
+        await Group.updateMany({ _id: { $in: groupsToAdd } }, { $addToSet: { members: updated._id } }, { session });
+    }
+
+    let refund = 0;
+    for (const groupId of groupsToRemove) {
+        refund += (await removeFromGroupSchedules(targetUserId, groupId, await timeSlotsOf(groupId), session)).refund;
+    }
+    if (refund === 0) {
+        return updated;
+    }
+    return leanResult<AuthUser>(User.findByIdAndUpdate(
+        targetUserId,
+        { $inc: { vacationBalance: refund } },
+        { returnDocument: "after", session },
+    ));
+}
+
+/**
+ * Shapes a user for directory listings as seen by `requester`, with role flags added.
+ */
+function toDirectoryEntry(user: AuthUser, requester: AuthUser | undefined): Record<string, unknown> {
+    return {
+        ...toVisibleUser(user, requester),
+        isSuperAdmin: isSuperAdminUser(user),
+        isAdmin: isAdmin(user),
+    };
 }
 
 /**
@@ -80,7 +190,7 @@ export async function getUsers(req: Request, res: Response, next?: NextFunction)
         if (groupId) {
             const group = await resolveGroup(groupId);
             if (!group) {
-                res.status(404).json({ message: "Group not found" });
+                res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
                 return;
             }
 
@@ -103,12 +213,7 @@ export async function getUsers(req: Request, res: Response, next?: NextFunction)
                 ? (usersQuery as any).lean()
                 : usersQuery);
             const userDocs = Array.isArray(users) ? users : [];
-            const mappedUsers = userDocs.map((u: any) => ({
-                ...(typeof u.toObject === "function" ? u.toObject() : u),
-                isSuperAdmin: isSuperAdminUser(u),
-                isAdmin: isAdmin(u),
-            }));
-            res.json(mappedUsers);
+            res.json(userDocs.map((u: AuthUser) => toDirectoryEntry(u, requestingUser)));
             return;
         }
 
@@ -127,19 +232,14 @@ export async function getUsers(req: Request, res: Response, next?: NextFunction)
             ? (usersQuery as any).lean()
             : usersQuery);
         const userDocs = Array.isArray(users) ? users : [];
-        const mappedUsers = userDocs.map((u: any) => ({
-            ...(typeof u.toObject === "function" ? u.toObject() : u),
-            isSuperAdmin: isSuperAdminUser(u),
-            isAdmin: isAdmin(u),
-        }));
-        res.json(mappedUsers);
+        res.json(userDocs.map((u: AuthUser) => toDirectoryEntry(u, requestingUser)));
     } catch (err: unknown) {
         console.error("Get users error:", err);
         if (typeof next === "function") {
             next(err);
             return;
         }
-        res.status(500).json({ message: "Failed to retrieve users" });
+        res.status(500).json({ message: "Failed to retrieve users", code: "INTERNAL_ERROR" });
     }
 }
 
@@ -148,7 +248,7 @@ export async function reorderUsers(req: Request, res: Response, next?: NextFunct
         const body = (req.body || {}) as ReorderUsersRequestBody;
         const { groupId, updates } = body;
         if (!groupId || typeof groupId !== "string" || !updates || !Array.isArray(updates) || updates.length === 0 || updates.length > 200) {
-            res.status(400).json({ message: "Invalid payload: groupId and updates array (max 200 items) are required" });
+            res.status(400).json({ message: "Invalid payload: groupId and updates array (max 200 items) are required", code: "VALIDATION_ERROR" });
             return;
         }
 
@@ -165,13 +265,13 @@ export async function reorderUsers(req: Request, res: Response, next?: NextFunct
             }
         );
         if (hasInvalidItem) {
-            res.status(400).json({ message: "Invalid update item format: userId must be a valid ID and order must be numeric" });
+            res.status(400).json({ message: "Invalid update item format: userId must be a valid ID and order must be numeric", code: "VALIDATION_ERROR" });
             return;
         }
 
         const group = await resolveGroup(groupId);
         if (!group) {
-            res.status(404).json({ message: "Group not found" });
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -210,7 +310,7 @@ export async function reorderUsers(req: Request, res: Response, next?: NextFunct
             next(err);
             return;
         }
-        res.status(500).json({ message: "Failed to update user ordering" });
+        res.status(500).json({ message: "Failed to update user ordering", code: "INTERNAL_ERROR" });
     }
 }
 
@@ -234,7 +334,7 @@ export async function updateUser(req: Request, res: Response, next?: NextFunctio
             ? (oldUserQuery as any).lean()
             : oldUserQuery);
         if (!oldUser) {
-            res.status(404).json({ message: "User not found" });
+            res.status(404).json({ message: "User not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -263,64 +363,23 @@ export async function updateUser(req: Request, res: Response, next?: NextFunctio
             updateOperation.$inc = { tokenVersion: 1 };
         }
 
-        const updatedUserQuery = User.findByIdAndUpdate(
-            targetUserId,
-            updateOperation,
-            { returnDocument: "after", runValidators: true },
-        );
-        const updatedUser = await (typeof (updatedUserQuery as any).lean === "function"
-            ? (updatedUserQuery as any).lean()
-            : updatedUserQuery);
-
-        // 5. Group membership synchronization logic
-        if (body.groups && updatedUser) {
-            const oldGroupIds = ((oldUser.groups || []) as any[])
-                .map((g: any) => {
-                    const gid = g.groupId;
-                    if (gid && typeof gid === "object" && "_id" in gid) {
-                        return (gid as { _id?: unknown })._id?.toString();
-                    }
-                    return gid?.toString();
-                })
-                .filter((id: any): id is string => Boolean(id));
-
-            const newGroupIds = ((updatedUser.groups || []) as any[])
-                .map((g: any) => {
-                    const gid = g.groupId;
-                    if (gid && typeof gid === "object" && "_id" in gid) {
-                        return (gid as { _id?: unknown })._id?.toString();
-                    }
-                    return gid?.toString();
-                })
-                .filter((id: any): id is string => Boolean(id));
-
-            const groupsToRemove = oldGroupIds.filter((id: string) => !newGroupIds.includes(id));
-            const groupsToAdd = newGroupIds.filter((id: string) => !oldGroupIds.includes(id));
-
-            const syncPromises: PromiseLike<unknown>[] = [];
-            if (groupsToRemove.length > 0) {
-                syncPromises.push(
-                    Group.updateMany(
-                        { _id: { $in: groupsToRemove } },
-                        { $pull: { members: updatedUser._id } },
-                    )
-                );
-            }
-            if (groupsToAdd.length > 0) {
-                syncPromises.push(
-                    Group.updateMany(
-                        { _id: { $in: groupsToAdd } },
-                        { $addToSet: { members: updatedUser._id } },
-                    )
-                );
-            }
-            if (syncPromises.length > 0) {
-                await Promise.all(syncPromises);
-            }
+        // 5. A membership change is one transaction: the user, Group.members, and for every group
+        // the user leaves, their shifts from today onwards, the refund and the report attendees
+        const updatedUser = Array.isArray(body.groups)
+            ? await User.db.transaction((session: ClientSession) =>
+                updateUserAndMemberships(targetUserId, updateOperation, session))
+            : await leanResult<AuthUser>(User.findByIdAndUpdate(
+                targetUserId,
+                updateOperation,
+                { returnDocument: "after", runValidators: true },
+            ));
+        if (!updatedUser) {
+            res.status(404).json({ message: "User not found", code: "NOT_FOUND" });
+            return;
         }
 
         invalidateUserCache(targetUserId);
-        res.json(updatedUser);
+        res.json(toVisibleUser(updatedUser, requestingUser));
     } catch (err: unknown) {
         console.error("Update user error:", err);
 
@@ -329,9 +388,8 @@ export async function updateUser(req: Request, res: Response, next?: NextFunctio
             err instanceof mongoose.Error.ValidationError ||
             (typeof err === "object" && err !== null && (err as { name?: string }).name === "ValidationError")
         ) {
-            const validationErrors = Object.values(
-                (err as mongoose.Error.ValidationError).errors || {}
-            ).map((e) => e.message);
+            // Same `{ field, message }` shape as the Zod middleware and the global error handler
+            const validationErrors = extractMongooseFieldErrors(err);
 
             res.status(400).json({
                 message: (err as Error).message || "Validation failed",
@@ -368,6 +426,7 @@ export async function updateUser(req: Request, res: Response, next?: NextFunctio
 
         res.status(400).json({
             message: err instanceof Error ? err.message : "Invalid user update request",
+            code: "BAD_REQUEST",
         });
     }
 }
@@ -401,7 +460,7 @@ export async function deleteUser(req: Request, res: Response, next?: NextFunctio
             ? (userToDeleteQuery as any).lean()
             : userToDeleteQuery);
         if (!userToDelete) {
-            res.status(404).json({ message: "User not found" });
+            res.status(404).json({ message: "User not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -409,24 +468,30 @@ export async function deleteUser(req: Request, res: Response, next?: NextFunctio
         if (isSuperAdminUser(userToDelete)) {
             res.status(403).json({
                 message: "System Security: The root Super Admin account cannot be deleted.",
+                code: "FORBIDDEN_SUPER_ADMIN_PROTECTED",
             });
             return;
         }
 
-        await User.findByIdAndDelete(targetUserId);
-        invalidateUserCache(targetUserId);
-
-        // Clean up group memberships and site favorites concurrently
-        await Promise.all([
-            Group.updateMany(
+        // One transaction: the account, its group memberships and favorites, and in every group it
+        // belonged to, its shifts from today onwards (no refund: the account no longer exists)
+        await User.db.transaction(async (session: ClientSession) => {
+            await User.findByIdAndDelete(targetUserId, { session });
+            await Group.updateMany(
                 { members: targetUserId },
                 { $pull: { members: targetUserId } },
-            ),
-            Site.updateMany(
+                { session },
+            );
+            await Site.updateMany(
                 { favoritedBy: targetUserId },
                 { $pull: { favoritedBy: targetUserId } },
-            ),
-        ]);
+                { session },
+            );
+            for (const groupId of groupIdsOf(userToDelete)) {
+                await removeFromGroupSchedules(targetUserId, groupId, await timeSlotsOf(groupId), session);
+            }
+        });
+        invalidateUserCache(targetUserId);
 
         res.json({ message: "User deleted" });
     } catch (err: unknown) {
@@ -435,7 +500,7 @@ export async function deleteUser(req: Request, res: Response, next?: NextFunctio
             next(err);
             return;
         }
-        res.status(500).json({ message: "Failed to delete user" });
+        res.status(500).json({ message: "Failed to delete user", code: "INTERNAL_ERROR" });
     }
 }
 
@@ -443,13 +508,13 @@ export async function managerUpdate(req: Request, res: Response, next?: NextFunc
     try {
         const targetUserId = extractParamId(req.params.id);
         const body = (req.body || {}) as ManagerUpdateRequestBody;
-        const { isActive, vacationBalance, vacationDays } = body;
+        const { isActive, vacationBalance } = body;
         const requestingUser = req.user as AuthUser | undefined;
 
         // 1. Fetch the target user being modified
         const targetUser = await User.findById(targetUserId);
         if (!targetUser) {
-            res.status(404).json({ message: "User not found" });
+            res.status(404).json({ message: "User not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -462,8 +527,7 @@ export async function managerUpdate(req: Request, res: Response, next?: NextFunc
             return;
         }
 
-        const requestedVacation = vacationBalance !== undefined ? vacationBalance : vacationDays;
-        const isModifyingVacation = requestedVacation !== undefined;
+        const isModifyingVacation = vacationBalance !== undefined;
         const isModifyingActive = isActive !== undefined;
 
         // 2. Perform Group Tenancy & Role Authorization Checks
@@ -511,9 +575,9 @@ export async function managerUpdate(req: Request, res: Response, next?: NextFunc
         }
 
         if (isModifyingVacation) {
-            const numVacation = Number(requestedVacation);
+            const numVacation = Number(vacationBalance);
             if (isNaN(numVacation) || numVacation < 0) {
-                res.status(400).json({ message: "Vacation balance must be a non-negative number" });
+                res.status(400).json({ message: "Vacation balance must be a non-negative number", code: "VALIDATION_ERROR" });
                 return;
             }
             targetUser.vacationBalance = numVacation;
@@ -521,7 +585,7 @@ export async function managerUpdate(req: Request, res: Response, next?: NextFunc
 
         const updatedUser = await targetUser.save();
         invalidateUserCache(targetUserId);
-        res.json(updatedUser);
+        res.json(toVisibleUser(updatedUser, requestingUser));
     } catch (err: unknown) {
         console.error("Manager Update Error:", err);
 
@@ -530,9 +594,8 @@ export async function managerUpdate(req: Request, res: Response, next?: NextFunc
             err instanceof mongoose.Error.ValidationError ||
             (typeof err === "object" && err !== null && (err as { name?: string }).name === "ValidationError")
         ) {
-            const validationErrors = Object.values(
-                (err as mongoose.Error.ValidationError).errors || {}
-            ).map((e) => e.message);
+            // Same `{ field, message }` shape as the Zod middleware and the global error handler
+            const validationErrors = extractMongooseFieldErrors(err);
 
             res.status(400).json({
                 message: (err as Error).message || "Validation failed",
@@ -566,7 +629,7 @@ export async function managerUpdate(req: Request, res: Response, next?: NextFunc
             next(err);
             return;
         }
-        res.status(500).json({ message: "Failed to update user settings" });
+        res.status(500).json({ message: "Failed to update user settings", code: "INTERNAL_ERROR" });
     }
 }
 
@@ -601,7 +664,7 @@ export async function acknowledgeWhatsNew(req: Request, res: Response, next?: Ne
         );
 
         if (!updatedUser) {
-            res.status(404).json({ message: "User not found" });
+            res.status(404).json({ message: "User not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -610,7 +673,8 @@ export async function acknowledgeWhatsNew(req: Request, res: Response, next?: Ne
         res.json({
             message: "What's new acknowledged",
             hasSeenWhatsNew: true,
-            user: updatedUser,
+            // An Administrator may acknowledge for someone else: apply the same visibility rules
+            user: toVisibleUser(updatedUser, authUser),
         });
     } catch (err: unknown) {
         console.error("Acknowledge What's New error:", err);
@@ -618,7 +682,7 @@ export async function acknowledgeWhatsNew(req: Request, res: Response, next?: Ne
             next(err);
             return;
         }
-        res.status(500).json({ message: "Failed to acknowledge What's New" });
+        res.status(500).json({ message: "Failed to acknowledge What's New", code: "INTERNAL_ERROR" });
     }
 }
 

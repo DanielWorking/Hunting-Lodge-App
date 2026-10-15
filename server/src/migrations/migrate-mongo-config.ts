@@ -2,51 +2,17 @@
  * @module MigrateMongoConfig
  *
  * Configuration for the migrate-mongo migration runner.
- * Automatically resolves the database connection string from environment files
- * (.env.nonprod, .env.preprod, .env.prod, .env, or process.env.MONGO_URI).
+ * Uses exactly the same environment detection, env files (env/server/.env.config.<env> and
+ * .env.secret.<env>) and startup validation as the application, so migrations always run
+ * against the database the app itself uses. There is no localhost fallback.
  */
 
-import path from "path";
-import fs from "fs";
-import dotenv from "dotenv";
+import { validatedEnv, appEnv } from "../config/env";
 
-// Determine tri-environment (nonprod, preprod, prod)
-const rawAppEnv = (process.env.APP_ENV || "").toLowerCase().trim();
-const rawNodeEnv = (process.env.NODE_ENV || "").toLowerCase().trim();
-const appEnv = rawAppEnv === "prod" || rawAppEnv === "production" || rawNodeEnv === "production"
-    ? "prod"
-    : rawAppEnv === "preprod" || rawAppEnv === "staging"
-    ? "preprod"
-    : "nonprod";
-
-// Base server root directory (two levels up from src/migrations)
-const serverRootDir: string = path.resolve(__dirname, "../..");
-
-// Load environment variables matching tri-environment hierarchy
-const customEnvPath: string | null = process.env.ENV_FILE ? path.resolve(process.env.ENV_FILE) : null;
-const envServerDir: string = path.join(serverRootDir, "../env/server");
-const baseEnvPath: string = path.join(envServerDir, ".env");
-const targetEnvPath: string = path.join(envServerDir, `.env.${appEnv}`);
-const localEnvPath: string = path.join(envServerDir, `.env.${appEnv}.local`);
-
-if (customEnvPath && fs.existsSync(customEnvPath)) {
-    dotenv.config({ path: customEnvPath });
-} else {
-    // 1. Base fallback
-    if (fs.existsSync(baseEnvPath)) {
-        dotenv.config({ path: baseEnvPath });
-    }
-    // 2. Tri-environment config/secret (.env.nonprod, .env.preprod, .env.prod)
-    if (fs.existsSync(targetEnvPath)) {
-        dotenv.config({ path: targetEnvPath, override: true });
-    }
-    // 3. Local overrides
-    if (fs.existsSync(localEnvPath)) {
-        dotenv.config({ path: localEnvPath, override: true });
-    }
+const mongoUri: string = validatedEnv.MONGO_URI || "";
+if (!mongoUri) {
+    throw new Error(`MONGO_URI is not configured for the ${appEnv} environment; refusing to run migrations`);
 }
-
-const mongoUri: string = process.env.MONGO_URI || "mongodb://localhost:27017/hunting_lodge_db";
 
 interface MigrateMongoConfiguration {
     mongodb: {

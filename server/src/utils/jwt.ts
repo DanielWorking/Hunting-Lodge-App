@@ -62,15 +62,27 @@ export function generateToken(user: UserTokenInput): string {
 }
 
 /**
+ * Options for verifying a token.
+ */
+export interface VerifyTokenOptions {
+    /** Accept a correctly signed token past its `exp` (e.g. to revoke it on logout). */
+    readonly ignoreExpiration?: boolean;
+}
+
+/**
  * Verifies and decodes a signed JSON Web Token.
  *
  * @template T - Extends jwt.JwtPayload, defaults to DecodedTokenPayload.
  * @param token - The JWT string to verify.
+ * @param options - Verification options; the signature is always checked.
  * @returns The decoded token payload.
  * @throws {jwt.JsonWebTokenError | jwt.TokenExpiredError} If verification fails.
  */
-export function verifyToken<T extends jwt.JwtPayload = DecodedTokenPayload>(token: string): T {
-    const decoded = jwt.verify(token, config.jwt.secret);
+export function verifyToken<T extends jwt.JwtPayload = DecodedTokenPayload>(
+    token: string,
+    options: VerifyTokenOptions = {},
+): T {
+    const decoded = jwt.verify(token, config.jwt.secret, { ignoreExpiration: options.ignoreExpiration === true });
     if (typeof decoded === "string") {
         throw new jwt.JsonWebTokenError("Invalid token payload format");
     }

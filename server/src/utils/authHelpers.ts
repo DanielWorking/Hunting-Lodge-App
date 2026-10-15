@@ -1,21 +1,7 @@
 import mongoose from "mongoose";
 import config from "../config";
+import Group, { GroupDocument } from "../models/Group";
 import { BoundedLRUCache } from "./lruCache";
-
-/**
- * Common shape for Mongoose Group documents.
- */
-export interface IGroupDocument {
-    readonly _id: mongoose.Types.ObjectId | string;
-    readonly name?: string;
-    readonly members?: ReadonlyArray<mongoose.Types.ObjectId | string>;
-    readonly siteTags?: ReadonlyArray<string>;
-    readonly save?: (options?: unknown) => Promise<unknown>;
-    readonly [key: string]: unknown;
-}
-
-// Minimal Model interface for Group database operations
-const Group: mongoose.Model<IGroupDocument> = require("../models/Group");
 
 /**
  * Group document or compatible object shape.
@@ -114,7 +100,7 @@ async function resolveFromIdentifier<T extends ResolvedGroup = ResolvedGroup>(
         }
     }
 
-    let result: IGroupDocument | null = null;
+    let result: GroupDocument | null = null;
     if (mongoose.Types.ObjectId.isValid(strId)) {
         const byId = await Group.findById(strId);
         if (byId) {
@@ -130,12 +116,13 @@ async function resolveFromIdentifier<T extends ResolvedGroup = ResolvedGroup>(
     }
 
     if (result && !isTestEnv) {
-        groupCache.set(strId, result as ResolvedGroup);
+        const resolved = result as unknown as ResolvedGroup;
+        groupCache.set(strId, resolved);
         if (result._id) {
-            groupCache.set(result._id.toString(), result as ResolvedGroup);
+            groupCache.set(result._id.toString(), resolved);
         }
         if (result.name) {
-            groupCache.set(result.name, result as ResolvedGroup);
+            groupCache.set(result.name, resolved);
         }
     }
 

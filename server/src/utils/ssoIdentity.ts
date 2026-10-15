@@ -24,28 +24,36 @@ export interface ResolvedIdentity {
 /**
  * Normalizes identity claims from an OpenID Connect TokenSet.
  *
+ * The System ID (`username`) and the Name (`displayName`) both depend on SSO_IDENTIFIER_FIELD:
+ * - email mode:    System ID = email → name → sub;              Name = username → nickname → System ID
+ * - username mode: System ID = preferred_username → email → sub; Name = name → given_name → System ID
+ *
  * @param claims - Raw claims dictionary from the IdP.
  * @param fallbackIssuer - Optional fallback issuer URL if iss claim is absent.
+ * @param identifierField - "username" for username mode, anything else for email mode (defaults to SSO_IDENTIFIER_FIELD).
  * @returns Cleaned and trimmed ResolvedIdentity.
  */
-export function normalizeClaims(claims: SsoClaimsRecord, fallbackIssuer?: string): ResolvedIdentity {
+export function normalizeClaims(
+    claims: SsoClaimsRecord,
+    fallbackIssuer?: string,
+    identifierField: string = ssoConfig.identifierField,
+): ResolvedIdentity {
     const ssoIssuer = (typeof claims.iss === "string" ? claims.iss : fallbackIssuer || ssoConfig.issuerUrl || "").trim();
     const ssoSubject = (typeof claims.sub === "string" ? claims.sub : "").trim();
     const rawEmail = typeof claims.email === "string" ? claims.email.trim().toLowerCase() : "";
     const rawName = typeof claims.name === "string" ? claims.name.trim() : "";
     const rawPrefUsername = typeof claims.preferred_username === "string" ? claims.preferred_username.trim() : "";
     const rawNickname = typeof claims.nickname === "string" ? claims.nickname.trim() : "";
+    const rawGivenName = typeof claims.given_name === "string" ? claims.given_name.trim() : "";
+    const rawUsername = typeof claims.username === "string" ? claims.username.trim() : "";
 
-    const identifierMode = ssoConfig.identifierField || "email";
-    let username = "";
-    if (identifierMode === "username") {
-        username = rawPrefUsername || rawNickname || ssoSubject;
-    } else {
-        username = rawPrefUsername || rawEmail || rawNickname || ssoSubject;
-    }
+    const isUsernameMode = identifierField === "username";
+    const username = isUsernameMode
+        ? rawPrefUsername || rawEmail || ssoSubject
+        : rawEmail || rawName || ssoSubject;
 
     const email = rawEmail || (username ? `${username.replace(/[^a-zA-Z0-9._-]/g, "")}@organization.local`.toLowerCase() : "");
-    const displayName = rawName || rawPrefUsername || rawNickname || username || ssoSubject;
+    const displayName = (isUsernameMode ? rawName || rawGivenName : rawUsername || rawNickname) || username;
 
     return { ssoIssuer, ssoSubject, email, username, displayName };
 }
@@ -54,10 +62,11 @@ export function normalizeClaims(claims: SsoClaimsRecord, fallbackIssuer?: string
  * Resolves an existing user or provisions a new user based on verified SSO claims.
  *
  * Identity binding protocol:
- * 1. Primary lookup: Match exact { ssoIssuer, ssoSubject }.
- * 2. Legacy account linking: If no ssoIssuer/ssoSubject match is found, link unlinked
- *    existing accounts matching verified email or username, immutably storing their ssoIssuer and ssoSubject.
- * 3. New provisioning: Create a new user with ssoIssuer, ssoSubject, and initial tokenVersion: 0.
+ * 1. Lookup: Match exact { ssoIssuer, ssoSubject }. Accounts are never matched by email or username.
+ * 2. New provisioning: Create a new user with ssoIssuer, ssoSubject, and initial tokenVersion: 0.
+ *
+ * The Super Admin (matched by the SUPER_ADMIN_* settings) is added to the administrators group,
+ * at first login and again whenever they are missing from it.
  *
  * @param claims - Claims dictionary from OIDC TokenSet.
  * @param fallbackIssuer - Issuer URL for the current OIDC provider.
@@ -67,28 +76,8 @@ export async function resolveOrProvisionUser(claims: SsoClaimsRecord, fallbackIs
     const identity = normalizeClaims(claims, fallbackIssuer);
     const { ssoIssuer, ssoSubject, email, username, displayName } = identity;
 
-    // 1. Primary match on immutable compound provider identity
+    // Match on the immutable compound provider identity
     let user = (ssoIssuer && ssoSubject) ? await User.findOne({ ssoIssuer, ssoSubject }) : null;
-
-    // 2. Legacy link: match unlinked user by verified email
-    if (!user && email) {
-        const existingByEmail = await User.findOne({ email });
-        if (existingByEmail && !existingByEmail.ssoIssuer && ssoIssuer && ssoSubject) {
-            existingByEmail.ssoIssuer = ssoIssuer;
-            existingByEmail.ssoSubject = ssoSubject;
-            user = existingByEmail;
-        }
-    }
-
-    // 3. Legacy link: match unlinked user by username
-    if (!user && username) {
-        const existingByUsername = await User.findOne({ username });
-        if (existingByUsername && !existingByUsername.ssoIssuer && ssoIssuer && ssoSubject) {
-            existingByUsername.ssoIssuer = ssoIssuer;
-            existingByUsername.ssoSubject = ssoSubject;
-            user = existingByUsername;
-        }
-    }
 
     const isSuperAdmin = isSuperAdminUser({
         username: user ? user.username : username,

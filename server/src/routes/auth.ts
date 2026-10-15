@@ -75,9 +75,12 @@ router.post("/refresh", authRateLimiter, authController.refreshToken);
 
 /**
  * POST /logout
- * 
+ *
  * Terminates the application session, clears httpOnly auth cookies,
  * and provides OIDC RP-initiated logout redirection URL if supported.
+ * Revokes the session server-side whether it was presented as the session cookie
+ * or as an `Authorization: Bearer` token (expired-but-signed tokens included).
+ * Deliberately not behind protect(): an expired or revoked session must still be able to log out.
  */
 router.post("/logout", authRateLimiter, authController.logout);
 

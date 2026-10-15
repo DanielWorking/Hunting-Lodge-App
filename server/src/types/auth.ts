@@ -49,6 +49,8 @@ export interface SsoClaimsRecord {
     readonly name?: string;
     readonly preferred_username?: string;
     readonly nickname?: string;
+    readonly given_name?: string;
+    readonly username?: string;
     readonly email?: string;
     readonly groups?: ReadonlyArray<string>;
     readonly roles?: ReadonlyArray<string>;

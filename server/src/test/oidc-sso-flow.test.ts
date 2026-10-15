@@ -15,11 +15,27 @@ import type { CompanyTokenSet } from "../types/auth";
 import type { Request, Response } from "express";
 import { protect, invalidateUserCache } from "../middleware/authMiddleware";
 import User from "../models/User";
+import { Issuer } from "openid-client";
+import ssoConfig from "../config/sso";
+import { resetClientCache } from "../controllers/authController";
 
 let server: http.Server;
 let baseUrl: string;
+const originalDiscover = Issuer.discover;
 
 before(async () => {
+    // Hermetic: describe the configured issuer locally instead of discovering it over the network,
+    // so the suite needs neither real SSO credentials nor network access
+    const issuerUrl = ssoConfig.issuerUrl.replace(/\/$/, "");
+    (Issuer as unknown as { discover: unknown }).discover = async () => new Issuer({
+        issuer: `${issuerUrl}/`,
+        authorization_endpoint: `${issuerUrl}/authorize`,
+        token_endpoint: `${issuerUrl}/oauth/token`,
+        jwks_uri: `${issuerUrl}/.well-known/jwks.json`,
+        end_session_endpoint: `${issuerUrl}/v2/logout`,
+    });
+    resetClientCache();
+
     await new Promise<void>((resolve) => {
         server = app.listen(0, () => {
             const addr = server.address();
@@ -32,6 +48,8 @@ before(async () => {
 });
 
 after(async () => {
+    (Issuer as unknown as { discover: unknown }).discover = originalDiscover;
+    resetClientCache();
     await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
     });

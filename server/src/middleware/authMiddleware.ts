@@ -15,6 +15,7 @@ import {
     isAdmin,
     isGroupMember,
     isShiftManager,
+    resolveGroup,
 } from "../utils/authHelpers";
 import { BoundedLRUCache } from "../utils/lruCache";
 import ssoConfig from "../config/sso";
@@ -244,9 +245,11 @@ export const requireSuperAdmin: RequestHandler = requireAdmin;
 
 export type GroupIdExtractor = (req: Request) => string | string[] | undefined | null;
 
+const GROUP_NOT_FOUND_RESPONSE = { message: "Group not found", code: "NOT_FOUND" } as const;
+
 /**
  * Middleware factory requiring the authenticated user to be a member of the target group.
- * Admins are also permitted access.
+ * Answers 404 when the group does not exist and 403 when it exists but the caller is not a member.
  */
 export const requireGroupMember = (getGroupId?: GroupIdExtractor): RequestHandler => {
     return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -262,11 +265,19 @@ export const requireGroupMember = (getGroupId?: GroupIdExtractor): RequestHandle
             if (!groupId) {
                 res.status(400).json({
                     message: "Bad Request: Group identifier is required for access verification.",
+                    code: "VALIDATION_ERROR",
                 });
                 return;
             }
 
-            const isMember = await isGroupMember(req.user, groupId);
+            // Resolve first: a typo'd or deleted group is a 404, not a permissions problem
+            const group = await resolveGroup(groupId);
+            if (!group) {
+                res.status(404).json(GROUP_NOT_FOUND_RESPONSE);
+                return;
+            }
+
+            const isMember = await isGroupMember(req.user, group);
             if (!isMember) {
                 res.status(403).json({
                     message: "Forbidden: You are not a member of this group.",
@@ -287,6 +298,7 @@ export const requireGroupMember = (getGroupId?: GroupIdExtractor): RequestHandle
  * Middleware factory requiring the authenticated user to be an explicit Shift Manager
  * of the target group.
  * (Even Admins must be explicitly assigned role === 'shift_manager' in that group).
+ * Answers 404 when the group does not exist and 403 when the caller lacks the role.
  */
 export const requireShiftManager = (getGroupId?: GroupIdExtractor): RequestHandler => {
     return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -302,11 +314,18 @@ export const requireShiftManager = (getGroupId?: GroupIdExtractor): RequestHandl
             if (!groupId) {
                 res.status(400).json({
                     message: "Bad Request: Group identifier is required for shift manager verification.",
+                    code: "VALIDATION_ERROR",
                 });
                 return;
             }
 
-            const isMgr = await isShiftManager(req.user, groupId);
+            const group = await resolveGroup(groupId);
+            if (!group) {
+                res.status(404).json(GROUP_NOT_FOUND_RESPONSE);
+                return;
+            }
+
+            const isMgr = await isShiftManager(req.user, group);
             if (!isMgr) {
                 res.status(403).json({
                     message: "Forbidden: You must be a Shift Manager of this group.",

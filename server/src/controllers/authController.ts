@@ -9,11 +9,10 @@
 
 import crypto from "crypto";
 import https from "https";
-import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import { Issuer, BaseClient, TokenSet, custom, generators } from "openid-client";
-import User from "../models/User";
+import User, { toPublicUser } from "../models/User";
 import Group from "../models/Group";
 import config from "../config";
 import ssoConfig from "../config/sso";
@@ -73,6 +72,34 @@ function verifyAndParseCookie<T>(signedValue: string | undefined, secret: string
     } catch {
         return null;
     }
+}
+
+/** What the sealed refresh cookie carries: the provider's refresh token and the session it belongs to. */
+interface RefreshBinding {
+    readonly rt: string;
+    readonly uid: string;
+    readonly tv: number;
+}
+
+/**
+ * Seals the identity provider's refresh token together with the app user and the session version
+ * (tokenVersion) it was issued for, signed so the client cannot alter any of it.
+ */
+export function sealRefreshToken(refreshToken: string, user: { _id?: unknown; tokenVersion?: number }): string {
+    const binding: RefreshBinding = { rt: refreshToken, uid: String(user._id), tv: user.tokenVersion ?? 0 };
+    return signCookie(JSON.stringify(binding), ssoConfig.cookieSecret);
+}
+
+/** Verifies and opens a sealed refresh cookie; null for anything unsigned, tampered or malformed. */
+function openRefreshCookie(rawCookie: unknown): RefreshBinding | null {
+    if (typeof rawCookie !== "string" || rawCookie.length === 0) {
+        return null;
+    }
+    const parsed = verifyAndParseCookie<Partial<RefreshBinding>>(rawCookie, ssoConfig.cookieSecret);
+    if (!parsed || typeof parsed.rt !== "string" || typeof parsed.uid !== "string" || typeof parsed.tv !== "number") {
+        return null;
+    }
+    return { rt: parsed.rt, uid: parsed.uid, tv: parsed.tv };
 }
 
 /**
@@ -177,7 +204,7 @@ export async function getSsoUrl(_req: Request, res: Response, next?: NextFunctio
             next(error);
             return;
         }
-        res.status(500).json({ message: "Failed to generate SSO URL" });
+        res.status(500).json({ message: "Failed to generate SSO URL", code: "INTERNAL_ERROR" });
     }
 }
 
@@ -195,7 +222,7 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
         const state = typeof body.state === "string" ? body.state.trim() : undefined;
 
         if (!code) {
-            res.status(400).json({ message: "Authorization code missing" });
+            res.status(400).json({ message: "Authorization code missing", code: "VALIDATION_ERROR" });
             return;
         }
 
@@ -273,10 +300,10 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
         const claims = (tokenSet.claims() || {}) as SsoClaimsRecord;
         const user = await resolveOrProvisionUser(claims, ssoConfig.issuerUrl);
 
-        const userWithToObject = user as unknown as { toObject?: () => Record<string, unknown> };
-        const userObj: Record<string, unknown> = typeof userWithToObject.toObject === "function"
-            ? userWithToObject.toObject()
-            : { ...user };
+        // Response-safe copy: SSO issuer/subject and tokenVersion stay server-side, and so does the
+        // vacation balance (only a Shift Manager sees balances, through the group's member list)
+        const userObj = toPublicUser(user);
+        delete userObj.vacationBalance;
         const adminGroupName = config.superAdmin.groupName;
         const rawGroups = Array.isArray(userObj.groups) ? [...userObj.groups] : [];
         userObj.groups = rawGroups.map((g: any) => {
@@ -310,7 +337,7 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
             const refreshMaxAge = companyTokenSet.refresh_expires_in
                 ? companyTokenSet.refresh_expires_in * 1000
                 : 30 * 24 * 60 * 60 * 1000;
-            res.cookie(ssoConfig.refreshCookieName, companyTokenSet.refresh_token, {
+            res.cookie(ssoConfig.refreshCookieName, sealRefreshToken(companyTokenSet.refresh_token, user), {
                 httpOnly: true,
                 secure: ssoConfig.cookieSecure,
                 sameSite: "strict",
@@ -339,16 +366,17 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
             res.status(504).json({
                 message: "Identity provider connection timeout during login",
                 code: "IDP_TIMEOUT",
-                error: !config.isNonProd ? "Identity provider connection timeout" : (error instanceof Error ? error.message : String(error)),
+                // Same generic text in every environment; the details are in the server log above
+                error: "Identity provider connection timeout",
             });
             return;
         }
 
         res.status(401).json({
             message: "SSO Authentication failed",
-            error: !config.isNonProd
-                ? "Invalid authorization code or provider error"
-                : (error instanceof Error ? error.message : String(error)),
+            code: "SSO_AUTH_FAILED",
+            // Same generic text in every environment; the details are in the server log above
+            error: "Invalid authorization code or provider error",
         });
     }
 }
@@ -358,9 +386,9 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
  */
 export async function refreshToken(req: Request, res: Response, _next?: NextFunction): Promise<void> {
     try {
-        const rawRefreshToken = req.cookies?.[ssoConfig.refreshCookieName];
+        const rawRefreshCookie = req.cookies?.[ssoConfig.refreshCookieName];
 
-        if (!rawRefreshToken || typeof rawRefreshToken !== "string") {
+        if (!rawRefreshCookie || typeof rawRefreshCookie !== "string") {
             res.status(401).json({
                 message: "Refresh token missing",
                 code: "NO_REFRESH_TOKEN",
@@ -368,14 +396,36 @@ export async function refreshToken(req: Request, res: Response, _next?: NextFunc
             return;
         }
 
+        // The cookie seals the provider's refresh token with the app user and session version it was
+        // issued for. Anything unsigned or tampered with is rejected before the provider is called.
+        const binding = openRefreshCookie(rawRefreshCookie);
+        if (!binding) {
+            throw new Error("Refresh cookie is not a valid sealed session");
+        }
+
+        // The user comes from the sealed binding, never from editable claims such as a display name
+        const user = await User.findById(binding.uid);
+        if (!user || user.isActive === false) {
+            res.status(401).json({
+                message: "User not found or inactive during token refresh",
+                code: "USER_INACTIVE",
+            });
+            return;
+        }
+        // Logout and deactivation bump tokenVersion, so an older refresh cookie can never revive a
+        // session, even when revoking it at the identity provider failed
+        if ((user.tokenVersion ?? 0) !== binding.tv) {
+            throw new Error("Refresh cookie belongs to a revoked session");
+        }
+
         const ssoClient = await getClient();
-        const refreshedTokenSet: TokenSet = await ssoClient.refresh(rawRefreshToken);
+        const refreshedTokenSet: TokenSet = await ssoClient.refresh(binding.rt);
 
         const rawRefreshed = refreshedTokenSet as unknown as Record<string, unknown>;
         const companyTokenSet: CompanyTokenSet = {
             access_token: refreshedTokenSet.access_token || "",
             id_token: refreshedTokenSet.id_token || "",
-            refresh_token: refreshedTokenSet.refresh_token || rawRefreshToken,
+            refresh_token: refreshedTokenSet.refresh_token || binding.rt,
             expires_in: typeof refreshedTokenSet.expires_in === "number" ? refreshedTokenSet.expires_in : 3600,
             refresh_expires_in: typeof rawRefreshed.refresh_expires_in === "number"
                 ? (rawRefreshed.refresh_expires_in as number)
@@ -388,31 +438,10 @@ export async function refreshToken(req: Request, res: Response, _next?: NextFunc
             token_type: refreshedTokenSet.token_type || "Bearer",
         };
 
-        const claims = (refreshedTokenSet.claims() || {}) as SsoClaimsRecord;
-        const identifierMode = ssoConfig.identifierField || "email";
-        const rawName = typeof claims.name === "string" ? claims.name.trim() : "";
-        const rawPrefUsername = typeof claims.preferred_username === "string" ? claims.preferred_username.trim() : "";
-        const rawNickname = typeof claims.nickname === "string" ? claims.nickname.trim() : "";
-        const rawSub = typeof claims.sub === "string" ? claims.sub.trim() : "";
-        const rawEmail = typeof claims.email === "string" ? claims.email.trim().toLowerCase() : "";
-
-        let searchCriteria: Record<string, unknown>;
-        if (identifierMode === "username") {
-            const dbUsername = rawPrefUsername || rawNickname || rawName || rawSub;
-            searchCriteria = { username: dbUsername };
-        } else {
-            const dbEmail = rawEmail;
-            const dbUsername = rawName || rawEmail || rawNickname || rawPrefUsername || rawSub;
-            searchCriteria = dbEmail ? { email: dbEmail } : { username: dbUsername };
-        }
-
-        const user = await User.findOne(searchCriteria);
-        if (!user || user.isActive === false) {
-            res.status(401).json({
-                message: "User not found or inactive during token refresh",
-                code: "USER_INACTIVE",
-            });
-            return;
+        // When the provider returns a new ID token, it must still be the same provider account
+        const claims = (refreshedTokenSet.id_token ? refreshedTokenSet.claims() : {}) as SsoClaimsRecord;
+        if (user.ssoSubject && typeof claims.sub === "string" && claims.sub !== user.ssoSubject) {
+            throw new Error("Refreshed identity does not match the session's user");
         }
 
         const token = generateToken(user);
@@ -432,7 +461,7 @@ export async function refreshToken(req: Request, res: Response, _next?: NextFunc
             const refreshMaxAge = companyTokenSet.refresh_expires_in
                 ? companyTokenSet.refresh_expires_in * 1000
                 : 30 * 24 * 60 * 60 * 1000;
-            res.cookie(ssoConfig.refreshCookieName, companyTokenSet.refresh_token, {
+            res.cookie(ssoConfig.refreshCookieName, sealRefreshToken(companyTokenSet.refresh_token, user), {
                 httpOnly: true,
                 secure: ssoConfig.cookieSecure,
                 sameSite: "strict",
@@ -477,15 +506,88 @@ export async function refreshToken(req: Request, res: Response, _next?: NextFunc
         res.status(401).json({
             message: "Session refresh failed",
             code: "REFRESH_FAILED",
-            error: !config.isNonProd ? "Session refresh failed" : (error instanceof Error ? error.message : String(error)),
+            error: "Session refresh failed",
         });
+    }
+}
+
+interface LogoutSession {
+    readonly userId: string;
+    readonly tokenVersion: number;
+}
+
+/**
+ * Collects the sessions behind every correctly signed token sent with the request:
+ * the session cookie and/or an `Authorization: Bearer` header. Expired tokens still count,
+ * since logging out must revoke them, but unsigned or tampered tokens are ignored so a
+ * caller cannot revoke another user's sessions by forging a token.
+ */
+function collectLogoutSessions(req: Request): LogoutSession[] {
+    const sessions = new Map<string, LogoutSession>();
+
+    const rawAuthHeader = req.headers?.authorization;
+    const bearerToken = typeof rawAuthHeader === "string" && rawAuthHeader.startsWith("Bearer ")
+        ? rawAuthHeader.split(" ")[1]?.trim()
+        : undefined;
+    const cookieToken = req.cookies?.[ssoConfig.sessionCookieName];
+
+    for (const token of [cookieToken, bearerToken]) {
+        if (typeof token !== "string" || token.length === 0) {
+            continue;
+        }
+        try {
+            const decoded = verifyToken(token, { ignoreExpiration: true });
+            const userId = decoded.userId ? String(decoded.userId) : "";
+            if (mongoose.Types.ObjectId.isValid(userId)) {
+                // Same default as protect(): tokens issued before versioning count as version 0
+                const tokenVersion = typeof decoded.tokenVersion === "number" ? decoded.tokenVersion : 0;
+                sessions.set(`${userId}:${tokenVersion}`, { userId, tokenVersion });
+            }
+        } catch {
+            // An unverifiable token identifies nobody; there is nothing to revoke for it
+        }
+    }
+
+    // A sealed refresh cookie identifies its session too (e.g. a client that only holds that cookie)
+    const refreshBinding = openRefreshCookie(req.cookies?.[ssoConfig.refreshCookieName]);
+    if (refreshBinding && mongoose.Types.ObjectId.isValid(refreshBinding.uid)) {
+        sessions.set(`${refreshBinding.uid}:${refreshBinding.tv}`, { userId: refreshBinding.uid, tokenVersion: refreshBinding.tv });
+    }
+
+    return [...sessions.values()];
+}
+
+/**
+ * Revokes a session by bumping the user's tokenVersion, but only while the presented token
+ * is still current. A stale token (already revoked, or from before a deactivation) then
+ * cannot be replayed to keep logging its owner out.
+ */
+async function revokeSession({ userId, tokenVersion }: LogoutSession): Promise<void> {
+    await User.updateOne({ _id: userId, tokenVersion }, { $inc: { tokenVersion: 1 } });
+    invalidateUserCache(userId);
+}
+
+/**
+ * Revokes the OIDC refresh token at the identity provider, so a captured
+ * `hunting_refresh_token` cannot mint new sessions through POST /auth/refresh after logout.
+ * Best effort: logout still succeeds if the provider is unreachable or has no revocation endpoint.
+ */
+async function revokeRefreshTokenAtProvider(refreshToken: unknown): Promise<void> {
+    if (typeof refreshToken !== "string" || refreshToken.length === 0) {
+        return;
+    }
+    try {
+        const ssoClient = await getClient();
+        await ssoClient.revoke(refreshToken, "refresh_token");
+    } catch (revokeErr: unknown) {
+        console.warn("Could not revoke the refresh token at the identity provider:", revokeErr);
     }
 }
 
 /**
  * Terminates the application session, clears all auth cookies,
- * increments user tokenVersion for server-side revocation,
- * and provides OIDC RP-initiated logout URL if supported.
+ * increments user tokenVersion for server-side revocation (for both cookie
+ * and Bearer-header sessions), and provides OIDC RP-initiated logout URL if supported.
  */
 export async function logout(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
@@ -512,29 +614,16 @@ export async function logout(req: Request, res: Response, next?: NextFunction): 
             domain: ssoConfig.cookieDomain,
         });
 
-        // 2. Extract user identity and increment tokenVersion in DB for session revocation
-        let userId: string | undefined = (req.user as { _id?: unknown; id?: string })?._id?.toString() || req.user?.id;
-        if (!userId) {
-            const rawToken = req.cookies?.[ssoConfig.sessionCookieName];
-            if (rawToken) {
-                try {
-                    const decoded = verifyToken(rawToken);
-                    userId = decoded.userId;
-                } catch {
-                    const unverified = jwt.decode(rawToken) as { userId?: string } | null;
-                    userId = unverified?.userId;
-                }
-            }
-        }
-
-        if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-            try {
-                await User.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } });
-                invalidateUserCache(userId);
-            } catch (dbErr) {
-                console.warn("Could not increment tokenVersion on logout:", dbErr);
-            }
-        }
+        // 2. Increment tokenVersion for every presented session so the token is revoked server-side,
+        //    and revoke the refresh token at the identity provider (req.cookies still holds it)
+        await Promise.all([
+            ...collectLogoutSessions(req).map((session) =>
+                revokeSession(session).catch((dbErr: unknown) => {
+                    console.warn("Could not increment tokenVersion on logout:", dbErr);
+                }),
+            ),
+            revokeRefreshTokenAtProvider(openRefreshCookie(req.cookies?.[ssoConfig.refreshCookieName])?.rt),
+        ]);
 
         let logoutUrl: string | undefined;
         try {
@@ -571,7 +660,7 @@ export async function logout(req: Request, res: Response, next?: NextFunction): 
             next(error);
             return;
         }
-        res.status(500).json({ message: "Logout failed" });
+        res.status(500).json({ message: "Logout failed", code: "INTERNAL_ERROR" });
     }
 }
 
@@ -584,17 +673,17 @@ export async function getMe(req: Request, res: Response, next?: NextFunction): P
     try {
         const user = req.user;
         if (!user) {
-            res.status(401).json({ message: "Not authenticated" });
+            res.status(401).json({ message: "Not authenticated", code: "UNAUTHORIZED" });
             return;
         }
 
         const adminGroupName = config.superAdmin.groupName;
         const isSuperAdmin = isSuperAdminUser(user);
 
-        const userWithToObject = user as unknown as { toObject?: () => Record<string, unknown> };
-        const userObj: Record<string, unknown> = typeof userWithToObject.toObject === "function"
-            ? userWithToObject.toObject()
-            : { ...user };
+        // Response-safe copy: SSO issuer/subject and tokenVersion stay server-side, and so does the
+        // vacation balance (only a Shift Manager sees balances, through the group's member list)
+        const userObj = toPublicUser(user);
+        delete userObj.vacationBalance;
 
         if (isSuperAdmin) {
             const userGroups = Array.isArray(user.groups) ? [...user.groups] : [];
@@ -643,7 +732,7 @@ export async function getMe(req: Request, res: Response, next?: NextFunction): P
             next(error);
             return;
         }
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Internal server error", code: "INTERNAL_ERROR" });
     }
 }
 

@@ -75,19 +75,19 @@ import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
  * @param {string}   props.value        The current HTML content of the editor.
  * @param {function} props.onChange     Callback function to handle content updates.
  * @param {string}   props.placeholder  The text to display when the editor is empty.
- * @param {boolean}  props.readOnly     If true, the editor is in read-only mode.
+ * @param {boolean}  [props.readOnly=false] If true, the editor is in read-only mode.
  * @returns {JSX.Element | null} The rendered editor or null if not initialized.
  */
 export const TiptapEditor = ({
     value,
     onChange,
     placeholder,
-    readOnly,
+    readOnly = false,
 }: {
     value: string;
     onChange: (val: string) => void;
     placeholder: string;
-    readOnly: boolean;
+    readOnly?: boolean;
 }) => {
     const editor = useEditor({
         extensions: [
@@ -446,6 +446,12 @@ export const TiptapEditor = ({
     );
 };
 
+/** The user id of a report attendee, whether `userId` is populated or not. */
+const attendeeUserId = (attendee: ShiftReportAttendee): string | undefined =>
+    typeof attendee.userId === "object" && attendee.userId !== null
+        ? (attendee.userId as { _id?: string })._id
+        : attendee.userId;
+
 /**
  * The shift report management page.
  *
@@ -793,10 +799,13 @@ export default function ShiftReportPage() {
         newValue: User[],
     ) => {
         if (!selectedReport) return;
+        // An entry keeps how it got on the report: automatic ones stay automatic, so a later publish
+        // can still update them; only people added here count as added by hand
+        const listed = new Map(selectedReport.attendees.map((a) => [attendeeUserId(a), a]));
         const newAttendees: ShiftReportAttendee[] = newValue.map((u) => ({
             userId: u._id,
             name: u.displayName || u.username,
-            isManual: true,
+            isManual: listed.has(u._id) ? listed.get(u._id)?.isManual === true : true,
         }));
         const updated = { ...selectedReport, attendees: newAttendees };
         setSelectedReport(updated);
@@ -1170,7 +1179,7 @@ export default function ShiftReportPage() {
                                         variant="outlined"
                                         startIcon={<UndoIcon />}
                                         onClick={handleDiscardChanges}
-                                        disabled={selectedReport.isLocked || !isDirty}
+                                        disabled={!isDirty}
                                         sx={{ mr: 2 }}
                                     >
                                         Discard
@@ -1179,7 +1188,6 @@ export default function ShiftReportPage() {
                                         variant="contained"
                                         startIcon={<SaveIcon />}
                                         onClick={handleSaveReport}
-                                        disabled={selectedReport.isLocked}
                                     >
                                         Save Report
                                     </Button>
@@ -1228,7 +1236,6 @@ export default function ShiftReportPage() {
                                         setIsDirty(true);
                                         isDirtyRef.current = true;
                                     }}
-                                    readOnly={selectedReport.isLocked}
                                     placeholder="No tasks from previous shift"
                                 />
                             </Box>
@@ -1244,24 +1251,22 @@ export default function ShiftReportPage() {
                                 </Typography>
                                 <Autocomplete<User, true, false, false>
                                     multiple
-                                    options={groupUsers}
+                                    // Only active members can be added; a deactivated member
+                                    // already listed stays, as history
+                                    options={groupUsers.filter(
+                                        (u) =>
+                                            u.isActive ||
+                                            selectedReport.attendees.some((a) => attendeeUserId(a) === u._id),
+                                    )}
                                     getOptionLabel={(option) =>
                                         option.displayName || option.username
                                     }
                                     value={selectedReport.attendees
                                         .map((a: ShiftReportAttendee) =>
-                                            groupUsers.find((u) => {
-                                                const attendeeId =
-                                                    typeof a.userId === "object" &&
-                                                    a.userId !== null
-                                                        ? (a.userId as { _id?: string })._id
-                                                        : a.userId;
-                                                return u._id === attendeeId;
-                                            }),
+                                            groupUsers.find((u) => u._id === attendeeUserId(a)),
                                         )
                                         .filter((u): u is User => Boolean(u))}
                                     onChange={handleAttendanceChange}
-                                    disabled={selectedReport.isLocked}
                                     renderTags={(value, getTagProps) =>
                                         value.map((option, index) => {
                                             const { key, ...tagProps } =
@@ -1335,7 +1340,6 @@ export default function ShiftReportPage() {
                                             setIsDirty(true);
                                             isDirtyRef.current = true;
                                         }}
-                                        readOnly={selectedReport.isLocked}
                                         placeholder="Enter event details and tasks here..."
                                     />
                                 </Box>

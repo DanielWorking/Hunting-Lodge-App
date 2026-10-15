@@ -21,6 +21,7 @@ import {
     TextField,
     Checkbox,
     FormControlLabel,
+    FormHelperText,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -37,6 +38,7 @@ import { useNotification } from "../../context/NotificationContext";
 import ConfirmDialog from "../ConfirmDialog";
 import type { ShiftType } from "../../types";
 import { updateGroupSettings } from "../../api/groupsApi";
+import { apiErrorMessage } from "../../api/apiClient";
 
 /**
  * Renders the shift types management tab.
@@ -68,6 +70,13 @@ export default function ShiftTypesTab() {
         color: "#F59E0B",
         isVacation: false,
     });
+
+    // A vacation type can't be linked to a time slot, so a linked type can't become one
+    const linkedSlotNames = editingType
+        ? (groupSettings?.timeSlots || [])
+            .filter((slot) => slot.linkedShiftTypes?.includes(editingType._id))
+            .map((slot) => slot.name)
+        : [];
 
     /**
      * Initializes the dialog for creating or editing a shift type.
@@ -135,7 +144,7 @@ export default function ShiftTypesTab() {
             setIsDialogOpen(false);
         } catch (error) {
             console.error(error);
-            showNotification("Error saving settings", "error");
+            showNotification(apiErrorMessage(error, "Error saving settings"), "error");
         }
     };
 
@@ -299,20 +308,29 @@ export default function ShiftTypesTab() {
                             </label>
                         </Box>
 
-                        <FormControlLabel
-                            control={
-                                <Checkbox
-                                    checked={formData.isVacation}
-                                    onChange={(e) =>
-                                        setFormData({
-                                            ...formData,
-                                            isVacation: e.target.checked,
-                                        })
-                                    }
-                                />
-                            }
-                            label="Reduces Vacation Balance?"
-                        />
+                        <Box>
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={formData.isVacation}
+                                        disabled={!formData.isVacation && linkedSlotNames.length > 0}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                isVacation: e.target.checked,
+                                            })
+                                        }
+                                    />
+                                }
+                                label="Reduces Vacation Balance?"
+                            />
+                            {!formData.isVacation && linkedSlotNames.length > 0 && (
+                                <FormHelperText>
+                                    Linked to time slot{linkedSlotNames.length === 1 ? "" : "s"} {linkedSlotNames.join(", ")}. Unlink it
+                                    there before marking it as vacation.
+                                </FormHelperText>
+                            )}
+                        </Box>
                     </Box>
                 </DialogContent>
                 <DialogActions>

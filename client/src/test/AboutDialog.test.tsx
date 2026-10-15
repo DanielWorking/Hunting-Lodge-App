@@ -104,6 +104,8 @@ describe("Navbar About Dialog Integration", () => {
             setGroups: vi.fn(),
             loading: false,
             refreshData: vi.fn(),
+            loadError: null,
+            retry: vi.fn(),
         });
 
         vi.spyOn(UserContextModule, "useUser").mockReturnValue({

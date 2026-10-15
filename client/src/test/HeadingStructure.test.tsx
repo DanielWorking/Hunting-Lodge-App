@@ -29,7 +29,6 @@ vi.mock("../api/reportsApi", () => ({
                 attendees: [],
                 previousTasks: "<p>Previous tasks log</p>",
                 currentTasks: "<p>Current tasks log</p>",
-                isLocked: false,
             },
         ],
     }),
@@ -136,6 +135,8 @@ describe("Heading Hierarchy & Accessibility Compliance (WCAG 2.2 SC 2.4.10 / Sec
             setGroups: vi.fn(),
             loading: false,
             refreshData: vi.fn(),
+            loadError: null,
+            retry: vi.fn(),
         });
 
         vi.spyOn(UserContextModule, "useUser").mockReturnValue({
@@ -338,7 +339,7 @@ describe("Heading Hierarchy & Accessibility Compliance (WCAG 2.2 SC 2.4.10 / Sec
 
             const headingLevels = getHeadingLevelsInDomOrder();
             expect(headingLevels).toEqual([1]);
-            expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Welcome, danie");
+            expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Welcome, Daniel Reifer");
         });
 
         it("AdminPage contains a single h1 heading", () => {

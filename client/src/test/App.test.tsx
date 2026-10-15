@@ -77,6 +77,8 @@ describe("App Routing - Access Control & Secure Redirects", () => {
             setGroups: vi.fn(),
             loading: false,
             refreshData: vi.fn(),
+            loadError: null,
+            retry: vi.fn(),
         });
     });
 
@@ -222,6 +224,8 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                 setGroups: vi.fn(),
                 loading: false,
                 refreshData: vi.fn(),
+                loadError: null,
+                retry: vi.fn(),
             });
 
             render(
@@ -267,6 +271,8 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                 setGroups: vi.fn(),
                 loading: true, // DataContext is actively fetching groups
                 refreshData: vi.fn(),
+                loadError: null,
+                retry: vi.fn(),
             });
 
             render(
@@ -383,6 +389,8 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                 setGroups: vi.fn(),
                 loading: true,
                 refreshData: vi.fn(),
+                loadError: null,
+                retry: vi.fn(),
             });
 
             render(
@@ -461,6 +469,8 @@ describe("App Routing - Access Control & Secure Redirects", () => {
                 setGroups: vi.fn(),
                 loading: true,
                 refreshData: vi.fn(),
+                loadError: null,
+                retry: vi.fn(),
             });
 
             render(

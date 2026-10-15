@@ -13,6 +13,7 @@ import Navbar from "./components/Navbar";
 import { useUser } from "./context/UserContext";
 import { useData } from "./context/DataContext";
 import ThinkingLoader from "./components/ThinkingLoader";
+import DataLoadErrorPanel from "./components/DataLoadErrorPanel";
 
 // Lazy-loaded page components for route-level code splitting
 const LoginPage = lazy(() => import("./pages/LoginPage"));
@@ -129,6 +130,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
  */
 function App() {
     const { user, isRestoringSession } = useUser();
+    const { loadError, retry, loading } = useData();
 
     const showNavbar = user && user.groups.length > 0;
 
@@ -144,6 +146,10 @@ function App() {
                     flexDirection: "column",
                 }}
             >
+                {/* Groups or users failed to load: explain and offer Retry instead of an empty app */}
+                {user && loadError && !loading ? (
+                    <DataLoadErrorPanel error={loadError} onRetry={retry} />
+                ) : (
                 <Suspense
                     fallback={
                         <Box
@@ -229,6 +235,7 @@ function App() {
                         <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                 </Suspense>
+                )}
             </Box>
         </Box>
     );

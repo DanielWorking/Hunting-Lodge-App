@@ -77,6 +77,8 @@ describe("SitesPage mutations update the list from the server response", () => {
             setGroups: vi.fn(),
             loading: false,
             refreshData,
+            loadError: null,
+            retry: vi.fn(),
         });
 
         vi.spyOn(UserContextModule, "useUser").mockReturnValue({

@@ -47,6 +47,7 @@ import { useNotification } from "../../context/NotificationContext";
 import ConfirmDialog from "../ConfirmDialog";
 import type { TimeSlot } from "../../types";
 import { updateGroupSettings } from "../../api/groupsApi";
+import { apiErrorMessage } from "../../api/apiClient";
 
 /**
  * Renders the time slots management tab for group settings.
@@ -138,8 +139,8 @@ export default function TimeSlotsTab() {
             showNotification("Time slots updated", "success");
             refreshData();
             setIsDialogOpen(false);
-        } catch {
-            showNotification("Error saving slots", "error");
+        } catch (error) {
+            showNotification(apiErrorMessage(error, "Error saving slots"), "error");
         }
     };
 
@@ -470,7 +471,8 @@ export default function TimeSlotsTab() {
                                 }
                             >
                                 {shiftTypes.map((type) => (
-                                    <MenuItem key={type._id} value={type._id}>
+                                    // The server refuses to link vacation types to a time slot
+                                    <MenuItem key={type._id} value={type._id} disabled={type.isVacation}>
                                         <Checkbox
                                             checked={
                                                 formData.linkedShiftTypes.indexOf(
@@ -482,7 +484,7 @@ export default function TimeSlotsTab() {
                                             primary={type.name}
                                             secondary={
                                                 type.isVacation
-                                                    ? "Non-working (Vacation)"
+                                                    ? "Vacation: can't be linked to a time slot"
                                                     : undefined
                                             }
                                         />
@@ -493,21 +495,6 @@ export default function TimeSlotsTab() {
                                 Only link active working shifts. Do not assign non-working shift types (e.g., Vacation or Leave).
                             </FormHelperText>
                         </FormControl>
-
-                        {/* Dynamic warning if any selected shift type is marked as vacation */}
-                        {formData.linkedShiftTypes.some(
-                            (id) =>
-                                shiftTypes.find((t) => t._id === id)
-                                    ?.isVacation,
-                        ) && (
-                            <Alert
-                                severity="warning"
-                                role="alert"
-                                sx={{ mt: 1 }}
-                            >
-                                Warning: One or more selected shift types are marked as non-working (vacation). Linking them will trigger schedule overlaps and inaccurate report assignments.
-                            </Alert>
-                        )}
                     </Box>
                 </DialogContent>
                 <DialogActions>

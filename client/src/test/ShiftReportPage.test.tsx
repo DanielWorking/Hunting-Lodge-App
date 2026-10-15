@@ -81,7 +81,6 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
             ],
             previousTasks: "<p>Previous tasks log</p>",
             currentTasks: "<p>Current tasks log</p>",
-            isLocked: false,
         },
         {
             _id: "report-2",
@@ -99,7 +98,6 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
             ],
             previousTasks: "",
             currentTasks: "",
-            isLocked: false,
         },
     ];
 
@@ -123,6 +121,8 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
             setUsers: vi.fn(),
             setGroups: vi.fn(),
             refreshData: vi.fn(),
+            loadError: null,
+            retry: vi.fn(),
             loading: false,
         });
 
@@ -362,6 +362,92 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
                 (h) => h.textContent === "Night Shift Report"
             );
             expect(heading).toBeInTheDocument();
+        });
+    });
+
+    describe("attendees and editing", () => {
+        const deactivated: User = {
+            _id: "user-3",
+            username: "former",
+            displayName: "Former Member",
+            isActive: false,
+            groups: [{ groupId: "group-1", role: "member" }],
+        };
+
+        const useUsers = (users: User[]) => {
+            vi.spyOn(DataContextModule, "useData").mockReturnValue({
+                users,
+                groups: [mockGroup],
+                sites: [],
+                phones: [],
+                setSites: vi.fn(),
+                setPhones: vi.fn(),
+                setUsers: vi.fn(),
+                setGroups: vi.fn(),
+                refreshData: vi.fn(),
+                loadError: null,
+                retry: vi.fn(),
+                loading: false,
+            });
+        };
+
+        it("does not offer a deactivated member in the attendee picker", async () => {
+            useUsers([mockUser1, mockUser2, deactivated]);
+            vi.mocked(getReports).mockResolvedValue(createMockAxiosResponse([...mockReports]));
+            render(
+                <MemoryRouter>
+                    <ShiftReportPage />
+                </MemoryRouter>
+            );
+            await waitFor(() => expect(screen.getByText("Morning Shift Report")).toBeInTheDocument());
+
+            fireEvent.mouseDown(screen.getByPlaceholderText("Select workers..."));
+
+            const options = await screen.findAllByRole("option");
+            expect(options.map((o) => o.textContent)).toEqual(["Daniel Reifer", "Alice Smith"]);
+        });
+
+        it("keeps a deactivated member who is already listed, as history", async () => {
+            useUsers([mockUser1, mockUser2, deactivated]);
+            const withFormer = { ...mockReports[0], attendees: [{ userId: "user-3", name: "Former Member", isManual: false }] };
+            vi.mocked(getReports).mockResolvedValue(createMockAxiosResponse([withFormer, mockReports[1]]));
+            render(
+                <MemoryRouter>
+                    <ShiftReportPage />
+                </MemoryRouter>
+            );
+
+            await waitFor(() => expect(screen.getByText("Former Member")).toBeInTheDocument());
+        });
+
+        it("keeps automatic attendees automatic when the attendance is edited", async () => {
+            useUsers([mockUser1, mockUser2]);
+            const mixed = {
+                ...mockReports[0],
+                attendees: [
+                    { userId: "user-1", name: "Daniel Reifer", isManual: false },
+                    { userId: "user-2", name: "Alice Smith", isManual: true },
+                ],
+            };
+            vi.mocked(getReports).mockResolvedValue(createMockAxiosResponse([mixed, mockReports[1]]));
+            vi.mocked(updateReport).mockResolvedValue(createMockAxiosResponse(mixed));
+            render(
+                <MemoryRouter>
+                    <ShiftReportPage />
+                </MemoryRouter>
+            );
+            await waitFor(() => expect(screen.getByText("Alice Smith")).toBeInTheDocument());
+
+            // Remove Alice (the second chip), keep Daniel
+            fireEvent.click(screen.getAllByTestId("CancelIcon")[1]);
+            fireEvent.click(screen.getByRole("button", { name: /save report/i }));
+
+            await waitFor(() =>
+                expect(updateReport).toHaveBeenCalledWith(
+                    "report-1",
+                    expect.objectContaining({ attendees: [{ userId: "user-1", name: "Daniel Reifer", isManual: false }] }),
+                ),
+            );
         });
     });
 });

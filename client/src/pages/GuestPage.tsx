@@ -63,7 +63,7 @@ export default function GuestPage() {
                         fontWeight="900"
                         color="text.primary"
                     >
-                        Welcome, {user?.username}
+                        Welcome, {user?.displayName}
                     </Typography>
 
                     <Typography variant="subtitle1" component="p" paragraph color="text.secondary" sx={{ mb: 4 }}>

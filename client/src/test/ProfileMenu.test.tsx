@@ -46,6 +46,8 @@ describe("ProfileMenu / AccountMenu in Navbar", () => {
             setGroups: vi.fn(),
             loading: false,
             refreshData: vi.fn(),
+            loadError: null,
+            retry: vi.fn(),
         });
 
         vi.spyOn(UserContextModule, "useUser").mockReturnValue({

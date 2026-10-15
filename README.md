@@ -72,7 +72,7 @@ The root `package.json` uses **npm workspaces** (`client`, `server`) with a sing
 
 The app supports three environments, selected by `APP_ENV` (falls back to `NODE_ENV`):
 
-- **`nonprod`**: development and integration. Loose CORS, verbose logging, permissive rate limits.
+- **`nonprod`**: development and integration. Prod-like code and requirements, with developer limits set in its config file: local origins in `CORS_ORIGIN`, verbose logging, a permissive per-user rate limit, auto-built indexes, a report cron every minute, and error details in 5xx bodies.
 - **`preprod`**: staging/QA, with production parity and strict validation.
 - **`prod`**: live production, with a strict CORS whitelist, high pool limits, and suppressed stack traces.
 
@@ -83,12 +83,11 @@ Server variables live in `env/server/`. They are split into **non-sensitive conf
 1. `env/server/.env` (base fallback)
 2. `env/server/.env.config.<env>`: non-secret settings
 3. `env/server/.env.secret.<env>`: credentials
-4. `env/server/.env.<env>` (legacy single-file, still supported)
-5. `env/server/.env.<env>.local`: local developer overrides
+4. `env/server/.env.<env>.local`: local developer overrides
 
-If `ENV_FILE` is set and points to an existing file, **only** that file is loaded. Variables already set in the process environment (e.g. injected by Kubernetes) beat `ENV_FILE` and the base `.env`. Files 2–5 are loaded with `override`, so their values win over the process environment. In containers, don't ship these files; inject everything through the ConfigMap/Secret instead.
+If `ENV_FILE` is set and points to an existing file, **only** that file is loaded. Variables already set in the process environment (e.g. injected by Kubernetes) beat `ENV_FILE` and the base `.env`. Files 2–4 are loaded with `override`, so their values win over the process environment. In containers, don't ship these files; inject everything through the ConfigMap/Secret instead.
 
-In `preprod` and `prod`, the server **refuses to start** if any of these are missing or invalid: `MONGO_URI`, `JWT_SECRET` (≥ 32 chars), `SSO_ISSUER_URL` (https), `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`, `SSO_REDIRECT_URI` (https), `SUPER_ADMIN_ID`, `SUPER_ADMIN_GROUP_NAME`.
+In every environment, the server **refuses to start** if any of these are missing or invalid: `MONGO_URI`, `JWT_SECRET` (≥ 32 chars), `SSO_ISSUER_URL` (https), `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`, `SSO_REDIRECT_URI` (https; nonprod may use `http://localhost`), `SUPER_ADMIN_ID`, `SUPER_ADMIN_GROUP_NAME`. It also refuses `EXPOSE_ERROR_DETAILS=true` in `preprod` and `prod`.
 
 Only `.example` templates are committed. All real `.env*` files are git-ignored.
 
@@ -128,7 +127,7 @@ Only `.example` templates are committed. All real `.env*` files are git-ignored.
 | `SSO_CLIENT_ID`        | secret | OIDC client ID                              | Auth0 dev app                         | Enterprise app                        | —       |
 | `SSO_CLIENT_SECRET`    | secret | OIDC client secret                          | Auth0 dev secret                      | Enterprise secret                     | —       |
 | `SSO_REDIRECT_URI`     | secret | OAuth2 callback URL                         | `http://localhost:5173/auth/callback` | `https://<host>/auth/callback`        | —       |
-| `SSO_IDENTIFIER_FIELD` | secret | Claim used to match users                   | `email`                               | `username` (AD / smartcard)           | `email` |
+| `SSO_IDENTIFIER_FIELD` | secret | Which claims fill System ID and Name: `email` (System ID: email → name → sub; Name: username → nickname → System ID) or `username` (System ID: preferred_username → email → sub; Name: name → given_name → System ID) | `email`                               | `username` (AD / smartcard)           | `email` |
 | `SSO_COOKIE_SECRET`    | secret | Secret for signing SSO state cookies        | dev secret                            | high-entropy secret                   | —       |
 | `SSO_USE_PKCE`         | config | Enable PKCE in the auth code flow           | `true`                                | `true`                                | `true`  |
 | `SSO_COOKIE_SECURE`    | config | Mark auth cookies `Secure`                  | `false`                               | `true`                                | env-based |
@@ -138,25 +137,28 @@ Only `.example` templates are committed. All real `.env*` files are git-ignored.
 
 | Variable         | File   | Purpose                               | Default |
 | :--------------- | :----- | :------------------------------------ | :------ |
-| `JWT_SECRET`     | secret | Session token signing key (≥ 32 chars in preprod/prod) | dev fallback |
+| `JWT_SECRET`     | secret | Session token signing key (≥ 32 chars, every environment) | — (required) |
 | `JWT_EXPIRES_IN` | config | Session token lifetime                | `7d`    |
 
 #### Super Admin (secrets, never exposed to the client)
 
 | Variable                 | Purpose                                   | Default          |
 | :----------------------- | :---------------------------------------- | :--------------- |
-| `SUPER_ADMIN_ID`         | Identity of the bootstrap Super Admin (matched against `SSO_IDENTIFIER_FIELD`) | `10001` |
-| `SUPER_ADMIN_USERNAME`   | Display name                              | `Super Admin`    |
-| `SUPER_ADMIN_EMAIL`      | Email                                     | _(empty)_        |
-| `SUPER_ADMIN_GROUP_NAME` | Group that grants admin privileges        | `ADMINISTRATORS` |
+| `SUPER_ADMIN_ID`         | System ID of the bootstrap Super Admin: an email (lowercase) in `email` mode, the `preferred_username` in `username` mode | — (required) |
+| `SUPER_ADMIN_USERNAME`   | Display name                              | _(none)_         |
+| `SUPER_ADMIN_EMAIL`      | Email                                     | _(none)_         |
+| `SUPER_ADMIN_GROUP_NAME` | Group that grants admin privileges        | — (required)     |
+
+No admin account is seeded. The server creates the `SUPER_ADMIN_GROUP_NAME` group at startup if it is missing, and the Super Admin is added to it at their first SSO login. From there they give everyone else access on the Admin page by adding them to groups.
 
 #### Security & Rate Limiting (`.env.config.<env>`)
 
 | Variable               | Purpose                                         | Nonprod                         | Prod                     | Default  |
 | :--------------------- | :---------------------------------------------- | :------------------------------ | :----------------------- | :------- |
-| `CORS_ORIGIN`          | Allowed origin(s), comma-separated              | route URL + `http://localhost:5173` | production route URL | allow-all in nonprod, deny in preprod/prod |
-| `RATE_LIMIT_MAX`       | Max requests per IP per window                  | `10000`                         | `100`                    | `100`    |
+| `CORS_ORIGIN`          | Allowed origin(s), comma-separated              | route URL + `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173` | production route URL | none: only listed origins are accepted, in every environment |
+| `RATE_LIMIT_MAX`       | Max requests per signed-in user per window (callers without a valid session share their IP's budget) | `10000`                         | `100`                    | `100`    |
 | `RATE_LIMIT_WINDOW_MS` | Rate limit window (ms)                          | `900000`                        | `900000`                 | `900000` |
+| `EXPOSE_ERROR_DETAILS` | Add `details` (name, message, stack) to 5xx bodies; startup refuses it in preprod/prod | `true`                          | _(unset)_                | `false`  |
 
 #### Background Jobs
 
@@ -220,7 +222,7 @@ Vite reads these from `env/client/` (`envDir`). They are **public** and baked in
    npm run migrate:up    # Applies pending migrations
    ```
 
-   Seeding is blocked outside `nonprod` unless `--force-production` is passed. `seed.ts` also supports `--idempotent`, which skips seeding if the admin group or user already exists.
+   The seed creates groups (with shift types and time slots), phones and sites, but no users: everyone gets an account at their first SSO login. Without flags it wipes the database first, which is blocked outside `nonprod` unless `--force-production` is passed. `--idempotent` never wipes: it seeds only when no group other than the administrators group exists, and otherwise does nothing.
 
 ### Available root scripts
 
@@ -312,9 +314,9 @@ docker run -d -p 5000:5000 \
 | `preprod-deployment.yaml`  | Staging manifest with production parity                                  |
 | `prod-deployment.yaml`     | Production manifest (2+ replicas, pod anti-affinity, zero-downtime rolling updates) |
 | `cronjob.yaml`             | Shift report generator CronJob                                           |
-| `seed-job.yaml`            | One-off Job running `seed.js --idempotent`                               |
+| `seed-job.yaml`            | One-off Job running `seed.js --idempotent` (first deploy of any environment) |
 
-Placeholders like `<NAMESPACE>`, `<YOUR_NAMESPACE>`, and `<YOUR_DEPLOYMENT>` must be substituted before applying. The CI pipeline does this automatically for the deployment manifests.
+Placeholders like `<NAMESPACE>`, `<YOUR_NAMESPACE>`, `<YOUR_DEPLOYMENT>`, and `<YOUR_ENV>` must be substituted before applying. The CI pipeline does this automatically for the deployment manifests.
 
 #### CI/CD (`.gitlab-ci.yml`)
 

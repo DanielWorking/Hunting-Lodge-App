@@ -85,7 +85,8 @@ interface RawUserData {
     email?: string;
     groups?: RawUserGroup[];
     isActive: boolean;
-    vacationBalance: number;
+    /** Never sent for the signed-in user's own profile: only Shift Managers see balances. */
+    vacationBalance?: number;
     favoritePhones?: string[];
     createdAt?: string;
     updatedAt?: string;

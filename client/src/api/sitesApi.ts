@@ -31,7 +31,8 @@ export const getSites = () => apiClient.get("/sites");
 export const createSite = (siteData: any) => apiClient.post("/sites", siteData);
 
 /**
- * Updates an existing web resource bookmark by its unique identifier.
+ * Partially updates an existing web resource bookmark by its unique identifier
+ * (PATCH: omitted fields keep their stored values).
  *
  * Checks for URL duplication within the target group and verifies that the user
  * has explicit membership in the site's group (and destination group if transferring).
@@ -40,7 +41,7 @@ export const createSite = (siteData: any) => apiClient.post("/sites", siteData);
  * @param  {Object|Partial<import("../types").SiteCard>} siteData  The updated bookmark fields (title, url, tag, description, imageUrl, or groupId).
  * @returns {Promise<import("axios").AxiosResponse<import("../types").SiteCard>>} Axios promise resolving to the updated site bookmark record.
  */
-export const updateSite = (id: string, siteData: any) => apiClient.put(`/sites/${id}`, siteData);
+export const updateSite = (id: string, siteData: any) => apiClient.patch(`/sites/${id}`, siteData);
 
 /**
  * Deletes a web resource bookmark from the repository by its unique identifier.

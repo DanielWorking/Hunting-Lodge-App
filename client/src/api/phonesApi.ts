@@ -31,7 +31,8 @@ export const getPhones = () => apiClient.get<PhoneRow[]>("/phones");
 export const createPhone = (phoneData: Partial<PhoneRow>) => apiClient.post<PhoneRow>("/phones", phoneData);
 
 /**
- * Updates an existing phone contact entry by its unique identifier.
+ * Partially updates an existing phone contact entry by its unique identifier
+ * (PATCH: omitted fields keep their stored values).
  *
  * Checks for phone number uniqueness across all other contacts before applying updates.
  *
@@ -39,7 +40,7 @@ export const createPhone = (phoneData: Partial<PhoneRow>) => apiClient.post<Phon
  * @param  {Partial<PhoneRow>} phoneData  The updated phone contact fields (name, numbers, type, description).
  * @returns {Promise<import("axios").AxiosResponse<PhoneRow>>} Axios promise resolving to the updated phone record.
  */
-export const updatePhone = (id: string, phoneData: Partial<PhoneRow>) => apiClient.put<PhoneRow>(`/phones/${id}`, phoneData);
+export const updatePhone = (id: string, phoneData: Partial<PhoneRow>) => apiClient.patch<PhoneRow>(`/phones/${id}`, phoneData);
 
 /**
  * Deletes a phone contact entry from the directory by its unique identifier.

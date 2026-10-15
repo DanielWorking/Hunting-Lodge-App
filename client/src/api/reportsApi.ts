@@ -41,20 +41,21 @@ export const getReports = (params: any) => apiClient.get("/reports", { params })
 export const createReport = (reportData: any) => apiClient.post("/reports", reportData);
 
 /**
- * Updates an existing shift report by its unique identifier.
+ * Partially updates an existing shift report by its unique identifier
+ * (PATCH: omitted fields keep their stored values).
  *
- * Allows updating current task notes, carried-over previous tasks, attendee rosters,
- * or locking the report against further edits. Requires membership in the report's group.
+ * Allows updating current task notes, carried-over previous tasks and attendee rosters.
+ * Reports cannot be locked; any other field is ignored. Requires membership in the report's
+ * group (any role, including the group's Shift Manager).
  *
  * @param  {string}               id                          The unique identifier of the shift report to update.
  * @param  {Object}               reportData                  The updated shift report payload fields.
  * @param  {string}               [reportData.currentTasks]   Updated rich-text/HTML content of tasks completed in this shift.
  * @param  {string}               [reportData.previousTasks]  Updated notes or pending tasks inherited from prior shifts.
  * @param  {Array<Object>}        [reportData.attendees]      Updated list of personnel attending the shift.
- * @param  {boolean}              [reportData.isLocked]       If true, prevents further modifications to the report.
  * @returns {Promise<import("axios").AxiosResponse<any>>} Axios promise resolving to the updated shift report record.
  */
-export const updateReport = (id: string, reportData: any) => apiClient.put(`/reports/${id}`, reportData);
+export const updateReport = (id: string, reportData: any) => apiClient.patch(`/reports/${id}`, reportData);
 
 /**
  * Deletes a shift report permanently by its unique identifier.

@@ -30,7 +30,8 @@ export const getGroups = () => apiClient.get("/groups");
 export const createGroup = (groupData: any) => apiClient.post("/groups", groupData);
 
 /**
- * Updates general metadata and properties for an existing group.
+ * Partially updates general metadata and properties for an existing group
+ * (PATCH: omitted fields keep their stored values).
  *
  * Updates fields such as group name, settings, or site tags.
  * Protected system administrator groups cannot be modified. Restricted to system administrators.
@@ -39,7 +40,7 @@ export const createGroup = (groupData: any) => apiClient.post("/groups", groupDa
  * @param  {Partial<import("../types").Group>} groupData  The updated group fields (e.g., name, settings, siteTags).
  * @returns {Promise<import("axios").AxiosResponse<import("../types").Group>>} Axios promise resolving to the updated group record.
  */
-export const updateGroup = (id: string, groupData: any) => apiClient.put(`/groups/${id}`, groupData);
+export const updateGroup = (id: string, groupData: any) => apiClient.patch(`/groups/${id}`, groupData);
 
 /**
  * Deletes a group and cleans up all associated resources.
@@ -77,7 +78,9 @@ export const addGroupTag = (groupId: string, tagData: any) => apiClient.post(`/g
  * @param  {{ newTagName: string }}    tagData  Payload containing the new replacement tag name.
  * @returns {Promise<import("axios").AxiosResponse<{ message: string; siteTags: string[] }>>} Axios promise resolving to the rename confirmation and updated tags list.
  */
-export const renameGroupTag = (groupId: string, tag: string, tagData: { newTagName: string }) => apiClient.put(`/groups/${groupId}/tags/${encodeURIComponent(tag)}`, tagData);
+export const renameGroupTag = (groupId: string, tag: string, tagData: { newTagName: string }) =>
+    // The names travel in the body, so "/" and spaces need no encoding
+    apiClient.put(`/groups/${groupId}/tags`, { tagName: tag, newTagName: tagData.newTagName });
 
 /**
  * Deletes a category tag from a group and moves associated sites to the default tag.
@@ -90,7 +93,9 @@ export const renameGroupTag = (groupId: string, tag: string, tagData: { newTagNa
  * @param  {string} tag      The name of the tag to delete.
  * @returns {Promise<import("axios").AxiosResponse<{ message: string; siteTags: string[] }>>} Axios promise resolving to the deletion confirmation and updated tags list.
  */
-export const deleteGroupTag = (groupId: string, tag: string) => apiClient.delete(`/groups/${groupId}/tags/${encodeURIComponent(tag)}`);
+export const deleteGroupTag = (groupId: string, tag: string) =>
+    // A query parameter rather than a body: some proxies drop DELETE bodies. Axios encodes it.
+    apiClient.delete(`/groups/${groupId}/tags`, { params: { tagName: tag } });
 
 /**
  * Updates shift configuration settings (shift types and time slots) for a group.

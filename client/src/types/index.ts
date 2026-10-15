@@ -40,8 +40,6 @@ export interface GroupMembership {
 export interface User {
     /** MongoDB primary key identifier. */
     _id: string;
-    /** Legacy identifier alias. */
-    id?: string;
     /** The user's system username. */
     username: string;
     /** The display name shown in the UI. */
@@ -54,8 +52,11 @@ export interface User {
     lastLogin?: string;
     /** Whether the account is currently enabled. */
     isActive: boolean;
-    /** Remaining vacation days/hours. */
-    vacationBalance: number;
+    /**
+     * Remaining vacation days. Only a Shift Manager of one of the user's groups receives it (in that
+     * group's members list); it is absent everywhere else, including the signed-in user's own profile.
+     */
+    vacationBalance?: number;
     /** List of favorite phone IDs. */
     favoritePhones?: string[];
     /** ISO timestamp of creation. */
@@ -116,8 +117,6 @@ export interface GroupSettings {
 export interface Group {
     /** MongoDB primary key identifier. */
     _id: string;
-    /** Legacy identifier alias. */
-    id?: string;
     /** Name of the group. */
     name: string;
     /** Array of user IDs belonging to this group. */
@@ -154,8 +153,6 @@ export interface ShiftReportAttendee {
 export interface ShiftReport {
     /** MongoDB primary key identifier. */
     _id: string;
-    /** Legacy identifier alias. */
-    id?: string;
     /** Reference to the Group this report belongs to. */
     groupId: string;
     /** Descriptive title for the shift report. */
@@ -172,8 +169,6 @@ export interface ShiftReport {
     currentTasks: string;
     /** List of personnel present during the shift. */
     attendees: ShiftReportAttendee[];
-    /** If true, the report is locked against further editing. */
-    isLocked: boolean;
     /** ISO timestamp of creation. */
     createdAt?: string;
     /** ISO timestamp of last update. */
@@ -201,37 +196,11 @@ export interface ShiftAssignment {
 }
 
 /**
- * Represents a formal vacation request submitted by an employee.
- */
-export interface VacationRequest {
-    /** Unique identifier for the vacation request. */
-    _id: string;
-    /** Reference to the requesting user. */
-    userId: string;
-    /** Reference to the target group. */
-    groupId: string;
-    /** Date of the requested leave. */
-    date: string | Date;
-    /** Day consumption value: 0.5 (half day) or 1.0 (full day). */
-    vacationValue: VacationValue;
-    /** Approval status. */
-    status: 'pending' | 'approved' | 'rejected';
-    /** Optional notes or justification. */
-    notes?: string;
-    /** ISO timestamp of creation. */
-    createdAt?: string;
-    /** ISO timestamp of last update. */
-    updatedAt?: string;
-}
-
-/**
  * Represents a shift schedule period for a group.
  */
 export interface ShiftSchedule {
     /** MongoDB primary key identifier. */
     _id: string;
-    /** Legacy identifier alias. */
-    id?: string;
     /** Reference to the Group this schedule belongs to. */
     groupId: string;
     /** The beginning of the schedule period. */
@@ -254,8 +223,6 @@ export interface ShiftSchedule {
 export interface SiteCard {
     /** MongoDB primary key identifier. */
     _id: string;
-    /** Legacy identifier alias. */
-    id?: string;
     /** The title of the site/resource. */
     title: string;
     /** The destination URL. */
@@ -289,8 +256,6 @@ export type PhoneType = 'Black' | 'Red' | 'Mobile' | 'Landline';
 export interface PhoneRow {
     /** MongoDB primary key identifier. */
     _id: string;
-    /** Legacy identifier alias. */
-    id?: string;
     /** List of phone numbers associated with this entry. */
     numbers: string[];
     /** The security or functional classification of the phone. */

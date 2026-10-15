@@ -21,8 +21,32 @@ import { getSites } from "../api/sitesApi";
 import { getPhones } from "../api/phonesApi";
 import { getGroups } from "../api/groupsApi";
 import { getUsers } from "../api/usersApi";
+import { isRateLimitError, rateLimitMessage } from "../api/apiClient";
 import { useUser } from "./UserContext";
 import type { SiteCard, PhoneRow, User, Group } from "../types";
+
+/** Why the app could not load the data it needs (groups or users) on its first load. */
+export interface DataLoadError {
+    /** HTTP status, when the server answered (e.g. 429, 503); absent for network failures. */
+    readonly status?: number;
+    /** A user-facing explanation, including when to retry for a rate limit. */
+    readonly message: string;
+}
+
+/** Turns a failed groups/users request into a message the app shell can show. */
+const describeLoadError = (reason: unknown): DataLoadError => {
+    if (isRateLimitError(reason)) {
+        return { status: 429, message: rateLimitMessage(reason) };
+    }
+    const status = (reason as { response?: { status?: number } } | null)?.response?.status;
+    if (typeof status === "number" && status >= 500) {
+        return { status, message: "The server is unavailable right now." };
+    }
+    if (typeof status === "number") {
+        return { status, message: `The server refused the request (${status}).` };
+    }
+    return { message: "The server could not be reached." };
+};
 
 /**
  * Defines the structure of the data context state and its management functions.
@@ -48,6 +72,14 @@ interface DataContextType {
     loading: boolean;
     /** Triggers a full re-fetch of all data entities from the API. */
     refreshData: () => Promise<void> | void;
+    /**
+     * Set when groups or users could not be loaded (on the first load, or on a retry after such a
+     * failure). The app shell shows it full-page instead of an empty app. Nothing retries
+     * automatically; `retry` does it on request.
+     */
+    loadError: DataLoadError | null;
+    /** Loads everything again after a load error. */
+    retry: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -81,6 +113,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const [groups, setGroups] = useState<Group[]>([]);
 
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<DataLoadError | null>(null);
+    const loadErrorRef = useRef<DataLoadError | null>(null);
 
     const isFetchingRef = useRef(false);
     const pendingFetchRef = useRef(false);
@@ -118,10 +152,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
         isFetchingRef.current = true;
 
+        // A load that must succeed for the app to work: the first one, or a retry after it failed
+        const isBlockingLoad = !hasLoadedRef.current || loadErrorRef.current !== null;
+
         try {
             // Only the first load blocks the whole app. Background refreshes keep the current page
             // mounted, so an open dialog and the page's state survive a save.
-            if (!hasLoadedRef.current) {
+            if (isBlockingLoad) {
                 setLoading(true);
             }
 
@@ -174,6 +211,18 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 setUsers(initialUsers);
             } else if (usersResult.status === "rejected") {
                 console.error("Error fetching users:", usersResult.reason);
+            }
+
+            // Without groups or users the app has nothing to show: say why instead of an empty UI.
+            // A background refresh that fails keeps the data already on screen.
+            if (isBlockingLoad) {
+                const failure = [groupsResult, usersResult].find((r) => r.status === "rejected");
+                const nextError = failure && failure.status === "rejected" ? describeLoadError(failure.reason) : null;
+                loadErrorRef.current = nextError;
+                setLoadError(nextError);
+                if (nextError) {
+                    return;
+                }
             }
 
             // Synchronize and resolve full Group object in UserContext
@@ -255,6 +304,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         } else if (!user) {
             lastFetchedUserIdRef.current = null;
             lastLoadedGroupIdRef.current = null;
+            loadErrorRef.current = null;
+            setLoadError(null);
             setSites([]);
             setPhones([]);
             setGroups([]);
@@ -300,6 +351,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         };
     }, [currentGroup?._id, user, isAdmin, isRestoringSession]);
 
+    const retry = useCallback(() => {
+        void fetchData();
+    }, [fetchData]);
+
     const contextValue = useMemo<DataContextType>(
         () => ({
             sites,
@@ -312,8 +367,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             setGroups,
             loading,
             refreshData: fetchData,
+            loadError,
+            retry,
         }),
-        [sites, phones, users, groups, loading, fetchData],
+        [sites, phones, users, groups, loading, fetchData, loadError, retry],
     );
 
     return (

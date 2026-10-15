@@ -4,10 +4,60 @@
  * Centralized Axios instance configured with base API URL, security interceptors,
  * and concurrent in-flight GET request deduplication.
  * Injects cryptographic Bearer JWT tokens into request headers and handles session expiration.
+ * A 429 rejects with a RateLimitError carrying the server's retry delay; nothing is ever retried
+ * automatically, so a rate limit can never feed a request loop.
  */
 
-import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from "axios";
+import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from "axios";
 import envConfig from "../config/env";
+
+/**
+ * A request refused with 429 Too Many Requests. Still an AxiosError (`axios.isAxiosError` is
+ * true and `response` is kept), with the delay the server asked for.
+ */
+export class RateLimitError extends AxiosError {
+    /** Seconds until the budget resets, from the `Retry-After` header; null when absent. */
+    readonly retryAfterSeconds: number | null;
+
+    constructor(source: AxiosError) {
+        const serverMessage = (source.response?.data as { message?: unknown } | undefined)?.message;
+        super(
+            typeof serverMessage === "string" ? serverMessage : "Too many requests",
+            source.code,
+            source.config,
+            source.request,
+            source.response,
+        );
+        this.name = "RateLimitError";
+        const retryAfter = Number(source.response?.headers?.["retry-after"]);
+        this.retryAfterSeconds = Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : null;
+    }
+}
+
+export const isRateLimitError = (error: unknown): error is RateLimitError => error instanceof RateLimitError;
+
+/** What to tell the user about a rate limit: when to try again, as precisely as the server said. */
+export const rateLimitMessage = (error: RateLimitError): string => {
+    if (error.retryAfterSeconds !== null) {
+        const minutes = Math.max(1, Math.ceil(error.retryAfterSeconds / 60));
+        return `Too many requests. Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
+    }
+    return error.message;
+};
+
+/**
+ * Why the server refused a request, for showing to the user: the first field error of a 4xx
+ * answer (it names what is wrong, e.g. which time slot), else its message, else `fallback`.
+ * 5xx answers only say "Internal server error", so they get `fallback` too.
+ */
+export const apiErrorMessage = (error: unknown, fallback: string): string => {
+    if (isRateLimitError(error)) return rateLimitMessage(error);
+    if (!axios.isAxiosError(error) || !error.response || error.response.status >= 500) return fallback;
+    const data = error.response.data as { message?: unknown; errors?: Array<{ message?: unknown }> } | undefined;
+    const fieldMessage = data?.errors?.[0]?.message;
+    if (typeof fieldMessage === "string") return fieldMessage;
+    return typeof data?.message === "string" ? data.message : fallback;
+};
 
 const axiosInstance = axios.create({
     baseURL: envConfig.apiUrl,
@@ -55,6 +105,14 @@ const attemptRefresh = async (): Promise<string | null> => {
 axiosInstance.interceptors.response.use(
     (response) => response,
     async (error: unknown) => {
+        // Nonprod servers add `details` to 5xx bodies for developers; never shown in the UI
+        const details = axios.isAxiosError(error) ? (error.response?.data as { details?: unknown } | undefined)?.details : undefined;
+        if (details) {
+            console.error("[API] Server error details:", details);
+        }
+        if (axios.isAxiosError(error) && error.response?.status === 429) {
+            return Promise.reject(new RateLimitError(error));
+        }
         if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
             const originalRequest = error.config as (AxiosRequestConfig & { _retry?: boolean });
             const requestUrl = originalRequest?.url || "";
@@ -131,6 +189,12 @@ axiosInstance.get = (<T = unknown, R = AxiosResponse<T>, D = unknown>(
     url: string,
     config?: AxiosRequestConfig<D>,
 ): Promise<R> => {
+    // A caller that manages cancellation gets its own request: sharing it could hand that caller
+    // a request another caller already aborted (or let this caller's abort cancel theirs)
+    if (config?.signal) {
+        return originalGet<T, R, D>(url, config) as Promise<R>;
+    }
+
     const requestKey = buildRequestKey(url, config as AxiosRequestConfig);
 
     const existingPromise = inFlightRequests.get(requestKey);

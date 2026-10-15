@@ -6,7 +6,7 @@
  * severity levels (success, error, warning, info) without managing individual states.
  */
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { Snackbar, Alert, type AlertColor } from "@mui/material";
 
 /**
@@ -43,15 +43,19 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
 
     /**
      * Updates the notification state and opens the Snackbar.
+     * Stable across renders: opening or closing a toast must not re-run the effects of
+     * components that depend on it (that once turned every error toast into a refetch loop).
      *
      * @param {string}     msg  The message to be displayed.
      * @param {AlertColor} type The severity level of the alert.
      */
-    const showNotification = (msg: string, type: AlertColor = "success") => {
+    const showNotification = useCallback((msg: string, type: AlertColor = "success") => {
         setMessage(msg);
         setSeverity(type);
         setOpen(true);
-    };
+    }, []);
+
+    const contextValue = useMemo(() => ({ showNotification }), [showNotification]);
 
     /**
      * Closes the Snackbar unless the close event was triggered by clicking outside.
@@ -68,7 +72,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <NotificationContext.Provider value={{ showNotification }}>
+        <NotificationContext.Provider value={contextValue}>
             {children}
 
             {/* Global Snackbar instance rendered once at the application level */}

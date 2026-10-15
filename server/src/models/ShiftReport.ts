@@ -31,7 +31,6 @@ export interface IShiftReport {
     previousTasks?: string;
     currentTasks?: string;
     attendees: IShiftReportAttendee[];
-    isLocked?: boolean;
     createdAt?: Date;
     updatedAt?: Date;
 }
@@ -93,10 +92,6 @@ const ShiftReportSchema = new Schema<IShiftReport>(
             type: [ShiftReportAttendeeSchema],
             default: [],
         },
-        isLocked: {
-            type: Boolean,
-            default: false,
-        },
     },
     {
         timestamps: true,
@@ -116,10 +111,3 @@ const ShiftReport: ShiftReportModel =
 
 export { ShiftReport, ShiftReportSchema, ShiftReportAttendeeSchema };
 export default ShiftReport;
-
-// CommonJS compatibility for require("../models/ShiftReport")
-module.exports = ShiftReport;
-module.exports.default = ShiftReport;
-module.exports.ShiftReport = ShiftReport;
-module.exports.ShiftReportSchema = ShiftReportSchema;
-module.exports.ShiftReportAttendeeSchema = ShiftReportAttendeeSchema;

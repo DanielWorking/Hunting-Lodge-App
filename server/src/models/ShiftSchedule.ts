@@ -29,7 +29,19 @@ export interface IShiftSchedule {
     startDate: Date;
     endDate: Date;
     isPublished?: boolean;
+    /**
+     * The shifts members see. Once published, this is the last successfully published
+     * version, and vacation balances always correspond to it; before the first publish it
+     * holds the draft.
+     */
     shifts: IShiftAssignment[];
+    /**
+     * Unpublished edits to an already-published schedule. Absent when there are none.
+     * Copied into `shifts` only by a successful publish.
+     */
+    draftShifts?: IShiftAssignment[];
+    /** Incremented on every write; publish commits only if nothing changed since it read the schedule. */
+    revision?: number;
     createdAt?: Date;
     updatedAt?: Date;
 }
@@ -91,6 +103,15 @@ const ShiftScheduleSchema = new Schema<IShiftSchedule>(
             type: [ShiftAssignmentSchema],
             default: [],
         },
+        draftShifts: {
+            type: [ShiftAssignmentSchema],
+            // No default: an absent field means "no unpublished changes", unlike an empty draft
+            default: undefined,
+        },
+        revision: {
+            type: Number,
+            default: 0,
+        },
     },
     {
         timestamps: true,
@@ -112,10 +133,3 @@ const ShiftSchedule: ShiftScheduleModel =
 
 export { ShiftSchedule, ShiftScheduleSchema, ShiftAssignmentSchema };
 export default ShiftSchedule;
-
-// CommonJS compatibility for require("../models/ShiftSchedule")
-module.exports = ShiftSchedule;
-module.exports.default = ShiftSchedule;
-module.exports.ShiftSchedule = ShiftSchedule;
-module.exports.ShiftScheduleSchema = ShiftScheduleSchema;
-module.exports.ShiftAssignmentSchema = ShiftAssignmentSchema;

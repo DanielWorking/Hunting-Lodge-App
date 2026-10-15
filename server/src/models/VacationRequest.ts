@@ -7,7 +7,9 @@
 import mongoose, { Schema, Model, HydratedDocument, Types, PopulatedDoc } from "mongoose";
 import type { IUser } from "./User";
 import type { IGroup } from "./Group";
-import type { VacationValue } from "./Shift";
+
+/** The length of a vacation day: half (0.5) or full (1.0). */
+export type VacationValue = 0.5 | 1.0;
 
 export type VacationRequestStatus = "pending" | "approved" | "rejected";
 
@@ -95,9 +97,3 @@ const VacationRequest: VacationRequestModel =
 
 export { VacationRequest };
 export default VacationRequest;
-
-// CommonJS compatibility
-module.exports = VacationRequest;
-module.exports.default = VacationRequest;
-module.exports.VacationRequest = VacationRequest;
-module.exports.VacationRequestSchema = VacationRequestSchema;

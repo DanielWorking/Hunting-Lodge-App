@@ -2,62 +2,11 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 
-import Shift from "../models/Shift";
 import VacationRequest from "../models/VacationRequest";
 import ShiftSchedule from "../models/ShiftSchedule";
 import User from "../models/User";
 
 describe("Vacation Value & Half-Day Support Suite", () => {
-    describe("Shift Model - vacationValue Validation", () => {
-        it("should accept vacationValue of 0.5 and 1.0", async () => {
-            const halfDayShift = new Shift({
-                userId: new mongoose.Types.ObjectId(),
-                date: new Date(),
-                shiftTypeId: new mongoose.Types.ObjectId(),
-                vacationValue: 0.5,
-            });
-            await halfDayShift.validate();
-            assert.equal(halfDayShift.vacationValue, 0.5);
-
-            const fullDayShift = new Shift({
-                userId: new mongoose.Types.ObjectId(),
-                date: new Date(),
-                shiftTypeId: new mongoose.Types.ObjectId(),
-                vacationValue: 1.0,
-            });
-            await fullDayShift.validate();
-            assert.equal(fullDayShift.vacationValue, 1.0);
-        });
-
-        it("should default vacationValue to 1.0 when omitted", async () => {
-            const defaultShift = new Shift({
-                userId: new mongoose.Types.ObjectId(),
-                date: new Date(),
-                shiftTypeId: new mongoose.Types.ObjectId(),
-            });
-            assert.equal(defaultShift.vacationValue, 1.0);
-        });
-
-        it("should reject invalid vacationValue such as 0.75, 2.0, or negative", async () => {
-            const invalidShift = new Shift({
-                userId: new mongoose.Types.ObjectId(),
-                date: new Date(),
-                shiftTypeId: new mongoose.Types.ObjectId(),
-                vacationValue: 0.75 as unknown as 0.5,
-            });
-
-            let err: mongoose.Error.ValidationError | undefined;
-            try {
-                await invalidShift.validate();
-            } catch (e) {
-                err = e as mongoose.Error.ValidationError;
-            }
-
-            assert.ok(err, "Validation error expected for vacationValue 0.75");
-            assert.ok(err.errors.vacationValue, "vacationValue error expected");
-        });
-    });
-
     describe("VacationRequest Model - Schema & Enum Constraints", () => {
         it("should validate and persist valid VacationRequest with 0.5 day", async () => {
             const req = new VacationRequest({
@@ -262,7 +211,7 @@ describe("Vacation Value & Half-Day Support Suite", () => {
             }
         });
 
-        it("saveSchedule should adjust vacation balance difference when vacationValue changes from 1.0 to 0.5", async () => {
+        it("saveSchedule on a published schedule stores a draft and leaves balances untouched", async () => {
             const schedulesController = (await import("../controllers/schedulesController")).default;
             const Group = (await import("../models/Group")).default;
             const groupHolder = Group as unknown as Record<string, unknown>;
@@ -271,8 +220,8 @@ describe("Vacation Value & Half-Day Support Suite", () => {
 
             const userId = new mongoose.Types.ObjectId();
             const groupId = new mongoose.Types.ObjectId();
+            const scheduleId = new mongoose.Types.ObjectId();
             const vacationShiftTypeId = new mongoose.Types.ObjectId();
-            const testDate = new Date("2026-09-15T00:00:00.000Z");
 
             const origGroupFindById = groupHolder.findById;
             const origFindOne = scheduleHolder.findOne;
@@ -282,52 +231,29 @@ describe("Vacation Value & Half-Day Support Suite", () => {
             groupHolder.findById = async () => ({
                 _id: groupId,
                 name: "TestGroup",
-                settings: {
-                    shiftTypes: [{ _id: vacationShiftTypeId, isVacation: true }],
-                },
+                settings: { shiftTypes: [{ _id: vacationShiftTypeId, isVacation: true }] },
             });
+            scheduleHolder.findOne = async () => ({ _id: scheduleId, isPublished: true });
+            // The shift owner is an active member, so their draft shift is kept
+            const origUserFind = userHolder.find;
+            userHolder.find = async () => [{ _id: userId, username: "dana", vacationBalance: 3 }];
 
-            scheduleHolder.findOne = async () => ({
-                _id: new mongoose.Types.ObjectId(),
-                groupId,
-                startDate: new Date("2026-09-14T00:00:00.000Z"),
-                isPublished: true,
-                shifts: [
-                    {
-                        userId,
-                        shiftTypeId: vacationShiftTypeId,
-                        date: testDate,
-                        vacationDeducted: true,
-                        vacationValue: 1.0,
-                    },
-                ],
-            });
-
-            let capturedUserAdjustment: { $inc?: { vacationBalance?: number } } | null = null;
-            userHolder.findByIdAndUpdate = async (id: unknown, update: { $inc?: { vacationBalance?: number } }) => {
-                capturedUserAdjustment = update;
-                return { _id: id, vacationBalance: 10.5 };
+            let balanceTouched = false;
+            userHolder.findByIdAndUpdate = async () => {
+                balanceTouched = true;
+                return {};
             };
 
-            scheduleHolder.findOneAndUpdate = async () => ({
-                _id: new mongoose.Types.ObjectId(),
-                isPublished: true,
-            });
+            let captured: { filter?: Record<string, unknown>; update?: Record<string, Record<string, unknown>> } = {};
+            const publishedShifts = [{ userId, shiftTypeId: vacationShiftTypeId, date: new Date("2026-09-15T00:00:00.000Z"), vacationDeducted: true, vacationValue: 1.0 }];
+            scheduleHolder.findOneAndUpdate = async (filter: Record<string, unknown>, update: Record<string, Record<string, unknown>>) => {
+                captured = { filter, update };
+                return { _id: scheduleId, isPublished: true, shifts: publishedShifts, draftShifts: update.$set.draftShifts };
+            };
 
+            const draft = [{ userId: userId.toString(), shiftTypeId: vacationShiftTypeId.toString(), date: "2026-09-15T00:00:00.000Z", vacationValue: 0.5 }];
             const req = {
-                body: {
-                    groupId: groupId.toString(),
-                    startDate: "2026-09-14T00:00:00.000Z",
-                    endDate: "2026-09-20T00:00:00.000Z",
-                    shifts: [
-                        {
-                            userId: userId.toString(),
-                            shiftTypeId: vacationShiftTypeId.toString(),
-                            date: testDate.toISOString(),
-                            vacationValue: 0.5,
-                        },
-                    ],
-                },
+                body: { groupId: groupId.toString(), startDate: "2026-09-14T00:00:00.000Z", endDate: "2026-09-20T00:00:00.000Z", shifts: draft },
                 user: { _id: new mongoose.Types.ObjectId(), groups: [{ groupId: groupId.toString(), role: "shift_manager" }] },
             } as unknown as import("express").Request;
 
@@ -335,12 +261,98 @@ describe("Vacation Value & Half-Day Support Suite", () => {
             try {
                 await schedulesController.saveSchedule(req, res as unknown as import("express").Response);
                 assert.equal(res.statusCode, 200);
-                assert.ok(capturedUserAdjustment, "User.findByIdAndUpdate should adjust the 0.5 difference");
-                const userAdjustment = capturedUserAdjustment as unknown as { $inc?: { vacationBalance?: number } };
-                assert.deepEqual(userAdjustment.$inc, { vacationBalance: 0.5 }, "Should refund 0.5 when changing from 1.0 to 0.5");
+                assert.equal(balanceTouched, false, "saving must never change a vacation balance");
+                assert.equal(captured.filter?.isPublished, true, "a published week only gets a draft");
+                assert.equal(captured.filter?.startDate, "2026-09-14T00:00:00.000Z");
+                assert.deepEqual(captured.update?.$set, { draftShifts: draft }, "published shifts must stay as they are");
+                const body = res.body as Record<string, unknown>;
+                assert.equal(body.hasUnpublishedChanges, true);
+                assert.deepEqual(body.shifts, draft, "the manager sees the draft");
+                assert.deepEqual(body.publishedShifts, publishedShifts);
             } finally {
+                userHolder.find = origUserFind;
                 groupHolder.findById = origGroupFindById;
                 scheduleHolder.findOne = origFindOne;
+                scheduleHolder.findOneAndUpdate = origFindOneAndUpdateSched;
+                userHolder.findByIdAndUpdate = origFindByIdAndUpdateUser;
+            }
+        });
+
+        it("publishSchedule refunds 0.5 when a published 1.0 vacation day becomes 0.5 in the draft", async () => {
+            const schedulesController = (await import("../controllers/schedulesController")).default;
+            const Group = (await import("../models/Group")).default;
+            const groupHolder = Group as unknown as Record<string, unknown>;
+            const userHolder = User as unknown as Record<string, unknown>;
+            const scheduleHolder = ShiftSchedule as unknown as Record<string, unknown>;
+
+            const userId = new mongoose.Types.ObjectId();
+            const groupId = new mongoose.Types.ObjectId();
+            const scheduleId = new mongoose.Types.ObjectId();
+            const vacationShiftTypeId = new mongoose.Types.ObjectId();
+            const day = new Date("2026-09-15T00:00:00.000Z");
+
+            const origGroupFindById = groupHolder.findById;
+            const origFindById = scheduleHolder.findById;
+            const origFindOneAndUpdateSched = scheduleHolder.findOneAndUpdate;
+            const origFindByIdAndUpdateUser = userHolder.findByIdAndUpdate;
+
+            groupHolder.findById = async () => ({
+                _id: groupId,
+                name: "TestGroup",
+                settings: { shiftTypes: [{ _id: vacationShiftTypeId, isVacation: true }] },
+            });
+            scheduleHolder.findById = async () => ({
+                _id: scheduleId,
+                groupId,
+                isPublished: true,
+                revision: 3,
+                shifts: [{ userId, shiftTypeId: vacationShiftTypeId, date: day, vacationDeducted: true, vacationValue: 1.0 }],
+                draftShifts: [{ userId, shiftTypeId: vacationShiftTypeId, date: day, vacationValue: 0.5 }],
+            });
+
+            const balanceChanges: unknown[] = [];
+            userHolder.findByIdAndUpdate = async (_id: unknown, update: { $inc?: unknown }) => {
+                balanceChanges.push(update.$inc);
+                return {};
+            };
+            const origUserFind = userHolder.find;
+            userHolder.find = async () => [{ _id: userId, username: "dana", vacationBalance: 9, isActive: true }];
+            const connectionHolder = ShiftSchedule.db as unknown as Record<string, unknown>;
+            const origTransaction = connectionHolder.transaction;
+            connectionHolder.transaction = async (work: (session: unknown) => Promise<unknown>) => work({});
+            // The publish re-syncs report attendees from today; no reports exist here
+            const ShiftReport = (await import("../models/ShiftReport")).default;
+            const reportHolder = ShiftReport as unknown as Record<string, unknown>;
+            const origReportFind = reportHolder.find;
+            reportHolder.find = async () => [];
+
+            let commit: { filter?: Record<string, unknown>; update?: Record<string, Record<string, unknown>> } = {};
+            scheduleHolder.findOneAndUpdate = async (filter: Record<string, unknown>, update: Record<string, Record<string, unknown>>) => {
+                commit = { filter, update };
+                return { _id: scheduleId, groupId, isPublished: true, shifts: update.$set.shifts };
+            };
+
+            const req = {
+                body: { scheduleId: scheduleId.toString() },
+                user: { _id: new mongoose.Types.ObjectId(), groups: [{ groupId: groupId.toString(), role: "shift_manager" }] },
+            } as unknown as import("express").Request;
+
+            const res = createMockRes();
+            try {
+                await schedulesController.publishSchedule(req, res as unknown as import("express").Response);
+                assert.equal(res.statusCode, 200);
+                assert.deepEqual(balanceChanges, [{ vacationBalance: 0.5 }], "only the 0.5 difference is refunded, at publish time");
+                assert.deepEqual(commit.filter, { _id: scheduleId, revision: 3 }, "commit only if the schedule did not change meanwhile");
+                assert.deepEqual(commit.update?.$unset, { draftShifts: 1 });
+                const [published] = commit.update?.$set.shifts as Array<Record<string, unknown>>;
+                assert.equal(published.vacationValue, 0.5);
+                assert.equal(published.vacationDeducted, true);
+            } finally {
+                reportHolder.find = origReportFind;
+                userHolder.find = origUserFind;
+                connectionHolder.transaction = origTransaction;
+                groupHolder.findById = origGroupFindById;
+                scheduleHolder.findById = origFindById;
                 scheduleHolder.findOneAndUpdate = origFindOneAndUpdateSched;
                 userHolder.findByIdAndUpdate = origFindByIdAndUpdateUser;
             }

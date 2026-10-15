@@ -80,9 +80,3 @@ const Site: SiteModel = (mongoose.models.Site as SiteModel) || mongoose.model<IS
 
 export { Site, SiteSchema };
 export default Site;
-
-// CommonJS compatibility for require("../models/Site")
-module.exports = Site;
-module.exports.default = Site;
-module.exports.Site = Site;
-module.exports.SiteSchema = SiteSchema;

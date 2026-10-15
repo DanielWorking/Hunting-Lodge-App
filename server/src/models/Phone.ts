@@ -7,7 +7,10 @@
 
 import mongoose, { Schema, Model, HydratedDocument } from "mongoose";
 
-export type PhoneType = "Black" | "Red" | "Mobile" | "Landline";
+/** Allowed phone classification types; shared by the model and the route validators. */
+export const PHONE_TYPES = ["Black", "Red", "Mobile", "Landline"] as const;
+
+export type PhoneType = (typeof PHONE_TYPES)[number];
 
 export interface IPhone {
     name: string;
@@ -45,7 +48,7 @@ const PhoneSchema = new Schema<IPhone>(
         type: {
             type: String,
             enum: {
-                values: ["Black", "Red", "Mobile", "Landline"] as PhoneType[],
+                values: [...PHONE_TYPES],
                 message: "{VALUE} is not a valid phone classification type",
             },
             required: [true, "Phone classification type is required"],
@@ -70,9 +73,3 @@ const Phone: PhoneModel = (mongoose.models.Phone as PhoneModel) || mongoose.mode
 
 export { Phone, PhoneSchema };
 export default Phone;
-
-// CommonJS compatibility for require("../models/Phone")
-module.exports = Phone;
-module.exports.default = Phone;
-module.exports.Phone = Phone;
-module.exports.PhoneSchema = PhoneSchema;

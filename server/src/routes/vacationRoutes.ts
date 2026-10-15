@@ -12,7 +12,7 @@ import {
     protect,
     requireGroupMember,
 } from "../middleware/authMiddleware";
-import { validateRequest } from "../middleware/validationMiddleware";
+import { validateRequest, objectIdString } from "../middleware/validationMiddleware";
 
 const router = Router();
 
@@ -36,7 +36,7 @@ export const updateVacationStatusSchema = z.object({
 
 export const aggregateBalanceQuerySchema = z.object({
     groupId: z.string({ message: "Missing groupId" }).trim().min(1, "Missing groupId"),
-    userId: z.string({ message: "Missing userId" }).trim().min(1, "Missing userId"),
+    userId: objectIdString("userId"),
 });
 
 // All routes require authentication
@@ -78,6 +78,10 @@ router.patch(
 /**
  * GET /api/vacations/balance
  * Aggregates accrued and deducted vacation balance for a user according to vacationValue.
+ * `groupId` accepts the group's ObjectId or exact name.
+ * Authorization: every caller must be a member of the group (route guard, Administrators included)
+ * and its Shift Manager (controller-enforced). Regular members cannot read any balance, not even
+ * their own; Administrators get no bypass.
  */
 router.get(
     "/balance",

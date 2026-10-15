@@ -50,6 +50,30 @@ export interface IUser {
 export type UserDocument = HydratedDocument<IUser>;
 export type UserModel = Model<IUser>;
 
+/**
+ * Internal identity and session-revocation fields that must never leave the server:
+ * the SSO issuer/subject pair fingerprints the identity-provider account, and
+ * tokenVersion is the server-side revocation counter.
+ */
+export const SENSITIVE_USER_FIELDS = ["ssoIssuer", "ssoSubject", "tokenVersion"] as const;
+
+const SENSITIVE_USER_FIELD_SET = new Set<string>(SENSITIVE_USER_FIELDS);
+
+/**
+ * Returns a response-safe copy of a user (hydrated document or plain/lean object)
+ * without the SENSITIVE_USER_FIELDS. The input is not modified.
+ */
+export function toPublicUser(user: unknown): Record<string, unknown> {
+    if (!user || typeof user !== "object") {
+        return {};
+    }
+    const withToObject = user as { toObject?: () => Record<string, unknown> };
+    const source: Record<string, unknown> = typeof withToObject.toObject === "function"
+        ? withToObject.toObject()
+        : { ...(user as Record<string, unknown>) };
+    return Object.fromEntries(Object.entries(source).filter(([key]) => !SENSITIVE_USER_FIELD_SET.has(key)));
+}
+
 const UserSchema = new Schema<IUser>(
     {
         username: {
@@ -129,7 +153,18 @@ const UserSchema = new Schema<IUser>(
             required: true,
         },
     },
-    { timestamps: true },
+    {
+        timestamps: true,
+        // Defense in depth: hydrated user documents passed to res.json() never serialize internal fields
+        toJSON: {
+            transform: (_doc, ret: Record<string, unknown>) => {
+                for (const field of SENSITIVE_USER_FIELDS) {
+                    delete ret[field];
+                }
+                return ret;
+            },
+        },
+    },
 );
 
 // Optimize multi-key lookups for group-filtered user listings and member count aggregations
@@ -150,9 +185,3 @@ const User: UserModel = (mongoose.models.User as UserModel) || mongoose.model<IU
 
 export { User, UserSchema };
 export default User;
-
-// CommonJS compatibility for require("../models/User")
-module.exports = User;
-module.exports.default = User;
-module.exports.User = User;
-module.exports.UserSchema = UserSchema;

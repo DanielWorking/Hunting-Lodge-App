@@ -138,15 +138,34 @@ const GroupSchema = new Schema<IGroup>(
     { timestamps: true },
 );
 
+/**
+ * No time slot may link a vacation shift type. A report's automatic attendees are the members on
+ * a shift type linked to its time slot, so a linked vacation type would list people who are off
+ * as on duty. Checked on every save, whichever request changed the settings: linking a vacation
+ * type to a slot, or marking an already linked shift type as vacation.
+ */
+GroupSchema.pre("validate", function () {
+    const shiftTypes = this.settings?.shiftTypes ?? [];
+    const vacationTypeNames = new Map(
+        shiftTypes.filter((type) => type.isVacation && type._id).map((type) => [String(type._id), type.name]),
+    );
+    if (vacationTypeNames.size === 0) return;
+
+    (this.settings?.timeSlots ?? []).forEach((slot, index) => {
+        const linkedVacationTypes = (slot.linkedShiftTypes ?? [])
+            .map(String)
+            .filter((id) => vacationTypeNames.has(id))
+            .map((id) => `"${vacationTypeNames.get(id)}"`);
+        if (linkedVacationTypes.length > 0) {
+            this.invalidate(
+                `settings.timeSlots.${index}.linkedShiftTypes`,
+                `Time slot "${slot.name}" cannot be linked to the vacation shift type ${linkedVacationTypes.join(", ")}`,
+            );
+        }
+    });
+});
+
 const Group: GroupModel = (mongoose.models.Group as GroupModel) || mongoose.model<IGroup, GroupModel>("Group", GroupSchema);
 
 export { Group, GroupSchema, ShiftTypeSchema, TimeSlotSchema };
 export default Group;
-
-// CommonJS compatibility for require("../models/Group")
-module.exports = Group;
-module.exports.default = Group;
-module.exports.Group = Group;
-module.exports.GroupSchema = GroupSchema;
-module.exports.ShiftTypeSchema = ShiftTypeSchema;
-module.exports.TimeSlotSchema = TimeSlotSchema;

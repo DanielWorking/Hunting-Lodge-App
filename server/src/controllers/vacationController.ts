@@ -32,18 +32,18 @@ export async function createVacationRequest(req: Request, res: Response, next?: 
         const { groupId, date, vacationValue = 1.0, notes } = body;
 
         if (!groupId || !date) {
-            res.status(400).json({ message: "Missing groupId or date" });
+            res.status(400).json({ message: "Missing groupId or date", code: "VALIDATION_ERROR" });
             return;
         }
 
         if (vacationValue !== 0.5 && vacationValue !== 1.0) {
-            res.status(400).json({ message: "vacationValue must be either 0.5 or 1.0" });
+            res.status(400).json({ message: "vacationValue must be either 0.5 or 1.0", code: "VALIDATION_ERROR" });
             return;
         }
 
         const authUser = req.user as AuthUser | undefined;
         if (!authUser || !authUser._id) {
-            res.status(401).json({ message: "Unauthorized" });
+            res.status(401).json({ message: "Unauthorized", code: "UNAUTHORIZED" });
             return;
         }
 
@@ -67,20 +67,20 @@ export async function createVacationRequest(req: Request, res: Response, next?: 
         ]);
 
         if (!group) {
-            res.status(404).json({ message: "Group not found" });
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
             return;
         }
 
         if (!userDoc) {
-            res.status(404).json({ message: "User not found" });
+            res.status(404).json({ message: "User not found", code: "NOT_FOUND" });
             return;
         }
 
+        // Only Shift Managers see balances: the refusal does not reveal the requester's own balance
         if (userDoc.vacationBalance < vacationValue) {
             res.status(400).json({
                 message: "Insufficient vacation balance",
                 code: "INSUFFICIENT_VACATION_BALANCE",
-                currentBalance: userDoc.vacationBalance,
                 requestedValue: vacationValue,
             });
             return;
@@ -110,7 +110,7 @@ export async function createVacationRequest(req: Request, res: Response, next?: 
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
@@ -121,13 +121,13 @@ export async function getVacationRequests(req: Request, res: Response, next?: Ne
     try {
         const { groupId, status, userId } = req.query;
         if (!groupId || typeof groupId !== "string") {
-            res.status(400).json({ message: "Missing groupId" });
+            res.status(400).json({ message: "Missing groupId", code: "VALIDATION_ERROR" });
             return;
         }
 
         const group = await resolveGroup(groupId);
         if (!group) {
-            res.status(404).json({ message: "Group not found" });
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -161,7 +161,7 @@ export async function getVacationRequests(req: Request, res: Response, next?: Ne
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
@@ -174,13 +174,13 @@ export async function updateVacationRequestStatus(req: Request, res: Response, n
         const { status } = req.body as UpdateVacationStatusRequestBody;
 
         if (!id || !status || !["approved", "rejected"].includes(status)) {
-            res.status(400).json({ message: "Invalid requestId or status. Status must be 'approved' or 'rejected'." });
+            res.status(400).json({ message: "Invalid requestId or status. Status must be 'approved' or 'rejected'.", code: "VALIDATION_ERROR" });
             return;
         }
 
         const vacationReq = await VacationRequest.findById(id);
         if (!vacationReq) {
-            res.status(404).json({ message: "Vacation request not found" });
+            res.status(404).json({ message: "Vacation request not found", code: "NOT_FOUND" });
             return;
         }
 
@@ -232,30 +232,51 @@ export async function updateVacationRequestStatus(req: Request, res: Response, n
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 
 /**
  * Aggregates accrued/deducted vacation balance for a user in a group according to vacationValue.
+ *
+ * The group may be given by ObjectId or name. The route guard already requires the caller to be
+ * a member of the group (Administrators included). Only the group's Shift Manager may read a
+ * balance, their own included; regular members cannot read any balance, not even their own
+ * (Administrators get no bypass). The target user must belong to the group.
  */
 export async function aggregateVacationBalance(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
         const { groupId, userId } = req.query;
         if (!groupId || !userId || typeof groupId !== "string" || typeof userId !== "string") {
-            res.status(400).json({ message: "Missing groupId or userId" });
+            res.status(400).json({ message: "Missing groupId or userId", code: "VALIDATION_ERROR" });
+            return;
+        }
+
+        const group = await resolveGroup(groupId);
+        if (!group) {
+            res.status(404).json({ message: "Group not found", code: "NOT_FOUND" });
+            return;
+        }
+
+        const authUser = req.user as AuthUser | undefined;
+        if (!(await isShiftManager(authUser, group))) {
+            res.status(403).json({
+                message: "Forbidden: Only a Shift Manager of this group can view vacation balances.",
+                code: "FORBIDDEN_MANAGER_REQUIRED",
+            });
             return;
         }
 
         // Query user balance, published schedules, and approved requests concurrently
         const [userDoc, schedules, approvedRequests] = await Promise.all([
             (async () => {
-                const q = User.findById(userId).select("_id vacationBalance");
+                // Scoped to the group so a manager cannot read balances of users outside it
+                const q = User.findOne({ _id: userId, "groups.groupId": group._id }).select("_id vacationBalance");
                 return (typeof (q as any).lean === "function" ? (q as any).lean() : q);
             })(),
             (async () => {
                 const q = ShiftSchedule.find({
-                    groupId,
+                    groupId: group._id,
                     isPublished: true,
                     "shifts.userId": userId,
                 }).select("shifts");
@@ -263,7 +284,7 @@ export async function aggregateVacationBalance(req: Request, res: Response, next
             })(),
             (async () => {
                 const q = VacationRequest.find({
-                    groupId,
+                    groupId: group._id,
                     userId,
                     status: "approved",
                 }).select("vacationValue");
@@ -272,7 +293,7 @@ export async function aggregateVacationBalance(req: Request, res: Response, next
         ]);
 
         if (!userDoc) {
-            res.status(404).json({ message: "User not found" });
+            res.status(404).json({ message: "User not found in this group", code: "NOT_FOUND" });
             return;
         }
 
@@ -305,7 +326,7 @@ export async function aggregateVacationBalance(req: Request, res: Response, next
             next(err);
             return;
         }
-        res.status(500).json({ message: err instanceof Error ? err.message : String(err) });
+        res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
 

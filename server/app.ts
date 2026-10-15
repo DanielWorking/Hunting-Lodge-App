@@ -11,7 +11,6 @@ import express, { Express, Request, Response, NextFunction } from "express";
 import cors from "cors";
 import createCorsOptions from "./src/config/corsOptions";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import compression from "compression";
 import morgan from "morgan";
 import config from "./src/config";
@@ -24,8 +23,9 @@ import usersRoutes from "./src/routes/users";
 import schedulesRoutes from "./src/routes/schedules";
 import reportsRoutes from "./src/routes/reports";
 import vacationsRoutes from "./src/routes/vacationRoutes";
-import { notFoundHandler, errorHandler } from "./src/middleware/errorMiddleware";
+import { notFoundHandler, createErrorHandler } from "./src/middleware/errorMiddleware";
 import { stripImmutableFields } from "./src/middleware/sanitizationMiddleware";
+import { createGlobalRateLimiter } from "./src/middleware/rateLimitMiddleware";
 
 const app: Express = express();
 
@@ -62,7 +62,9 @@ app.use(
                     ...configuredOrigins,
                 ].filter(Boolean),
                 objectSrc: ["'none'"],
-                upgradeInsecureRequests: !config.isNonProd ? [] : null,
+                // Keyed on transport, not environment name: upgrade whenever the app is served over
+                // HTTPS (every deployment, nonprod included); only local http://localhost runs without it
+                upgradeInsecureRequests: config.sso.redirectUri.startsWith("https://") ? [] : null,
             },
         },
     })
@@ -119,19 +121,13 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
     next();
 });
 
-// Apply rate limiting to API requests; skip auth paths and OpenShift probe polling endpoints
-const limiter = rateLimit({
-    windowMs: config.security.rateLimitWindowMs,
-    max: config.security.rateLimitMax,
-    message: "Too many requests from this IP, please try again after 15 minutes",
-    skip: (req) =>
-        req.path.startsWith("/api/auth") ||
-        req.path === "/api/health" ||
-        req.path === "/healthz" ||
-        req.path === "/startup" ||
-        req.path === "/api/startup",
-});
-app.use(limiter);
+// Apply rate limiting to API requests (JSON 429 bodies); skips auth paths and OpenShift probe polling endpoints
+app.use(
+    createGlobalRateLimiter({
+        windowMs: config.security.rateLimitWindowMs,
+        max: config.security.rateLimitMax,
+    })
+);
 
 // Register OpenShift / Kubernetes health probe endpoints
 app.use(healthRoutes);
@@ -151,13 +147,12 @@ app.use("/api/auth", authRoutes);
 // === Static Asset Serving & React SPA Fallback (Production & Container Deployments) ===
 const staticPath: string = config.staticFilesPath;
 
-const isProdLike: boolean = !config.isNonProd;
-
 // Serve pre-built static assets (Vite hashed bundles, robots.txt, images, fonts)
 app.use(
     express.static(staticPath, {
-        maxAge: isProdLike ? "1y" : 0,
-        immutable: isProdLike,
+        // Same caching in every environment: Vite bundles are content-hashed, so they are immutable
+        maxAge: "1y",
+        immutable: true,
         index: false, // Prevents automatic index.html resolution on directory routes before our SPA fallback
         setHeaders: (res: Response, filePath: string): void => {
             // robots.txt should not be cached aggressively with 1y immutable header
@@ -204,6 +199,7 @@ app.get("{*path}", (req: Request, res: Response, next: NextFunction): void => {
 
 // === Centralized Error Handling & Fallback 404 Middleware ===
 app.use(notFoundHandler);
-app.use(errorHandler);
+// 5xx bodies carry `details` only where EXPOSE_ERROR_DETAILS is on (nonprod; refused elsewhere)
+app.use(createErrorHandler({ exposeErrorDetails: config.security.exposeErrorDetails }));
 
-export = app;
+export default app;

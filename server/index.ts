@@ -13,6 +13,7 @@ import mongoose from "mongoose";
 import config from "./src/config";
 import app from "./app";
 import { stopCronJobs } from "./src/services/cronJobs";
+import { ensureAdminGroup } from "./src/services/adminGroup";
 
 // === Mongoose Connection Lifecycle Event Listeners ===
 mongoose.connection.on("connected", (): void => {
@@ -36,8 +37,9 @@ mongoose.connection.on("close", (): void => {
 });
 
 /**
- * Establishes a connection to the MongoDB database using the configured URI and connection pool parameters.
- * Terminates the process with an error code if the initial connection fails.
+ * Establishes a connection to the MongoDB database using the configured URI and connection pool parameters,
+ * then creates the administrators group if it is missing (without it nobody can be granted access).
+ * Terminates the process with an error code if either step fails, so the platform restarts it.
  */
 const connectDB = async (): Promise<void> => {
     try {
@@ -49,6 +51,16 @@ const connectDB = async (): Promise<void> => {
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error(`❌ [MongoDB] Initial connection failed: ${errorMessage}`);
+        process.exit(1);
+    }
+
+    try {
+        if (await ensureAdminGroup()) {
+            console.log("👑 [Bootstrap] Created the administrators group (SUPER_ADMIN_GROUP_NAME)");
+        }
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`❌ [Bootstrap] Could not create the administrators group: ${errorMessage}`);
         process.exit(1);
     }
 };
@@ -104,5 +116,3 @@ const gracefulShutdown = async (signal: string): Promise<void> => {
 
 process.on("SIGTERM", (): Promise<void> => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", (): Promise<void> => gracefulShutdown("SIGINT"));
-
-export { app, server };

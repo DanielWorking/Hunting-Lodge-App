@@ -30,6 +30,34 @@ export interface ValidationErrorResponse {
     readonly errors: ReadonlyArray<ValidationErrorDetail>;
 }
 
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+
+/**
+ * Zod schema for a 24-character hexadecimal MongoDB ObjectId string.
+ *
+ * @param label - Field name used in the error messages.
+ */
+export function objectIdString(label: string): z.ZodString {
+    return z
+        .string({ message: `${label} is required` })
+        .trim()
+        .regex(OBJECT_ID_PATTERN, `${label} must be a valid ObjectId`);
+}
+
+/**
+ * Zod schema for an ISO 8601 date (`2026-10-11`) or date-time string
+ * (`2026-10-11T21:00:00.000Z`, with or without a UTC offset).
+ *
+ * @param label - Field name used in the error messages.
+ */
+export function isoDateString(label: string): z.ZodType<string> {
+    const message = `${label} must be an ISO 8601 date or date-time string`;
+    return z.union(
+        [z.iso.datetime({ offset: true, local: true, message }), z.iso.date({ message })],
+        { message },
+    );
+}
+
 /**
  * Creates Express middleware to validate request parameters, query, and/or body.
  * Compatible with Express v5 getter-only query and params properties.

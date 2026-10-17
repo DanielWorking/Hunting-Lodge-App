@@ -4,10 +4,16 @@ metadata:
   name: shift-report-cronjob
   # <YOUR_NAMESPACE>: change to the current namespace
   namespace: <YOUR_NAMESPACE>
+  labels:
+    app.kubernetes.io/name: shift-report-cronjob
+    app.kubernetes.io/part-of: <YOUR_NAMESPACE>
+    app.kubernetes.io/component: cron
+    environment: <YOUR_ENV>
 spec:
   # Run every minute in Asia/Jerusalem time
   schedule: "* * * * *"
   timeZone: "Asia/Jerusalem"
+  startingDeadlineSeconds: 60
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
@@ -16,9 +22,14 @@ spec:
       backoffLimit: 1
       activeDeadlineSeconds: 120
       template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: shift-report-cronjob
+            app.kubernetes.io/component: cron
+            environment: <YOUR_ENV>
         spec:
-          restartPolicy: OnFailure
-          # Pod-level security context compliant with OpenShift restricted-v2 SCC
+          restartPolicy: Never
+          automountServiceAccountToken: false
           securityContext:
             runAsNonRoot: true
             seccompProfile:
@@ -49,6 +60,6 @@ spec:
                   memory: 512Mi
               envFrom:
                 - secretRef:
-                    name: backend-secrets-nonprod
+                    name: backend-secrets-<YOUR_ENV>
                 - configMapRef:
-                    name: backend-config-nonprod
+                    name: backend-config-<YOUR_ENV>

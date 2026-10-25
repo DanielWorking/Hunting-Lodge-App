@@ -8,7 +8,14 @@
 
 import { Request, Response, NextFunction, RequestHandler } from "express";
 
-export const IMMUTABLE_SSO_FIELDS: readonly string[] = ["displayName", "sub", "oidcId"];
+export const IMMUTABLE_SSO_FIELDS: readonly string[] = [
+    "displayName",
+    "sub",
+    "oidcId",
+    "ssoIssuer",
+    "ssoSubject",
+    "tokenVersion",
+];
 
 /**
  * Recursively removes immutable SSO fields from an object or array.

@@ -22,7 +22,6 @@ import groupsRoutes from "./src/routes/groups";
 import usersRoutes from "./src/routes/users";
 import schedulesRoutes from "./src/routes/schedules";
 import reportsRoutes from "./src/routes/reports";
-import vacationsRoutes from "./src/routes/vacationRoutes";
 import { notFoundHandler, createErrorHandler } from "./src/middleware/errorMiddleware";
 import { stripImmutableFields } from "./src/middleware/sanitizationMiddleware";
 import { createGlobalRateLimiter } from "./src/middleware/rateLimitMiddleware";
@@ -86,7 +85,7 @@ app.use((req: Request, _res: Response, next: NextFunction): void => {
             if (eqIdx !== -1) {
                 const key = pair.substring(0, eqIdx).trim();
                 const rawVal = pair.substring(eqIdx + 1).trim();
-                if (key) {
+                if (key && key !== "__proto__" && key !== "constructor" && key !== "prototype") {
                     try {
                         parsedCookies[key] = decodeURIComponent(rawVal);
                     } catch {
@@ -139,7 +138,6 @@ app.use("/api/groups", groupsRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/schedules", schedulesRoutes);
 app.use("/api/reports", reportsRoutes);
-app.use("/api/vacations", vacationsRoutes);
 
 // SSO Authentication Routes
 app.use("/api/auth", authRoutes);
@@ -183,6 +181,9 @@ app.get("{*path}", (req: Request, res: Response, next: NextFunction): void => {
 
     res.sendFile(indexPath, (err?: Error) => {
         if (err) {
+            if (res.headersSent) {
+                return;
+            }
             // Informational fallback when client has not been compiled (e.g., API-only dev mode)
             if (req.path === "/") {
                 res.json({

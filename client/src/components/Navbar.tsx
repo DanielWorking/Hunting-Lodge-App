@@ -84,10 +84,13 @@ export default function Navbar() {
     /**
      * Logs the user out and redirects to the login page.
      */
-    const handleLogout = () => {
+    const handleLogout = async () => {
         handleClose();
-        logout();
-        navigate("/login");
+        try {
+            await logout();
+        } finally {
+            navigate("/login");
+        }
     };
 
     /**
@@ -310,7 +313,7 @@ export default function Navbar() {
                                             : theme.palette.primary.main,
                                     }}
                                 >
-                                    {user.displayName?.charAt(0).toUpperCase()}
+                                    {(user.displayName || user.username || "?").charAt(0).toUpperCase()}
                                 </Avatar>
                             </Badge>
                         </IconButton>

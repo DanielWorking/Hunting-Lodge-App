@@ -17,7 +17,6 @@ import { Types } from "mongoose";
 
 import ShiftReport, { IShiftReport } from "../models/ShiftReport";
 import ShiftSchedule from "../models/ShiftSchedule";
-import VacationRequest from "../models/VacationRequest";
 import User from "../models/User";
 import dbConfig from "../config/db";
 
@@ -216,13 +215,6 @@ describe("Database & Query Performance Benchmark Suite", () => {
                 return fields.groupId === 1 && fields.isPublished === 1 && fields["shifts.userId"] === 1;
             });
 
-            // VacationRequest indexes
-            const vacIndexes = VacationRequest.schema.indexes();
-            const hasVacCompound = vacIndexes.some((idx) => {
-                const fields = idx[0];
-                return fields.groupId === 1 && fields.status === 1 && fields.date === 1;
-            });
-
             // Verify definitions
             assert.ok(
                 hasReportEsr,
@@ -235,10 +227,6 @@ describe("Database & Query Performance Benchmark Suite", () => {
             assert.ok(
                 hasSchedMultikey,
                 "ShiftSchedule should declare multikey index { groupId: 1, isPublished: 1, 'shifts.userId': 1 }"
-            );
-            assert.ok(
-                hasVacCompound,
-                "VacationRequest should declare compound index { groupId: 1, status: 1, date: 1 }"
             );
         });
     });

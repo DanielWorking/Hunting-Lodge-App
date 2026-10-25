@@ -20,6 +20,8 @@ export type GroupRole = 'member' | 'shift_manager';
  * they belong to and their respective permissions.
  */
 export interface GroupMembership {
+    /** Optional MongoDB subdocument identifier. */
+    _id?: string;
     /** The unique identifier of the group. */
     groupId: string;
     /** The role assigned to the user in this group. */
@@ -208,9 +210,19 @@ export interface ShiftSchedule {
     /** The end of the schedule period. */
     endDate: string | Date;
     /** If true, the schedule is published and visible to members. */
-    isPublished: boolean;
+    isPublished?: boolean;
     /** Array of assignment objects. */
     shifts: ShiftAssignment[];
+    /** Pending unpublished draft assignments stored by a Shift Manager. */
+    draftShifts?: ShiftAssignment[];
+    /** Published assignments returned alongside draft edits for manager diffing. */
+    publishedShifts?: ShiftAssignment[];
+    /** Server-computed flag indicating unpublished draft edits exist on a published schedule. */
+    hasUnpublishedChanges?: boolean;
+    /** Optimistic concurrency revision counter incremented on schedule publish. */
+    revision?: number;
+    /** Server flag returned when a publish request resulted in no effective changes. */
+    unchanged?: boolean;
     /** ISO timestamp of creation. */
     createdAt?: string;
     /** ISO timestamp of last update. */
@@ -241,7 +253,11 @@ export interface SiteCard {
     createdAt: string;
     /** ISO timestamp of last update. */
     updatedAt?: string;
-    /** Category tag assigned to this site. */
+    /**
+     * Category tag assigned to this site.
+     * Defaults to the unremovable system base tag "General" across all groups;
+     * if a custom tag is deleted, all sites under it are automatically relocated to "General".
+     */
     tag?: string;
 }
 
@@ -264,8 +280,8 @@ export interface PhoneRow {
     description: string;
     /** Name of the person or entity associated with the number. */
     name: string;
-    /** Whether the current user has favorited this entry. */
-    isFavorite: boolean;
+    /** Whether the current user has favorited this entry (attached by GET /api/phones). */
+    isFavorite?: boolean;
     /** ISO timestamp of creation. */
     createdAt?: string;
     /** ISO timestamp of last update. */

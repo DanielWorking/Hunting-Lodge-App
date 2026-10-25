@@ -23,7 +23,6 @@ import Site from "../models/Site";
 import Phone from "../models/Phone";
 import ShiftSchedule from "../models/ShiftSchedule";
 import ShiftReport from "../models/ShiftReport";
-import VacationRequest from "../models/VacationRequest";
 import { ensureAdminGroup } from "../services/adminGroup";
 
 // Check CLI flags
@@ -192,7 +191,6 @@ const importData = async (): Promise<void> => {
             console.log("🌱 No seeded data found. Proceeding with initial seed...");
         } else {
             // Full reset: wipe existing collections in safe dependency order
-            await VacationRequest.deleteMany({});
             await ShiftReport.deleteMany({});
             await ShiftSchedule.deleteMany({});
             await Site.deleteMany({});
@@ -210,7 +208,6 @@ const importData = async (): Promise<void> => {
             await Phone.syncIndexes();
             await ShiftSchedule.syncIndexes();
             await ShiftReport.syncIndexes();
-            await VacationRequest.syncIndexes();
             console.log("📐 Indexes Synchronized...");
         } catch (idxErr: unknown) {
             const msg: string = idxErr instanceof Error ? idxErr.message : String(idxErr);

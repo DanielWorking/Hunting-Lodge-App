@@ -38,6 +38,7 @@ import { useData } from "../context/DataContext";
 import { useNotification } from "../context/NotificationContext";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { getReports, createReport, updateReport, deleteReport } from "../api/reportsApi";
+import { apiErrorMessage } from "../api/apiClient";
 import { format } from "date-fns";
 import ThinkingLoader from "../components/ThinkingLoader";
 import type { ShiftReport, ShiftReportAttendee, User } from "../types";
@@ -566,6 +567,9 @@ export default function ShiftReportPage() {
             } catch (error) {
                 if (!isMountedRef.current) return;
                 console.error(error);
+                if (!isBackground) {
+                    showNotification(apiErrorMessage(error, "Error loading shift reports"), "error");
+                }
             } finally {
                 if (!isBackground && isMountedRef.current) setLoading(false);
             }
@@ -686,8 +690,9 @@ export default function ShiftReportPage() {
                 `New Report Created! (${workersCount} workers added)`,
                 "success",
             );
-        } catch {
-            showNotification("Error creating report", "error");
+        } catch (error: unknown) {
+            console.error(error);
+            showNotification(apiErrorMessage(error, "Error creating report"), "error");
         }
     };
 
@@ -710,8 +715,9 @@ export default function ShiftReportPage() {
                     r._id === selectedReport._id ? selectedReport : r,
                 ),
             );
-        } catch {
-            showNotification("Error saving report", "error");
+        } catch (error: unknown) {
+            console.error(error);
+            showNotification(apiErrorMessage(error, "Error saving report"), "error");
         }
     };
 
@@ -746,8 +752,9 @@ export default function ShiftReportPage() {
                 isDirtyRef.current = false;
             }
             showNotification("Report deleted", "success");
-        } catch {
-            showNotification("Error deleting", "error");
+        } catch (error: unknown) {
+            console.error(error);
+            showNotification(apiErrorMessage(error, "Error deleting"), "error");
         } finally {
             setDeleteReportId(null);
         }
@@ -820,6 +827,7 @@ export default function ShiftReportPage() {
             Record<string, Record<string, Record<string, ShiftReport[]>>>
         >((acc, report) => {
             const date = new Date(report.startTime);
+            if (Number.isNaN(date.getTime())) return acc;
             const year = String(date.getFullYear());
             const month = date.toLocaleString("default", { month: "long" });
             const day = format(date, "dd/MM/yyyy");
@@ -1256,12 +1264,12 @@ export default function ShiftReportPage() {
                                     options={groupUsers.filter(
                                         (u) =>
                                             u.isActive ||
-                                            selectedReport.attendees.some((a) => attendeeUserId(a) === u._id),
+                                            (selectedReport.attendees || []).some((a) => attendeeUserId(a) === u._id),
                                     )}
                                     getOptionLabel={(option) =>
                                         option.displayName || option.username
                                     }
-                                    value={selectedReport.attendees
+                                    value={(selectedReport.attendees || [])
                                         .map((a: ShiftReportAttendee) =>
                                             groupUsers.find((u) => u._id === attendeeUserId(a)),
                                         )

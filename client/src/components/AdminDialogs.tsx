@@ -41,7 +41,7 @@ interface UserDialogProps {
     /** Callback function to close the dialog. */
     onClose: () => void;
     /** Callback function triggered when the user form is saved. */
-    onSave: (user: Partial<User>) => void;
+    onSave: (user: Partial<User>) => Promise<void> | void;
     /** Existing user data for the account being edited. */
     initialData: User | null;
 }
@@ -65,6 +65,7 @@ export function UserDialog({
     const { user: currentUser } = useUser();
 
     const [formData, setFormData] = useState<Partial<User>>({
+        _id: initialData?._id,
         username: initialData?.username,
         displayName: initialData?.displayName,
         email: initialData?.email,
@@ -177,21 +178,13 @@ export function UserDialog({
     };
 
     /**
-     * Normalizes identity fields and invokes the save callback.
-     * Ensures displayName defaults to the username if left empty.
+     * Invokes the asynchronous save callback with mutable user properties (`isActive` and `groups`).
      */
-    const handleSave = () => {
-        const usernameToSend = formData.username;
-        const displayNameToSend = formData.displayName || formData.username;
-        const emailToSend = formData.email;
-
-        onSave({
-            ...formData,
-            username: usernameToSend,
-            email: emailToSend,
-            displayName: displayNameToSend,
+    const handleSave = async () => {
+        await onSave({
+            isActive: formData.isActive,
+            groups: formData.groups,
         });
-        onClose();
     };
 
     /**
@@ -288,7 +281,7 @@ export function UserDialog({
                         )}
 
                         {formData.groups?.map((membership) => {
-                            const groupObj = groups.find(
+                            const groupObj = (groups || []).find(
                                 (g) => g._id === membership.groupId,
                             );
                             if (!groupObj) return null;
@@ -451,7 +444,7 @@ interface GroupDialogProps {
     /** Callback function to close the dialog. */
     onClose: () => void;
     /** Callback function triggered when the group form is saved. */
-    onSave: (group: Partial<Group>) => void;
+    onSave: (group: Partial<Group>) => Promise<void> | void;
     /** Existing group data for editing, or null if creating a new group. */
     initialData: Group | null;
 }
@@ -489,7 +482,7 @@ export function GroupDialog({
      */
     const groupMembers = useMemo(() => {
         if (!initialData) return [];
-        return users.filter((user) =>
+        return (users || []).filter((user) =>
             user.groups?.some(
                 (g) =>
                     g.groupId === initialData._id,

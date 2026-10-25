@@ -107,7 +107,10 @@ export default function ShiftTypesTab() {
      */
     const handleSave = async () => {
         if (!currentGroup) return;
-        if (!formData.name.trim()) return alert("Name is required");
+        if (!formData.name.trim()) {
+            showNotification("Name is required", "error");
+            return;
+        }
 
         // Validate uniqueness of shift type name
         const isDuplicate = shiftTypes.some(
@@ -177,8 +180,8 @@ export default function ShiftTypesTab() {
 
             showNotification("Shift type deleted", "success");
             refreshData();
-        } catch {
-            showNotification("Error deleting", "error");
+        } catch (error: unknown) {
+            showNotification(apiErrorMessage(error, "Error deleting"), "error");
         } finally {
             setDeleteId(null);
         }

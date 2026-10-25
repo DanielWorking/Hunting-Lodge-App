@@ -17,7 +17,6 @@ import ssoConfig from "../config/sso";
 import Group from "../models/Group";
 import User from "../models/User";
 import * as usersController from "../controllers/usersController";
-import * as vacationController from "../controllers/vacationController";
 import * as authController from "../controllers/authController";
 import { clearGroupCache } from "../utils/authHelpers";
 
@@ -112,25 +111,6 @@ describe("GET /users?groupId: per-requester field visibility", () => {
         assert.equal(users.colleague.email, "colleague@example.com");
         assert.equal(users.colleague.lastLogin, "2026-10-12");
         assert.equal("vacationBalance" in users.colleague, false);
-    });
-});
-
-describe("GET /vacations/balance: no Administrator bypass", () => {
-    it("rejects an Administrator who is a member but not the group's Shift Manager", async () => {
-        const groupId = newId();
-        patch(Group, "findById", async () => ({ _id: groupId, name: `bal-${groupId}` }));
-        const res = createMockRes();
-        await vacationController.aggregateVacationBalance(
-            {
-                query: { groupId, userId: newId() },
-                user: { _id: newId(), username: config.superAdmin.username, groups: [{ groupId, role: "member" }] },
-            } as unknown as Request,
-            res as unknown as Response,
-            () => {},
-        );
-
-        assert.equal(res.statusCode, 403);
-        assert.equal((res.body as Record<string, unknown>).code, "FORBIDDEN_MANAGER_REQUIRED");
     });
 });
 

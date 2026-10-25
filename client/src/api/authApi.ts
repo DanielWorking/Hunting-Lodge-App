@@ -3,7 +3,7 @@
  *
  * Provides client-side API methods for user authentication and session management.
  * Communicates with backend authentication endpoints to initiate Single Sign-On (SSO) flows,
- * exchange authorization codes for JWT credentials, and validate existing user sessions.
+ * exchange authorization codes for HttpOnly session cookies (`hunting_token` and `hunting_refresh_token`), and validate existing user sessions.
  */
 
 import type { AxiosResponse } from "axios";
@@ -22,6 +22,7 @@ export interface SsoLoginPayload {
 
 export interface SsoLoginResponse {
     user: User;
+    /** Optional legacy token field; sessions use HttpOnly cookies (`hunting_token`). */
     token?: string;
     success?: boolean;
 }
@@ -29,6 +30,7 @@ export interface SsoLoginResponse {
 export interface SsoRefreshResponse {
     success: boolean;
     message: string;
+    /** Optional legacy token field; sessions use HttpOnly cookies (`hunting_token`). */
     token?: string;
 }
 

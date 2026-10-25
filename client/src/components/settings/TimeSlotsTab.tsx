@@ -118,7 +118,10 @@ export default function TimeSlotsTab() {
      */
     const handleSave = async () => {
         if (!currentGroup) return;
-        if (!formData.name.trim()) return alert("Name is required");
+        if (!formData.name.trim()) {
+            showNotification("Name is required", "error");
+            return;
+        }
 
         try {
             let updatedSlots = [...timeSlots];
@@ -140,6 +143,7 @@ export default function TimeSlotsTab() {
             refreshData();
             setIsDialogOpen(false);
         } catch (error) {
+            console.error(error);
             showNotification(apiErrorMessage(error, "Error saving slots"), "error");
         }
     };
@@ -169,8 +173,9 @@ export default function TimeSlotsTab() {
             });
             showNotification("Slot deleted", "success");
             refreshData();
-        } catch {
-            showNotification("Error deleting", "error");
+        } catch (error: unknown) {
+            console.error(error);
+            showNotification(apiErrorMessage(error, "Error deleting"), "error");
         } finally {
             setDeleteId(null);
         }

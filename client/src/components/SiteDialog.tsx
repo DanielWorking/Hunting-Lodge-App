@@ -123,14 +123,17 @@ export default function SiteDialog({
         const newErrors = {
             title: !formData.title.trim(),
             url: !formData.url.trim(),
-            description: !formData.description.trim(),
+            description: !(formData.description ?? "").trim(),
         };
         setErrors(newErrors);
 
         // Abort submission if any validation errors are present
         if (Object.values(newErrors).some(Boolean)) return;
 
-        const saved = await onSave(formData);
+        const saved = await onSave({
+            ...formData,
+            tag: (formData.tag ?? "").trim() || "General",
+        });
         if (saved) {
             onClose();
         }

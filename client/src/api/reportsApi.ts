@@ -7,22 +7,77 @@
  * update task logs and attendee rosters, and remove report records.
  */
 
+import type { AxiosResponse } from "axios";
 import apiClient from "./apiClient";
+import type { ShiftReport, ShiftReportAttendee } from "../types";
+
+export interface GetReportsParams {
+    groupId: string;
+    year?: number | string;
+    month?: number | string;
+    day?: number | string;
+    cursorDate?: string;
+    cursorId?: string;
+    limit?: number;
+}
+
+export interface PaginatedReportsResult {
+    reports: ShiftReport[];
+    hasMore: boolean;
+    nextCursorDate: string | null;
+    nextCursorId: string | null;
+}
+
+export interface CreateReportPayload {
+    groupId: string;
+    title: string;
+    date?: Date | string;
+    startTime: Date | string;
+    endTime: Date | string;
+    currentTasks?: string;
+    previousTasks?: string;
+    attendees?: ShiftReportAttendee[];
+}
+
+export interface UpdateReportPayload {
+    currentTasks?: string;
+    previousTasks?: string;
+    attendees?: ShiftReportAttendee[];
+}
 
 /**
- * Retrieves shift reports for a group with optional date-based filtering.
+ * Retrieves shift reports for a group with optional date-based and cursor filtering.
  *
  * Reports are returned in descending chronological order by shift start time.
  * Requires the authenticated user to be an active member of the target group.
  *
- * @param  {Object}               params          Query parameters for filtering reports.
- * @param  {string}               params.groupId  The unique identifier of the group whose reports to fetch.
- * @param  {number|string}        [params.year]   Optional year to filter reports by.
- * @param  {number|string}        [params.month]  Optional month (1-12) to filter reports by.
- * @param  {number|string}        [params.day]    Optional day of the month to filter reports by.
- * @returns {Promise<import("axios").AxiosResponse<any[]>>} Axios promise resolving to the list of shift report records.
+ * @param  {GetReportsParams} params Query parameters for filtering reports.
+ * @returns {Promise<AxiosResponse<ShiftReport[]>>} Axios promise resolving to the list of shift report records.
  */
-export const getReports = (params: any) => apiClient.get("/reports", { params });
+export const getReports = (params: GetReportsParams): Promise<AxiosResponse<ShiftReport[]>> =>
+    apiClient.get<ShiftReport[]>("/reports", { params });
+
+/**
+ * Retrieves a page of shift reports along with parsed cursor pagination headers
+ * (`X-Has-More`, `X-Next-Cursor-Date`, `X-Next-Cursor-Id`).
+ */
+export const getReportsPage = async (params: GetReportsParams): Promise<PaginatedReportsResult> => {
+    const res = await getReports(params);
+    const headers = res.headers ?? {};
+    const hasMore = String(headers["x-has-more"] ?? "").toLowerCase() === "true";
+    const nextCursorDate = typeof headers["x-next-cursor-date"] === "string" && headers["x-next-cursor-date"].length > 0
+        ? headers["x-next-cursor-date"]
+        : null;
+    const nextCursorId = typeof headers["x-next-cursor-id"] === "string" && headers["x-next-cursor-id"].length > 0
+        ? headers["x-next-cursor-id"]
+        : null;
+    return {
+        reports: Array.isArray(res.data) ? res.data : [],
+        hasMore,
+        nextCursorDate,
+        nextCursorId,
+    };
+};
 
 /**
  * Creates a new shift report for a specified group.
@@ -31,14 +86,11 @@ export const getReports = (params: any) => apiClient.get("/reports", { params })
  * and populates the initial attendee list from published shift schedules matching
  * the shift start time and configured time slots.
  *
- * @param  {Object}               reportData            The shift report creation payload.
- * @param  {string}               reportData.groupId    The unique identifier of the group the report belongs to.
- * @param  {string}               reportData.title      Descriptive title for the shift report.
- * @param  {Date|string}          reportData.startTime  The scheduled start date and time of the shift.
- * @param  {Date|string}          reportData.endTime    The scheduled end date and time of the shift.
- * @returns {Promise<import("axios").AxiosResponse<any>>} Axios promise resolving to the newly created shift report record.
+ * @param  {CreateReportPayload} reportData The shift report creation payload.
+ * @returns {Promise<AxiosResponse<ShiftReport>>} Axios promise resolving to the newly created shift report record.
  */
-export const createReport = (reportData: any) => apiClient.post("/reports", reportData);
+export const createReport = (reportData: CreateReportPayload): Promise<AxiosResponse<ShiftReport>> =>
+    apiClient.post<ShiftReport>("/reports", reportData);
 
 /**
  * Partially updates an existing shift report by its unique identifier
@@ -48,14 +100,12 @@ export const createReport = (reportData: any) => apiClient.post("/reports", repo
  * Reports cannot be locked; any other field is ignored. Requires membership in the report's
  * group (any role, including the group's Shift Manager).
  *
- * @param  {string}               id                          The unique identifier of the shift report to update.
- * @param  {Object}               reportData                  The updated shift report payload fields.
- * @param  {string}               [reportData.currentTasks]   Updated rich-text/HTML content of tasks completed in this shift.
- * @param  {string}               [reportData.previousTasks]  Updated notes or pending tasks inherited from prior shifts.
- * @param  {Array<Object>}        [reportData.attendees]      Updated list of personnel attending the shift.
- * @returns {Promise<import("axios").AxiosResponse<any>>} Axios promise resolving to the updated shift report record.
+ * @param  {string}              id         The unique identifier of the shift report to update.
+ * @param  {UpdateReportPayload} reportData The updated shift report payload fields.
+ * @returns {Promise<AxiosResponse<ShiftReport>>} Axios promise resolving to the updated shift report record.
  */
-export const updateReport = (id: string, reportData: any) => apiClient.patch(`/reports/${id}`, reportData);
+export const updateReport = (id: string, reportData: UpdateReportPayload): Promise<AxiosResponse<ShiftReport>> =>
+    apiClient.patch<ShiftReport>(`/reports/${id}`, reportData);
 
 /**
  * Deletes a shift report permanently by its unique identifier.
@@ -64,7 +114,8 @@ export const updateReport = (id: string, reportData: any) => apiClient.patch(`/r
  * report's group or system Administrators.
  *
  * @param  {string} id  The unique identifier of the shift report to delete.
- * @returns {Promise<import("axios").AxiosResponse<{ message: string }>>} Axios promise resolving to the deletion confirmation response.
+ * @returns {Promise<AxiosResponse<{ message: string }>>} Axios promise resolving to the deletion confirmation response.
  */
-export const deleteReport = (id: string) => apiClient.delete(`/reports/${id}`);
+export const deleteReport = (id: string): Promise<AxiosResponse<{ message: string }>> =>
+    apiClient.delete<{ message: string }>(`/reports/${id}`);
 

@@ -40,6 +40,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SortIcon from "@mui/icons-material/Sort";
 import { createSite, updateSite, deleteSite, toggleFavoriteSite } from "../api/sitesApi";
+import { apiErrorMessage } from "../api/apiClient";
 import { addGroupTag, renameGroupTag, deleteGroupTag } from "../api/groupsApi";
 import ThinkingLoader from "../components/ThinkingLoader";
 import WhatsNewModal from "../components/modals/WhatsNewModal";
@@ -181,7 +182,7 @@ export default function SitesPage() {
             return true;
         } catch (error) {
             console.error(error);
-            showNotification("Error saving site", "error");
+            showNotification(apiErrorMessage(error, "Error saving site"), "error");
             return false;
         }
     };
@@ -208,7 +209,7 @@ export default function SitesPage() {
                 refreshData();
             } catch (error) {
                 console.error(error);
-                showNotification("Error deleting site", "error");
+                showNotification(apiErrorMessage(error, "Error deleting site"), "error");
             } finally {
                 setDeleteSiteItem(null);
             }
@@ -244,7 +245,7 @@ export default function SitesPage() {
             refreshData();
         } catch (error) {
             console.error(error);
-            showNotification("Error updating favorite", "error");
+            showNotification(apiErrorMessage(error, "Error updating favorite"), "error");
         } finally {
             pendingFavoriteIdsRef.current.delete(siteId);
             setPendingFavoriteIds(new Set(pendingFavoriteIdsRef.current));
@@ -298,18 +299,8 @@ export default function SitesPage() {
             setIsTagDialogOpen(false);
         } catch (error: unknown) {
             console.error(error);
-            const errorMessage =
-                typeof error === "object" &&
-                error !== null &&
-                "response" in error
-                    ? (
-                          error as {
-                              response?: { data?: { message?: string } };
-                          }
-                      ).response?.data?.message
-                    : undefined;
             showNotification(
-                errorMessage || "Error saving tag",
+                apiErrorMessage(error, "Error saving tag"),
                 "error",
             );
         }
@@ -337,7 +328,7 @@ export default function SitesPage() {
             refreshData();
         } catch (error: unknown) {
             console.error(error);
-            showNotification("Error deleting tag", "error");
+            showNotification(apiErrorMessage(error, "Error deleting tag"), "error");
         } finally {
             setTagToDelete(null);
         }
@@ -373,9 +364,9 @@ export default function SitesPage() {
             if (sortOrder === "a-z") return a.title.localeCompare(b.title);
             if (sortOrder === "z-a") return b.title.localeCompare(a.title);
             if (sortOrder === "newest")
-                return b.createdAt.localeCompare(a.createdAt);
+                return (b.createdAt || "").localeCompare(a.createdAt || "");
             if (sortOrder === "oldest")
-                return a.createdAt.localeCompare(b.createdAt);
+                return (a.createdAt || "").localeCompare(b.createdAt || "");
 
             return 0;
         });

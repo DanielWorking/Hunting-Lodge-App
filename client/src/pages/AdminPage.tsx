@@ -10,6 +10,7 @@ import { useState, useMemo } from "react";
 import { Container, Typography, Box } from "@mui/material";
 import { Navigate } from "react-router-dom";
 import { updateUser, deleteUser } from "../api/usersApi";
+import { apiErrorMessage } from "../api/apiClient";
 import { createGroup, updateGroup, deleteGroup } from "../api/groupsApi";
 
 import { useUser } from "../context/UserContext";
@@ -147,7 +148,7 @@ export default function AdminPage() {
             setIsUserDialogOpen(false);
         } catch (error) {
             console.error(error);
-            showNotification("Error saving user", "error");
+            showNotification(apiErrorMessage(error, "Error saving user"), "error");
         }
     };
 
@@ -177,7 +178,7 @@ export default function AdminPage() {
             setEditingGroup(null);
         } catch (err: any) {
             console.error("Error saving group:", err);
-            const msg = err.response?.data?.message || "Failed to save group";
+            const msg = apiErrorMessage(err, "Failed to save group");
             showNotification(msg, "error");
         }
     };
@@ -204,7 +205,7 @@ export default function AdminPage() {
             refreshData();
         } catch (error) {
             console.error(error);
-            showNotification("Error deleting item", "error");
+            showNotification(apiErrorMessage(error, "Error deleting item"), "error");
         } finally {
             setDeleteItem(null);
         }

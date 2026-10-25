@@ -17,7 +17,10 @@ import apiClient from "./apiClient";
  *
  * @returns {Promise<import("axios").AxiosResponse<import("../types").SiteCard[]>>} Axios promise resolving to the list of accessible site bookmark records.
  */
-export const getSites = () => apiClient.get("/sites");
+export const getSites = (groupId?: string) =>
+    apiClient.get<import("../types").SiteCard[]>("/sites", {
+        params: groupId ? { groupId } : undefined,
+    });
 
 /**
  * Creates a new web resource bookmark entry for a specific group.
@@ -28,7 +31,8 @@ export const getSites = () => apiClient.get("/sites");
  * @param  {Object|Partial<import("../types").SiteCard>} siteData  The bookmark payload containing title, url, groupId, and optional tag, description, or imageUrl.
  * @returns {Promise<import("axios").AxiosResponse<import("../types").SiteCard>>} Axios promise resolving to the newly created site bookmark record.
  */
-export const createSite = (siteData: any) => apiClient.post("/sites", siteData);
+export const createSite = (siteData: Partial<import("../types").SiteCard>) =>
+    apiClient.post<import("../types").SiteCard>("/sites", siteData);
 
 /**
  * Partially updates an existing web resource bookmark by its unique identifier
@@ -41,7 +45,8 @@ export const createSite = (siteData: any) => apiClient.post("/sites", siteData);
  * @param  {Object|Partial<import("../types").SiteCard>} siteData  The updated bookmark fields (title, url, tag, description, imageUrl, or groupId).
  * @returns {Promise<import("axios").AxiosResponse<import("../types").SiteCard>>} Axios promise resolving to the updated site bookmark record.
  */
-export const updateSite = (id: string, siteData: any) => apiClient.patch(`/sites/${id}`, siteData);
+export const updateSite = (id: string, siteData: Partial<import("../types").SiteCard>) =>
+    apiClient.patch<import("../types").SiteCard>(`/sites/${id}`, siteData);
 
 /**
  * Deletes a web resource bookmark from the repository by its unique identifier.
@@ -52,7 +57,8 @@ export const updateSite = (id: string, siteData: any) => apiClient.patch(`/sites
  * @param  {string} id  The unique identifier of the site bookmark to delete.
  * @returns {Promise<import("axios").AxiosResponse<{ message: string }>>} Axios promise resolving to the deletion confirmation response.
  */
-export const deleteSite = (id: string) => apiClient.delete(`/sites/${id}`);
+export const deleteSite = (id: string) =>
+    apiClient.delete<{ message: string }>(`/sites/${id}`);
 
 /**
  * Toggles the favorite status of a web resource bookmark for the current user.
@@ -63,5 +69,6 @@ export const deleteSite = (id: string) => apiClient.delete(`/sites/${id}`);
  * @param  {string} id  The unique identifier of the site bookmark to toggle.
  * @returns {Promise<import("axios").AxiosResponse<import("../types").SiteCard>>} Axios promise resolving to the updated site bookmark record.
  */
-export const toggleFavoriteSite = (id: string) => apiClient.put(`/sites/${id}/favorite`);
+export const toggleFavoriteSite = (id: string) =>
+    apiClient.put<import("../types").SiteCard>(`/sites/${id}/favorite`);
 

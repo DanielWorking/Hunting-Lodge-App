@@ -3,7 +3,8 @@
  * 
  * Centralized Axios instance configured with base API URL, security interceptors,
  * and concurrent in-flight GET request deduplication.
- * Injects cryptographic Bearer JWT tokens into request headers and handles session expiration.
+ * Transmits HttpOnly session cookies (`hunting_token` and `hunting_refresh_token`) via
+ * `withCredentials: true` and handles silent session refresh on 401 responses.
  * A 429 rejects with a RateLimitError carrying the server's retry delay; nothing is ever retried
  * automatically, so a rate limit can never feed a request loop.
  */
@@ -136,10 +137,9 @@ axiosInstance.interceptors.response.use(
                 }
             }
 
-            // If request fails with 401 and cannot be refreshed, clear stored auth credentials
+            // If request fails with 401 and cannot be refreshed, clear stored client session state
             const currentPath = window.location.pathname;
 
-            localStorage.removeItem("hunting_token");
             localStorage.removeItem("hunting_userId");
             localStorage.removeItem("hunting_groupId");
 

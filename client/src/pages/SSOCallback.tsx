@@ -44,7 +44,12 @@ export default function SSOCallback() {
         const state = searchParams.get("state");
 
         // Stop if the callback has already been processed or if the code is missing.
-        if (processedRef.current || !code) return;
+        if (processedRef.current) return;
+        if (!code) {
+            processedRef.current = true;
+            navigate("/login?error=missing_code", { replace: true });
+            return;
+        }
         processedRef.current = true;
 
         /**
@@ -91,7 +96,7 @@ export default function SSOCallback() {
             }
         };
 
-        handleSSOLogin();
+        void handleSSOLogin();
     }, [searchParams, navigate]);
 
     return <ThinkingLoader />;

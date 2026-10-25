@@ -14,6 +14,7 @@ import { useUser } from "./context/UserContext";
 import { useData } from "./context/DataContext";
 import ThinkingLoader from "./components/ThinkingLoader";
 import DataLoadErrorPanel from "./components/DataLoadErrorPanel";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Lazy-loaded page components for route-level code splitting
 const LoginPage = lazy(() => import("./pages/LoginPage"));
@@ -136,7 +137,11 @@ function App() {
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-            {showNavbar && <Navbar />}
+            {showNavbar && (
+                <ErrorBoundary>
+                    <Navbar />
+                </ErrorBoundary>
+            )}
             <Box
                 component="main"
                 id="main-content"
@@ -150,6 +155,7 @@ function App() {
                 {user && loadError && !loading ? (
                     <DataLoadErrorPanel error={loadError} onRetry={retry} />
                 ) : (
+                <ErrorBoundary>
                 <Suspense
                     fallback={
                         <Box
@@ -235,6 +241,7 @@ function App() {
                         <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                 </Suspense>
+                </ErrorBoundary>
                 )}
             </Box>
         </Box>

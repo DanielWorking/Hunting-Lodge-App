@@ -65,26 +65,32 @@ const connectDB = async (): Promise<void> => {
     }
 };
 
-// Initialize database connection
-void connectDB();
+let server: http.Server | undefined;
 
-// Start listening for incoming requests
-const server: http.Server = app.listen(config.port, (): void => {
-    console.log(`🚀 Server is running on port ${config.port} [Environment: ${config.env}]`);
-    fs.promises
-        .access(path.join(config.staticFilesPath, "index.html"), fs.constants.F_OK)
-        .then((): void => {
-            console.log(`📦 Serving React SPA static assets from: ${config.staticFilesPath}`);
-        })
-        .catch((): void => {
-            console.log(`ℹ️  Static assets directory not found at: ${config.staticFilesPath} (Client UI will not be served)`);
-        });
-});
+/**
+ * Connects to MongoDB prior to binding the HTTP listener so cold-start
+ * requests cannot hit routes before the database and admin group are ready.
+ */
+const startServer = async (): Promise<void> => {
+    await connectDB();
 
-// Configure keep-alive and headers timeout for reverse-proxy alignment (ALB / Nginx / OpenShift Router)
-server.keepAliveTimeout = 65000; // 65 seconds
-server.headersTimeout = 66000;   // 66 seconds (must exceed keepAliveTimeout)
-server.requestTimeout = 30000;   // 30 seconds
+    server = app.listen(config.port, (): void => {
+        console.log(`🚀 Server is running on port ${config.port} [Environment: ${config.env}]`);
+        fs.promises
+            .access(path.join(config.staticFilesPath, "index.html"), fs.constants.F_OK)
+            .then((): void => {
+                console.log(`📦 Serving React SPA static assets from: ${config.staticFilesPath}`);
+            })
+            .catch((): void => {
+                console.log(`ℹ️  Static assets directory not found at: ${config.staticFilesPath} (Client UI will not be served)`);
+            });
+    });
+
+    // Configure keep-alive and headers timeout for reverse-proxy alignment (ALB / Nginx / OpenShift Router)
+    server.keepAliveTimeout = 65000; // 65 seconds
+    server.headersTimeout = 66000;   // 66 seconds (must exceed keepAliveTimeout)
+    server.requestTimeout = 30000;   // 30 seconds
+};
 
 /**
  * Gracefully shuts down the HTTP server and database connection.
@@ -95,17 +101,29 @@ const gracefulShutdown = async (signal: string): Promise<void> => {
     if (typeof stopCronJobs === "function") {
         stopCronJobs();
     }
-    server.close(async (): Promise<void> => {
-        console.log("🔒 HTTP server closed.");
+
+    const isCrash = signal === "UNHANDLED_REJECTION" || signal === "UNCAUGHT_EXCEPTION";
+
+    const closeDatabaseAndExit = async (): Promise<void> => {
         try {
             await mongoose.connection.close(false);
             console.log("🔒 MongoDB connection closed.");
-            process.exit(0);
+            process.exit(isCrash ? 1 : 0);
         } catch (err: unknown) {
             console.error("❌ Error closing MongoDB connection:", err);
             process.exit(1);
         }
-    });
+    };
+
+    if (server) {
+        server.close((): void => {
+            console.log("🔒 HTTP server closed.");
+            void closeDatabaseAndExit();
+        });
+    } else {
+        await closeDatabaseAndExit();
+        return;
+    }
 
     // Force shutdown if connections do not close within 10 seconds
     setTimeout((): void => {
@@ -116,3 +134,13 @@ const gracefulShutdown = async (signal: string): Promise<void> => {
 
 process.on("SIGTERM", (): Promise<void> => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", (): Promise<void> => gracefulShutdown("SIGINT"));
+process.on("unhandledRejection", (reason: unknown): void => {
+    console.error("❌ [Process] Unhandled Promise Rejection:", reason);
+    void gracefulShutdown("UNHANDLED_REJECTION");
+});
+process.on("uncaughtException", (err: Error): void => {
+    console.error("❌ [Process] Uncaught Exception:", err);
+    void gracefulShutdown("UNCAUGHT_EXCEPTION");
+});
+
+void startServer();

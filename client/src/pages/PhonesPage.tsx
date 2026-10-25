@@ -9,6 +9,7 @@
 import { useState, useMemo } from "react";
 import { Container } from "@mui/material";
 import { createPhone, updatePhone, deletePhone, toggleFavoritePhone } from "../api/phonesApi";
+import { apiErrorMessage } from "../api/apiClient";
 
 import { useData } from "../context/DataContext";
 import { useNotification } from "../context/NotificationContext";
@@ -103,8 +104,8 @@ export default function PhonesPage() {
                 await deletePhone(idToDelete);
                 showNotification("Phone deleted successfully", "success");
                 refreshData();
-            } catch {
-                showNotification("Error deleting phone", "error");
+            } catch (error: unknown) {
+                showNotification(apiErrorMessage(error, "Error deleting phone"), "error");
             } finally {
                 setDeleteItem(null);
             }
@@ -163,14 +164,14 @@ export default function PhonesPage() {
 
             // Synchronize server state
             await refreshData();
-        } catch {
+        } catch (error: unknown) {
             // Revert optimistic update on failure to previous status
             setPhones((prevPhones) =>
                 prevPhones.map((item) =>
                     item._id === targetId ? { ...item, isFavorite: previousStatus } : item,
                 ),
             );
-            showNotification("Failed to update favorite", "error");
+            showNotification(apiErrorMessage(error, "Failed to update favorite"), "error");
         } finally {
             setTogglingIds((prev) => {
                 const next = new Set(prev);

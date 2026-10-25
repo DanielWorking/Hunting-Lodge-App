@@ -208,6 +208,16 @@ export async function getSsoUrl(_req: Request, res: Response, next?: NextFunctio
     }
 }
 
+function isDatabaseError(error: unknown): boolean {
+    if (error instanceof mongoose.Error) {
+        return true;
+    }
+    if (error instanceof Error && /^Mongo/i.test(error.name)) {
+        return true;
+    }
+    return false;
+}
+
 /**
  * Step 8 & Step 9: Completes the SSO authentication flow using an authorization code.
  * Validates code, state, and transient cookie.
@@ -215,7 +225,7 @@ export async function getSsoUrl(_req: Request, res: Response, next?: NextFunctio
  * Strictly maps to CompanyTokenSet, extracts user claims, provisions/syncs user,
  * and issues httpOnly session cookies.
  */
-export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: Response, _next?: NextFunction): Promise<void> {
+export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: Response, next?: NextFunction): Promise<void> {
     try {
         const body = req.body || {};
         const code = typeof body.code === "string" ? body.code.trim() : "";
@@ -372,6 +382,18 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
             return;
         }
 
+        if (isDatabaseError(error)) {
+            if (typeof next === "function") {
+                next(error);
+                return;
+            }
+            res.status(500).json({
+                message: "Database error during authentication",
+                code: "INTERNAL_SERVER_ERROR",
+            });
+            return;
+        }
+
         res.status(401).json({
             message: "SSO Authentication failed",
             code: "SSO_AUTH_FAILED",
@@ -384,7 +406,7 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
 /**
  * Renews the application session using the hunting_refresh_token cookie.
  */
-export async function refreshToken(req: Request, res: Response, _next?: NextFunction): Promise<void> {
+export async function refreshToken(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
         const rawRefreshCookie = req.cookies?.[ssoConfig.refreshCookieName];
 
@@ -484,6 +506,18 @@ export async function refreshToken(req: Request, res: Response, _next?: NextFunc
             res.status(504).json({
                 message: "Identity provider network timeout during session refresh",
                 code: "IDP_TIMEOUT",
+            });
+            return;
+        }
+
+        if (isDatabaseError(error)) {
+            if (typeof next === "function") {
+                next(error);
+                return;
+            }
+            res.status(500).json({
+                message: "Database error during session refresh",
+                code: "INTERNAL_SERVER_ERROR",
             });
             return;
         }

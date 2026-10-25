@@ -75,6 +75,10 @@ export const notFoundHandler: RequestHandler = (
     res: Response,
     next: NextFunction
 ): void => {
+    if (res.headersSent) {
+        next();
+        return;
+    }
     const error: Error & { code?: string } = new Error(`Resource not found: ${req.method} ${req.originalUrl}`);
     error.code = "NOT_FOUND";
     res.status(404);

@@ -24,6 +24,8 @@ import { useUser } from "../../context/UserContext";
 import { useData } from "../../context/DataContext";
 import ShiftDatesDialog from "../ShiftDatesDialog";
 import { getAllSchedules } from "../../api/schedulesApi";
+import { apiErrorMessage } from "../../api/apiClient";
+import { useNotification } from "../../context/NotificationContext";
 
 /**
  * Renders the statistics and reporting tab for group administrators.
@@ -36,6 +38,7 @@ import { getAllSchedules } from "../../api/schedulesApi";
 export default function StatisticsTab() {
     const { currentGroup } = useUser();
     const { users, groups } = useData();
+    const { showNotification } = useNotification();
 
     /** @type {Object} Aggregated shift data mapped by user ID and shift type. */
     const [stats, setStats] = useState<any>({});
@@ -109,6 +112,7 @@ export default function StatisticsTab() {
             setStats(rawStats);
         } catch (error) {
             console.error("Error calculating stats", error);
+            showNotification(apiErrorMessage(error, "Error calculating statistics"), "error");
         } finally {
             setLoading(false);
         }

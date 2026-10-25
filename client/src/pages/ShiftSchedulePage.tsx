@@ -55,7 +55,7 @@ import { useUser } from "../context/UserContext";
 import { useData } from "../context/DataContext";
 import { useNotification } from "../context/NotificationContext";
 import ConfirmDialog from "../components/ConfirmDialog";
-import type { ShiftType, ShiftAssignment, VacationValue } from "../types";
+import type { ShiftType, ShiftAssignment, ShiftSchedule, VacationValue } from "../types";
 import ThinkingLoader from "../components/ThinkingLoader";
 import ScheduleTable from "../components/ScheduleTable";
 
@@ -65,18 +65,6 @@ interface LocalShift {
     shiftTypeId: string;
     vacationDeducted?: boolean;
     vacationValue?: VacationValue;
-}
-
-/** The Shift Manager's view of a schedule, as GET, PUT and POST /schedules return it. */
-interface ScheduleView {
-    _id: string;
-    startDate: string;
-    endDate?: string;
-    isPublished?: boolean;
-    hasUnpublishedChanges?: boolean;
-    revision?: number;
-    shifts?: ShiftAssignment[];
-    unchanged?: boolean;
 }
 
 const Transition = React.forwardRef(function Transition(
@@ -89,7 +77,7 @@ const Transition = React.forwardRef(function Transition(
 const toLocalShift = (s: ShiftAssignment): LocalShift => ({
     userId: String(s.userId),
     shiftTypeId: String(s.shiftTypeId),
-    date: parseISO(typeof s.date === "string" ? s.date : (s.date as Date).toISOString()),
+    date: typeof s.date === "string" ? parseISO(s.date) : s.date instanceof Date ? s.date : new Date(s.date || NaN),
     vacationDeducted: s.vacationDeducted,
     vacationValue: s.vacationValue,
 });
@@ -128,7 +116,7 @@ export default function ShiftSchedulePage() {
     // The schedule the server last returned (null: none exists yet), its load failure, and the
     // manager's unsaved edits. Each is tagged with its group and week, so the page can never show,
     // compare against or save into another week's data.
-    const [loaded, setLoaded] = useState<ForWeek<ScheduleView | null> | null>(null);
+    const [loaded, setLoaded] = useState<ForWeek<ShiftSchedule | null> | null>(null);
     const [failed, setFailed] = useState<ForWeek<string> | null>(null);
     const [edited, setEdited] = useState<ForWeek<LocalShift[]> | null>(null);
     const [reloadToken, setReloadToken] = useState(0);
@@ -207,7 +195,7 @@ export default function ShiftSchedulePage() {
     );
 
     /** Shows a schedule the server returned for `key` as the page's state and change baseline. */
-    const showSchedule = (key: string, data: ScheduleView | null) => {
+    const showSchedule = (key: string, data: ShiftSchedule | null) => {
         setLoaded({ key, value: data });
         setEdited(null);
     };
@@ -376,7 +364,7 @@ export default function ShiftSchedulePage() {
             shifts: shifts.filter((s) => shownUserIds.has(s.userId)),
         });
         if (key) showSchedule(key, res.data);
-        return res.data as ScheduleView;
+        return res.data as ShiftSchedule;
     };
 
     /** Runs one save or publish at a time; a second click while one runs is ignored. */

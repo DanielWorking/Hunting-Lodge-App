@@ -22,5 +22,3 @@ export { default as ShiftReport } from "./ShiftReport";
 export * from "./Phone";
 export { default as Phone } from "./Phone";
 
-export * from "./VacationRequest";
-export { default as VacationRequest } from "./VacationRequest";

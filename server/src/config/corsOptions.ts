@@ -102,6 +102,7 @@ export function createCorsOptions(
             "Accept",
             "Origin",
         ],
+        exposedHeaders: ["Retry-After", "X-Has-More", "X-Next-Cursor-Date", "X-Next-Cursor-Id"],
         maxAge: 86400, // 24 hours preflight cache
     };
 }

@@ -10,7 +10,6 @@
  * - sites: (groupId + tag), (groupId + url)
  * - shiftreports: unique (groupId + title), date/startTime orderings and keyset pagination
  * - phones: numbers, name, (type + name)
- * - vacationrequests: userId, groupId, date, status, and status/user/date lookups per group
  */
 
 import { Db, MongoClient, IndexSpecification, CreateIndexesOptions, MongoServerError } from "mongodb";
@@ -56,16 +55,6 @@ export const INDEXES: ReadonlyArray<IndexDefinition> = [
     { collection: "phones", keys: { numbers: 1 } },
     { collection: "phones", keys: { name: 1 } },
     { collection: "phones", keys: { type: 1, name: 1 } },
-
-    { collection: "vacationrequests", keys: { userId: 1 } },
-    { collection: "vacationrequests", keys: { groupId: 1 } },
-    { collection: "vacationrequests", keys: { date: 1 } },
-    { collection: "vacationrequests", keys: { status: 1 } },
-    { collection: "vacationrequests", keys: { groupId: 1, status: 1, date: 1 } },
-    { collection: "vacationrequests", keys: { groupId: 1, userId: 1, status: 1 } },
-    { collection: "vacationrequests", keys: { groupId: 1, date: 1 } },
-    { collection: "vacationrequests", keys: { userId: 1, status: 1 } },
-    { collection: "vacationrequests", keys: { userId: 1, date: 1 } },
 ];
 
 export async function up(db: Db, _client?: MongoClient): Promise<void> {

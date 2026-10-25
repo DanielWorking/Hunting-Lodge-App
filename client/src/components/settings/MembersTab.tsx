@@ -29,6 +29,7 @@ import { useUser } from "../../context/UserContext";
 import { useData } from "../../context/DataContext";
 import { useNotification } from "../../context/NotificationContext";
 import { managerUpdateUser, reorderUsers } from "../../api/usersApi";
+import { apiErrorMessage } from "../../api/apiClient";
 
 /**
  * Renders the group members management tab.
@@ -124,8 +125,9 @@ export default function MembersTab() {
             const newValues = { ...editedValues };
             delete newValues[userId];
             setEditedValues(newValues);
-        } catch {
-            showNotification("Error updating user", "error");
+        } catch (error: unknown) {
+            console.error(error);
+            showNotification(apiErrorMessage(error, "Error updating user"), "error");
         }
     };
 
@@ -177,8 +179,9 @@ export default function MembersTab() {
                 groupId: currentGroup?._id,
                 updates,
             });
-        } catch {
-            showNotification("Error reordering", "error");
+        } catch (error: unknown) {
+            console.error(error);
+            showNotification(apiErrorMessage(error, "Error reordering"), "error");
             refreshData();
         }
     };
@@ -340,7 +343,7 @@ export default function MembersTab() {
                                             type="number"
                                             size="small"
                                             sx={{ width: 80 }}
-                                            value={currentVacation}
+                                            value={currentVacation ?? 0}
                                             inputProps={{
                                                 "aria-label": `Vacation balance for ${user.displayName}`,
                                             }}

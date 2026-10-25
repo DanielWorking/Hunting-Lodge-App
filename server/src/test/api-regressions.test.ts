@@ -25,14 +25,12 @@ import Phone from "../models/Phone";
 import Site from "../models/Site";
 import ShiftSchedule from "../models/ShiftSchedule";
 import ShiftReport from "../models/ShiftReport";
-import VacationRequest from "../models/VacationRequest";
 
 import * as phonesController from "../controllers/phonesController";
 import * as schedulesController from "../controllers/schedulesController";
 import * as groupsController from "../controllers/groupsController";
 import * as usersController from "../controllers/usersController";
 import * as reportsController from "../controllers/reportsController";
-import * as vacationController from "../controllers/vacationController";
 import * as authController from "../controllers/authController";
 
 import { createPhoneSchema } from "../routes/phones";
@@ -809,114 +807,6 @@ describe("tag names travel in the body or the query string, never in the path", 
     it("no longer serves the path-segment routes", () => {
         const stack = (groupsRouter as unknown as { stack: Array<{ route?: { path: string } }> }).stack;
         assert.equal(stack.some((layer) => layer.route?.path === "/:id/tags/:tagName"), false);
-    });
-});
-
-// --- Vacation balance visibility --------------------------------------------
-
-describe("only the group's Shift Manager sees vacation balances; group names resolve", () => {
-    function setup() {
-        const groupId = newId();
-        const groupName = `vac-${groupId}`;
-        mockGroupLookup({ _id: groupId, name: groupName });
-        const captured: { userFilter?: Record<string, unknown>; scheduleFilter?: Record<string, unknown> } = {};
-        const chain = (result: unknown) => ({ select: () => ({ lean: async () => result }) });
-        return {
-            groupId,
-            groupName,
-            captured,
-            mockTarget(doc: Record<string, unknown> | null) {
-                patch(User, "findOne", (filter: Record<string, unknown>) => {
-                    captured.userFilter = filter;
-                    return chain(doc);
-                });
-                patch(ShiftSchedule, "find", (filter: Record<string, unknown>) => {
-                    captured.scheduleFilter = filter;
-                    return chain([]);
-                });
-                patch(VacationRequest, "find", () => chain([]));
-            },
-        };
-    }
-
-    it("forbids a regular member from reading even their own balance", async () => {
-        const { groupId, mockTarget } = setup();
-        const selfId = newId();
-        mockTarget({ _id: selfId, vacationBalance: 7 });
-        const req = { query: { groupId, userId: selfId }, user: { _id: selfId, groups: [{ groupId, role: "member" }] } } as unknown as Request;
-        const res = createMockRes();
-
-        await vacationController.aggregateVacationBalance(req, res as unknown as Response, () => {});
-
-        assert.equal(res.statusCode, 403);
-        assert.equal(bodyOf(res).code, "FORBIDDEN_MANAGER_REQUIRED");
-    });
-
-    it("lets the Shift Manager read their own balance with the group given by name", async () => {
-        const { groupId, groupName, captured, mockTarget } = setup();
-        const selfId = newId();
-        mockTarget({ _id: selfId, vacationBalance: 7 });
-        const req = { query: { groupId: groupName, userId: selfId }, user: { _id: selfId, groups: [{ groupId, role: "shift_manager" }] } } as unknown as Request;
-        const res = createMockRes();
-
-        await vacationController.aggregateVacationBalance(req, res as unknown as Response, () => {});
-
-        assert.equal(res.statusCode, 200);
-        assert.equal(bodyOf(res).remainingBalance, 7);
-        assert.equal(String(captured.scheduleFilter?.groupId), groupId, "queries must use the resolved ObjectId, not the name");
-    });
-
-    it("refuses a vacation request for lack of balance without revealing the balance", async () => {
-        const { groupId } = setup();
-        const selfId = newId();
-        patch(User, "findById", () => ({ select: () => ({ lean: async () => ({ _id: selfId, vacationBalance: 0.5 }) }) }));
-        patch(VacationRequest, "findOne", () => ({ select: () => ({ lean: async () => null }) }));
-        const req = { body: { groupId, date: "2026-10-20", vacationValue: 1 }, user: { _id: selfId, groups: [{ groupId, role: "member" }] } } as unknown as Request;
-        const res = createMockRes();
-
-        await vacationController.createVacationRequest(req, res as unknown as Response, () => {});
-
-        assert.equal(res.statusCode, 400);
-        assert.equal(bodyOf(res).code, "INSUFFICIENT_VACATION_BALANCE");
-        assert.equal("currentBalance" in bodyOf(res), false);
-    });
-
-    it("forbids a regular member from reading another member's balance", async () => {
-        const { groupId, mockTarget } = setup();
-        mockTarget({ _id: newId(), vacationBalance: 7 });
-        const req = { query: { groupId, userId: newId() }, user: { _id: newId(), groups: [{ groupId, role: "member" }] } } as unknown as Request;
-        const res = createMockRes();
-
-        await vacationController.aggregateVacationBalance(req, res as unknown as Response, () => {});
-
-        assert.equal(res.statusCode, 403);
-        assert.equal(bodyOf(res).code, "FORBIDDEN_MANAGER_REQUIRED");
-    });
-
-    it("lets the group's Shift Manager read a member's balance, scoped to the group", async () => {
-        const { groupId, captured, mockTarget } = setup();
-        const memberId = newId();
-        mockTarget({ _id: memberId, vacationBalance: 2.5 });
-        const req = { query: { groupId, userId: memberId }, user: { _id: newId(), groups: [{ groupId, role: "shift_manager" }] } } as unknown as Request;
-        const res = createMockRes();
-
-        await vacationController.aggregateVacationBalance(req, res as unknown as Response, () => {});
-
-        assert.equal(res.statusCode, 200);
-        assert.equal(bodyOf(res).remainingBalance, 2.5);
-        assert.equal(String(captured.userFilter?.["groups.groupId"]), groupId);
-    });
-
-    it("answers 404 when a Shift Manager asks for a user outside the group", async () => {
-        const { groupId, mockTarget } = setup();
-        mockTarget(null);
-        const req = { query: { groupId, userId: newId() }, user: { _id: newId(), groups: [{ groupId, role: "shift_manager" }] } } as unknown as Request;
-        const res = createMockRes();
-
-        await vacationController.aggregateVacationBalance(req, res as unknown as Response, () => {});
-
-        assert.equal(res.statusCode, 404);
-        assert.equal(bodyOf(res).code, "NOT_FOUND");
     });
 });
 

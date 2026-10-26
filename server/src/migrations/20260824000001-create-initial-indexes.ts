@@ -4,12 +4,12 @@
  * Creates exactly the indexes the Mongoose schemas declare. Preprod and prod run with autoIndex
  * off, so this migration is how their indexes are built:
  * - users: unique username, unique email, unique SSO identity (issuer + subject, when both are set),
- *   groups.groupId and (groups.groupId + groups.order)
+ *   and groups.groupId
  * - groups: unique name
- * - shiftschedules: unique (groupId + startDate), published-range and shift-assignment lookups
+ * - shiftschedules: unique (groupId + startDate) and published-range lookups
  * - sites: (groupId + tag), (groupId + url)
- * - shiftreports: unique (groupId + title), date/startTime orderings and keyset pagination
- * - phones: numbers, name, (type + name)
+ * - shiftreports: unique (groupId + title), (groupId + date + startTime) and keyset pagination (groupId + date + _id)
+ * - phones: numbers, name
  */
 
 import { Db, MongoClient, IndexSpecification, CreateIndexesOptions, MongoServerError } from "mongodb";
@@ -24,7 +24,6 @@ export const INDEXES: ReadonlyArray<IndexDefinition> = [
     { collection: "users", keys: { username: 1 }, options: { unique: true } },
     { collection: "users", keys: { email: 1 }, options: { unique: true } },
     { collection: "users", keys: { "groups.groupId": 1 } },
-    { collection: "users", keys: { "groups.groupId": 1, "groups.order": 1 } },
     {
         collection: "users",
         keys: { ssoIssuer: 1, ssoSubject: 1 },
@@ -41,20 +40,16 @@ export const INDEXES: ReadonlyArray<IndexDefinition> = [
 
     { collection: "shiftschedules", keys: { groupId: 1, startDate: 1 }, options: { unique: true } },
     { collection: "shiftschedules", keys: { groupId: 1, isPublished: 1, startDate: 1, endDate: 1 } },
-    { collection: "shiftschedules", keys: { groupId: 1, isPublished: 1, "shifts.userId": 1 } },
 
     { collection: "sites", keys: { groupId: 1, tag: 1 } },
     { collection: "sites", keys: { groupId: 1, url: 1 } },
 
     { collection: "shiftreports", keys: { groupId: 1, title: 1 }, options: { unique: true } },
-    { collection: "shiftreports", keys: { groupId: 1, date: -1 } },
-    { collection: "shiftreports", keys: { groupId: 1, startTime: -1 } },
     { collection: "shiftreports", keys: { groupId: 1, date: -1, startTime: -1 } },
     { collection: "shiftreports", keys: { groupId: 1, date: -1, _id: -1 } },
 
     { collection: "phones", keys: { numbers: 1 } },
     { collection: "phones", keys: { name: 1 } },
-    { collection: "phones", keys: { type: 1, name: 1 } },
 ];
 
 export async function up(db: Db, _client?: MongoClient): Promise<void> {

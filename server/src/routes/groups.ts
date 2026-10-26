@@ -3,7 +3,6 @@
  * 
  * Provides API endpoints for managing groups, including their metadata,
  * shift settings, site tags, and member synchronization.
- * Migrated to strict TypeScript with schema validation and RBAC guardrails.
  */
 
 import { Request, Router } from "express";
@@ -15,14 +14,14 @@ import {
     requireGroupMember,
     requireShiftManager,
 } from "../middleware/authMiddleware";
-import { validateRequest } from "../middleware/validationMiddleware";
+import { validateRequest, objectIdString } from "../middleware/validationMiddleware";
 
 const router = Router();
 
 // --- Validation Schemas ---
 
 export const groupIdParamSchema = z.object({
-    id: z.string().trim().min(1, "Group ID is required"),
+    id: objectIdString("Group ID"),
 });
 
 export const createGroupSchema = z.object({
@@ -51,21 +50,11 @@ export const updateSettingsSchema = z.object({
         }).passthrough(),
     ).optional(),
     timeSlots: z.array(z.record(z.string(), z.unknown())).optional(),
-    settings: z.record(z.string(), z.unknown()).optional(),
 }).passthrough();
 
 export const updateGroupSchema = z.object({
-    name: z.string().trim().min(1).optional(),
-    settings: z.record(z.string(), z.unknown()).optional(),
-    siteTags: z.array(z.string()).optional(),
-}).passthrough();
-
-export type CreateGroupInput = z.infer<typeof createGroupSchema>;
-export type AddTagInput = z.infer<typeof addTagSchema>;
-export type RenameTagInput = z.infer<typeof renameTagSchema>;
-export type DeleteTagQueryInput = z.infer<typeof deleteTagQuerySchema>;
-export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
-export type UpdateGroupInput = z.infer<typeof updateGroupSchema>;
+    name: z.string().trim().min(1),
+}).strict();
 
 // Ensure all group routes require authentication
 router.use(protect);
@@ -149,8 +138,7 @@ router.put(
 
 /**
  * PATCH /:id
- * Partially updates general group metadata: only the fields present in the body
- * (name, settings, siteTags) are changed; omitted fields keep their stored values.
+ * Renames a group. Settings go through PUT /:id/settings and tags through /:id/tags.
  * Authorization: Restricted to Administrators.
  */
 router.patch(
@@ -174,5 +162,4 @@ router.delete(
     groupsController.deleteGroup,
 );
 
-(router as unknown as { default: typeof router }).default = router;
 export default router;

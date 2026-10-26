@@ -8,6 +8,7 @@
 
 import cron, { ScheduledTask, TaskOptions } from "node-cron";
 import mongoose, { Types } from "mongoose";
+import config from "../config";
 import Group from "../models/Group";
 import ShiftReport from "../models/ShiftReport";
 import ShiftSchedule from "../models/ShiftSchedule";
@@ -102,17 +103,6 @@ export interface IShiftReport {
     readonly attendees?: ReadonlyArray<IShiftAttendee>;
     readonly createdAt?: Date;
     readonly updatedAt?: Date;
-}
-
-/**
- * Minimal User document structure for attendees lookup.
- */
-export interface IUser {
-    readonly _id: Types.ObjectId | string;
-    readonly username: string;
-    readonly displayName?: string;
-    readonly email?: string;
-    readonly isActive?: boolean;
 }
 
 // Atomic concurrency guard to prevent overlapping cron job executions
@@ -335,29 +325,6 @@ export async function runShiftReportGenerator(now: Date = new Date()): Promise<v
 }
 
 /**
- * Cron expression for shift report generation.
- * Can be overridden via SHIFT_REPORT_CRON_SCHEDULE env var.
- * Defaults to every minute ("* * * * *").
- */
-const DEFAULT_CRON_SCHEDULE = "* * * * *";
-
-function getCronScheduleExpression(): string {
-    const envSchedule = process.env.SHIFT_REPORT_CRON_SCHEDULE;
-    if (!envSchedule) {
-        return DEFAULT_CRON_SCHEDULE;
-    }
-    if (cron.validate(envSchedule)) {
-        return envSchedule;
-    }
-    console.warn(
-        `[Cron] Invalid SHIFT_REPORT_CRON_SCHEDULE "${envSchedule}". Falling back to default "${DEFAULT_CRON_SCHEDULE}".`
-    );
-    return DEFAULT_CRON_SCHEDULE;
-}
-
-const cronScheduleExpression: string = getCronScheduleExpression();
-
-/**
  * Task options for node-cron scheduler.
  */
 const cronTaskOptions: TaskOptions = {
@@ -366,14 +333,22 @@ const cronTaskOptions: TaskOptions = {
     noOverlap: true,
 };
 
+let scheduledTask: ScheduledTask | null = null;
+
 /**
- * Scheduled job that runs every minute to check for upcoming shift starts.
- * By default, in-process scheduling is disabled in favor of dedicated OpenShift CronJobs.
- * Set ENABLE_IN_PROCESS_CRON="true" in development to enable in-memory scheduling.
+ * Starts the in-process shift report scheduler on `config.cron.shiftReportSchedule`.
+ * Used in nonprod local development when `ENABLE_IN_PROCESS_CRON=true`.
  */
-export const job: ScheduledTask | null = process.env.ENABLE_IN_PROCESS_CRON === "true"
-    ? cron.schedule(
-        cronScheduleExpression,
+export const startCronJobs = (): ScheduledTask | null => {
+    if (scheduledTask) {
+        return scheduledTask;
+    }
+    const schedule = config.cron.shiftReportSchedule;
+    if (!schedule) {
+        return null;
+    }
+    scheduledTask = cron.schedule(
+        schedule,
         async (): Promise<void> => {
             try {
                 await runShiftReportGenerator();
@@ -383,21 +358,16 @@ export const job: ScheduledTask | null = process.env.ENABLE_IN_PROCESS_CRON === 
             }
         },
         cronTaskOptions
-    )
-    : null;
-
-/**
- * Gracefully stops the cron scheduler.
- */
-export const stopCronJobs = (): void => {
-    if (job && typeof job.stop === "function") {
-        job.stop();
-    }
+    );
+    return scheduledTask;
 };
 
-export default {
-    job,
-    runShiftReportGenerator,
-    stopCronJobs,
-    processGroupSlot,
+/**
+ * Gracefully stops the cron scheduler if it was started.
+ */
+export const stopCronJobs = (): void => {
+    if (scheduledTask) {
+        scheduledTask.stop();
+        scheduledTask = null;
+    }
 };

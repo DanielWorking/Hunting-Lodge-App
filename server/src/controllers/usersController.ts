@@ -3,7 +3,6 @@
  * 
  * Handlers for user management, including authentication,
  * profile updates, group synchronization, and administrative controls.
- * Migrated to strict TypeScript with strict RBAC enforcement and zero `any`.
  */
 
 import { Request, Response, NextFunction } from "express";
@@ -45,15 +44,12 @@ export interface UpdateUserRequestBody {
     isActive?: boolean;
     groups?: IUser["groups"];
     favoritePhones?: string[];
-    displayName?: string;
-    vacationBalance?: number;
     [key: string]: unknown;
 }
 
 export interface ManagerUpdateRequestBody {
     isActive?: boolean;
     vacationBalance?: number;
-    displayName?: string;
     [key: string]: unknown;
 }
 
@@ -445,7 +441,7 @@ export async function deleteUser(req: Request, res: Response, next?: NextFunctio
         const paramId = extractParamId(req.params.id);
 
         // Prevent self-deletion by administrators
-        const requestingUserId = (requestingUser?._id || req.user?.id || req.auth?.userId || req.auth?.sub)?.toString();
+        const requestingUserId = requestingUser?._id?.toString();
         if (requestingUserId && paramId && requestingUserId === paramId) {
             res.status(403).json({
                 message: "Forbidden: Administrators cannot delete their own accounts.",
@@ -645,11 +641,10 @@ export async function acknowledgeWhatsNew(req: Request, res: Response, next?: Ne
             return;
         }
 
-        const paramId = extractParamId(req.params.id);
-        const targetUserId = paramId || authUser._id.toString();
+        const targetUserId = extractParamId(req.params.id);
 
         // Enforce RBAC: Caller can only acknowledge for themselves unless Admin
-        if (paramId && paramId !== authUser._id.toString() && !isAdmin(authUser)) {
+        if (targetUserId !== authUser._id.toString() && !isAdmin(authUser)) {
             res.status(403).json({
                 message: "Forbidden: Cannot acknowledge for another user",
                 code: "FORBIDDEN",
@@ -660,7 +655,7 @@ export async function acknowledgeWhatsNew(req: Request, res: Response, next?: Ne
         const updatedUser = await User.findByIdAndUpdate(
             targetUserId,
             { $set: { hasSeenWhatsNew: true } },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!updatedUser) {
@@ -685,13 +680,3 @@ export async function acknowledgeWhatsNew(req: Request, res: Response, next?: Ne
         res.status(500).json({ message: "Failed to acknowledge What's New", code: "INTERNAL_ERROR" });
     }
 }
-
-export default {
-    getUsers,
-    reorderUsers,
-    updateUser,
-    deleteUser,
-    managerUpdate,
-    acknowledgeWhatsNew,
-};
-

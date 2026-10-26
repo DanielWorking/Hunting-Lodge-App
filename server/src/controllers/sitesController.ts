@@ -4,7 +4,6 @@
  * Handlers for managing group-specific web resources and links.
  * Enforces strict group isolation: all users (including Admins) must be
  * explicit members of a group to view, create, edit, or delete its resources.
- * Migrated to strict TypeScript with zero `any` and robust tenancy controls.
  */
 
 import { Request, Response, NextFunction } from "express";
@@ -341,7 +340,7 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
             return;
         }
 
-        const rawUserId = requestingUser?._id || req.user?.id;
+        const rawUserId = requestingUser?._id;
         if (!rawUserId) {
             res.status(401).json({ message: "Unauthorized", code: "UNAUTHORIZED" });
             return;
@@ -385,11 +384,3 @@ export async function toggleFavorite(req: Request, res: Response, next?: NextFun
         res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
-
-export default {
-    getSites,
-    createSite,
-    updateSite,
-    deleteSite,
-    toggleFavorite,
-};

@@ -4,7 +4,6 @@
  * Provides API endpoints for managing a shared contact directory.
  * Includes features for contact creation, duplicate number validation,
  * and user-specific favorite phone lists.
- * Migrated to strict TypeScript with schema validation and RBAC guardrails.
  */
 
 import { Router } from "express";
@@ -44,9 +43,6 @@ export const updatePhoneSchema = z.object({
     type: phoneTypeSchema.optional(),
     description: z.string().optional(),
 }).passthrough();
-
-export type CreatePhoneInput = z.infer<typeof createPhoneSchema>;
-export type UpdatePhoneInput = z.infer<typeof updatePhoneSchema>;
 
 // Phone data changes on every write, so no response from this router may be cached by the client.
 // Applied before protect() so that rejected requests are covered too.
@@ -111,5 +107,4 @@ router.delete(
     phonesController.deletePhone,
 );
 
-(router as unknown as { default: typeof router }).default = router;
 export default router;

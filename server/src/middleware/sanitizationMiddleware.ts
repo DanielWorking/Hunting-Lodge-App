@@ -3,15 +3,13 @@
  *
  * Provides request body sanitization and immutability guards across API endpoints.
  * Enforces SSO field immutability by stripping or rejecting unauthorized mutations
- * to SSO-authoritative identity properties (such as displayName, sub, and oidcId).
+ * to SSO-authoritative identity properties (such as displayName, ssoIssuer and ssoSubject).
  */
 
 import { Request, Response, NextFunction, RequestHandler } from "express";
 
 export const IMMUTABLE_SSO_FIELDS: readonly string[] = [
     "displayName",
-    "sub",
-    "oidcId",
     "ssoIssuer",
     "ssoSubject",
     "tokenVersion",

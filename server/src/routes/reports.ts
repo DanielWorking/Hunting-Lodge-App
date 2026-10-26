@@ -4,14 +4,13 @@
  * Provides API endpoints for managing shift reports.
  * Features include report retrieval with date filtering, automatic attendance 
  * detection based on shift schedules, and historical task tracking.
- * Migrated to strict TypeScript with schema validation and RBAC guardrails.
  */
 
 import { Request, Router } from "express";
 import { z } from "zod";
 import * as reportsController from "../controllers/reportsController";
 import { protect, requireGroupMember } from "../middleware/authMiddleware";
-import { validateRequest, isoDateString } from "../middleware/validationMiddleware";
+import { validateRequest, isoDateString, objectIdString } from "../middleware/validationMiddleware";
 
 const router = Router();
 
@@ -22,7 +21,7 @@ export const reportIdParamSchema = z.object({
 });
 
 export const getReportsQuerySchema = z.object({
-    groupId: z.string({ message: "Missing groupId" }).trim().min(1, "Missing groupId"),
+    groupId: objectIdString("groupId"),
     year: z.string().optional(),
     month: z.string().optional(),
     day: z.string().optional(),
@@ -34,7 +33,7 @@ export const getReportsQuerySchema = z.object({
 // title, startTime and endTime are required by the ShiftReport model, so they are required here too;
 // startTime also sets the report's `date`, so it must be a parseable ISO 8601 value.
 export const createReportSchema = z.object({
-    groupId: z.string({ message: "Target groupId is required" }).trim().min(1, "Target groupId is required"),
+    groupId: objectIdString("groupId"),
     title: z.string({ message: "Report title is required" }).trim().min(1, "Report title is required"),
     startTime: isoDateString("startTime"),
     endTime: isoDateString("endTime"),
@@ -46,10 +45,6 @@ export const updateReportSchema = z.object({
     attendees: z.array(z.record(z.string(), z.unknown())).optional(),
     previousTasks: z.string().optional(),
 });
-
-export type GetReportsQueryInput = z.infer<typeof getReportsQuerySchema>;
-export type CreateReportInput = z.infer<typeof createReportSchema>;
-export type UpdateReportInput = z.infer<typeof updateReportSchema>;
 
 // Ensure all report routes are protected by authentication
 router.use(protect);
@@ -105,5 +100,4 @@ router.delete(
     reportsController.deleteReport,
 );
 
-(router as unknown as { default: typeof router }).default = router;
 export default router;

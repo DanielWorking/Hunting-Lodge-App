@@ -12,7 +12,7 @@ import http from "http";
 import mongoose from "mongoose";
 import config from "./src/config";
 import app from "./app";
-import { stopCronJobs } from "./src/services/cronJobs";
+import { startCronJobs, stopCronJobs } from "./src/services/cronJobs";
 import { ensureAdminGroup } from "./src/services/adminGroup";
 
 // === Mongoose Connection Lifecycle Event Listeners ===
@@ -74,6 +74,11 @@ let server: http.Server | undefined;
 const startServer = async (): Promise<void> => {
     await connectDB();
 
+    if (config.cron.inProcess) {
+        startCronJobs();
+        console.log(`⏰ [Cron] In-process shift report scheduler started (${config.cron.shiftReportSchedule})`);
+    }
+
     server = app.listen(config.port, (): void => {
         console.log(`🚀 Server is running on port ${config.port} [Environment: ${config.env}]`);
         fs.promises
@@ -98,9 +103,7 @@ const startServer = async (): Promise<void> => {
  */
 const gracefulShutdown = async (signal: string): Promise<void> => {
     console.log(`\n🛑 ${signal} received. Initiating graceful shutdown...`);
-    if (typeof stopCronJobs === "function") {
-        stopCronJobs();
-    }
+    stopCronJobs();
 
     const isCrash = signal === "UNHANDLED_REJECTION" || signal === "UNCAUGHT_EXCEPTION";
 

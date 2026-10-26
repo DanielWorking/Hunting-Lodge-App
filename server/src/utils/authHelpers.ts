@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import config from "../config";
-import Group, { GroupDocument } from "../models/Group";
-import { BoundedLRUCache } from "./lruCache";
+import Group from "../models/Group";
+import { isAdminGroup } from "../services/adminGroup";
+import { LRUCache } from "lru-cache";
 
 /**
  * Group document or compatible object shape.
@@ -18,8 +19,6 @@ export interface ResolvedGroup {
  */
 export interface AuthUserGroup {
     readonly groupId?: { readonly _id?: mongoose.Types.ObjectId | string; readonly name?: string } | mongoose.Types.ObjectId | string | null;
-    readonly name?: string;
-    readonly groupName?: string;
     readonly role?: string;
     readonly order?: number;
 }
@@ -67,7 +66,7 @@ async function resolveFromPlainObject<T extends ResolvedGroup = ResolvedGroup>(
 
 const CACHE_TTL_MS = 5000;
 
-export const groupCache = new BoundedLRUCache<string, ResolvedGroup>({
+export const groupCache = new LRUCache<string, ResolvedGroup>({
     max: 500,
     ttl: CACHE_TTL_MS,
 });
@@ -76,19 +75,11 @@ export function clearGroupCache(): void {
     groupCache.clear();
 }
 
-export function invalidateGroupCache(groupId?: string): void {
-    if (groupId) {
-        groupCache.delete(groupId.toString());
-    } else {
-        groupCache.clear();
-    }
-}
-
 async function resolveFromIdentifier<T extends ResolvedGroup = ResolvedGroup>(
     groupId: unknown,
 ): Promise<T | null> {
     const strId = typeof groupId === "string" ? groupId.trim() : String(groupId);
-    if (!strId || strId === "[object Object]") {
+    if (!mongoose.isObjectIdOrHexString(strId)) {
         return null;
     }
 
@@ -100,38 +91,16 @@ async function resolveFromIdentifier<T extends ResolvedGroup = ResolvedGroup>(
         }
     }
 
-    let result: GroupDocument | null = null;
-    if (mongoose.Types.ObjectId.isValid(strId)) {
-        const byId = await Group.findById(strId);
-        if (byId) {
-            result = byId;
-        }
-    }
-
-    if (!result) {
-        const byName = await Group.findOne({ name: strId });
-        if (byName) {
-            result = byName;
-        }
-    }
-
+    const result = await Group.findById(strId);
     if (result && !isTestEnv) {
-        const resolved = result as unknown as ResolvedGroup;
-        groupCache.set(strId, resolved);
-        if (result._id) {
-            groupCache.set(result._id.toString(), resolved);
-        }
-        if (result.name) {
-            groupCache.set(result.name, resolved);
-        }
+        groupCache.set(strId, result as unknown as ResolvedGroup);
     }
 
     return (result as unknown as T) ?? null;
 }
 
 /**
- * Resolves a group from a given string, ObjectId, or document identifier.
- * Matches by MongoDB _id or group name.
+ * Resolves a group from its id (an ObjectId or its 24-character hex string) or a group document.
  *
  * @template T - Extends ResolvedGroup, defaults to ResolvedGroup.
  * @param groupId - Group identifier or document.
@@ -155,7 +124,10 @@ export async function resolveGroup<T extends ResolvedGroup = ResolvedGroup>(
     return resolveFromIdentifier<T>(groupId);
 }
 
-function extractGroupId(group: AuthUserGroup | null | undefined): string | undefined {
+/**
+ * The group id of a membership entry, whether its `groupId` is populated or not.
+ */
+export function extractGroupId(group: AuthUserGroup | null | undefined): string | undefined {
     if (!group || !group.groupId) {
         return undefined;
     }
@@ -163,21 +135,6 @@ function extractGroupId(group: AuthUserGroup | null | undefined): string | undef
         return group.groupId._id.toString();
     }
     return group.groupId.toString();
-}
-
-function extractGroupName(group: AuthUserGroup | null | undefined): string | undefined {
-    if (!group) {
-        return undefined;
-    }
-    if (
-        typeof group.groupId === "object" &&
-        group.groupId != null &&
-        "name" in group.groupId &&
-        typeof group.groupId.name === "string"
-    ) {
-        return group.groupId.name;
-    }
-    return group.name || group.groupName;
 }
 
 /**
@@ -202,7 +159,7 @@ export function isSuperAdminUser(user: AuthUser | null | undefined): boolean {
 /**
  * Checks if a user has administrative privileges.
  * A user is an Admin if they are the primary Super Admin account OR
- * belong to the designated SUPER_ADMIN_GROUP_NAME group.
+ * a member of the administrators group (matched by its id, resolved at startup).
  *
  * @param user - User document or object.
  * @returns True if user has administrative privileges.
@@ -215,17 +172,8 @@ export function isAdmin(user: AuthUser | null | undefined): boolean {
         return true;
     }
 
-    const adminGroupName = config.superAdmin.groupName;
     const userGroups = Array.isArray(user.groups) ? user.groups : [];
-
-    return userGroups.some((g) => {
-        if (!g) {
-            return false;
-        }
-        const gid = extractGroupId(g);
-        const gName = extractGroupName(g);
-        return gid === adminGroupName || gName === adminGroupName;
-    });
+    return userGroups.some((g) => isAdminGroup(extractGroupId(g)));
 }
 
 /**
@@ -250,17 +198,9 @@ export async function isGroupMember(
     }
 
     const targetGroupId = group._id.toString();
-    const groupName = group.name;
     const userGroups = Array.isArray(user.groups) ? user.groups : [];
 
-    return userGroups.some((g) => {
-        if (!g) {
-            return false;
-        }
-        const gid = extractGroupId(g);
-        const gName = extractGroupName(g);
-        return gid === targetGroupId || (groupName != null && (gid === groupName || gName === groupName));
-    });
+    return userGroups.some((g) => extractGroupId(g) === targetGroupId);
 }
 
 /**
@@ -285,17 +225,9 @@ export async function isShiftManager(
     }
 
     const targetGroupId = group._id.toString();
-    const groupName = group.name;
     const userGroups = Array.isArray(user.groups) ? user.groups : [];
 
-    return userGroups.some((g) => {
-        if (!g || g.role !== "shift_manager") {
-            return false;
-        }
-        const gid = extractGroupId(g);
-        const gName = extractGroupName(g);
-        return gid === targetGroupId || (groupName != null && (gid === groupName || gName === groupName));
-    });
+    return userGroups.some((g) => Boolean(g && g.role === "shift_manager" && extractGroupId(g) === targetGroupId));
 }
 
 /**
@@ -340,14 +272,3 @@ export function isShiftManagerForTargetUser(
 
     return requesterManagedGroupIds.some((managedId) => targetGroupIds.has(managedId));
 }
-
-export default {
-    resolveGroup,
-    invalidateGroupCache,
-    isSuperAdminUser,
-    isAdmin,
-    isGroupMember,
-    isShiftManager,
-    isShiftManagerForTargetUser,
-};
-

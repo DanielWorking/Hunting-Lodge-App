@@ -66,25 +66,6 @@ export interface SsoUrlResponse {
 }
 
 /**
- * Response returned to client upon successful SSO login / code exchange.
- */
-export interface SsoSessionResponse {
-    readonly user: Record<string, unknown>;
-    readonly token?: string;
-    readonly success?: boolean;
-}
-
-/**
- * Response returned to client upon session refresh.
- */
-export interface SsoRefreshResponse {
-    readonly success: boolean;
-    readonly message: string;
-    readonly user?: Record<string, unknown>;
-    readonly token?: string;
-}
-
-/**
  * Response returned to client upon session termination.
  */
 export interface SsoLogoutResponse {

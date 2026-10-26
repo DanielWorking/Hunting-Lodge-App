@@ -5,8 +5,7 @@ import config from "../config";
  * Input interface representing user attributes required for token creation.
  */
 export interface UserTokenInput {
-    readonly _id?: { toString(): string } | string | null;
-    readonly id?: string | null;
+    readonly _id: { toString(): string } | string;
     readonly username: string;
     readonly email?: string | null;
     readonly tokenVersion?: number | null;
@@ -44,7 +43,7 @@ export function generateToken(user: UserTokenInput): string {
         throw new Error("Cannot generate token: user object is required");
     }
 
-    const userId = user._id != null ? user._id.toString() : (user.id ?? "");
+    const userId = user._id.toString();
     const tokenVersion = typeof user.tokenVersion === "number" ? user.tokenVersion : 0;
     const payload: UserTokenPayload = {
         userId,
@@ -88,8 +87,3 @@ export function verifyToken<T extends jwt.JwtPayload = DecodedTokenPayload>(
     }
     return decoded as T;
 }
-
-export default {
-    generateToken,
-    verifyToken,
-};

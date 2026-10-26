@@ -629,10 +629,3 @@ export async function getAllSchedules(req: Request, res: Response, next?: NextFu
         res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
-
-export default {
-    getSchedule,
-    saveSchedule,
-    publishSchedule,
-    getAllSchedules,
-};

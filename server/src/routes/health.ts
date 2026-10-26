@@ -40,7 +40,7 @@ export interface ReadinessResponse {
 }
 
 /**
- * Response payload structure for Kubernetes / OpenShift startup probe (/startup, /api/startup).
+ * Response payload structure for Kubernetes / OpenShift startup probe (/startup).
  */
 export interface StartupResponse {
     readonly status: "UP" | "STARTING";
@@ -126,6 +126,5 @@ router.get("/api/health", readinessHandler);
 
 // Startup probe (container startup lifecycle)
 router.get("/startup", startupHandler);
-router.get("/api/startup", startupHandler);
 
 export default router;

@@ -4,14 +4,13 @@
  * Provides API endpoints for managing group-specific web resources and links.
  * Includes features for resource creation, duplicate URL validation within groups,
  * and user-specific favoriting.
- * Migrated to strict TypeScript with schema validation and RBAC guardrails.
  */
 
 import { Request, Router } from "express";
 import { z } from "zod";
 import * as sitesController from "../controllers/sitesController";
 import { protect, requireGroupMember } from "../middleware/authMiddleware";
-import { validateRequest } from "../middleware/validationMiddleware";
+import { validateRequest, objectIdString } from "../middleware/validationMiddleware";
 import { noStore } from "../middleware/cacheMiddleware";
 
 const router = Router();
@@ -23,11 +22,11 @@ export const siteIdParamSchema = z.object({
 });
 
 export const getSitesQuerySchema = z.object({
-    groupId: z.string().trim().min(1).optional(),
+    groupId: objectIdString("groupId").optional(),
 });
 
 export const createSiteSchema = z.object({
-    groupId: z.string({ message: "Target groupId is required." }).trim().min(1, "Target groupId is required."),
+    groupId: objectIdString("groupId"),
     title: z.string({ message: "Title is required" }).trim().min(1, "Title is required"),
     url: z.string({ message: "URL is required" }).trim().min(1, "URL is required"),
     imageUrl: z.string().optional(),
@@ -38,15 +37,11 @@ export const createSiteSchema = z.object({
 export const updateSiteSchema = z.object({
     title: z.string().optional(),
     url: z.string().optional(),
-    groupId: z.string().optional(),
+    groupId: objectIdString("groupId").optional(),
     imageUrl: z.string().optional(),
     description: z.string().optional(),
     tag: z.string().optional(),
 }).passthrough();
-
-export type GetSitesQueryInput = z.infer<typeof getSitesQuerySchema>;
-export type CreateSiteInput = z.infer<typeof createSiteSchema>;
-export type UpdateSiteInput = z.infer<typeof updateSiteSchema>;
 
 // Site data changes on every write, so no response from this router may be cached by the client.
 // Applied before protect() so that rejected requests are covered too.
@@ -112,5 +107,4 @@ router.put(
     sitesController.toggleFavorite,
 );
 
-(router as unknown as { default: typeof router }).default = router;
 export default router;

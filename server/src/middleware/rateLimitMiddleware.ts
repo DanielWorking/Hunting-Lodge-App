@@ -34,23 +34,14 @@ export function isExemptFromGlobalRateLimit(req: Request): boolean {
         req.path.startsWith("/api/auth") ||
         req.path === "/api/health" ||
         req.path === "/healthz" ||
-        req.path === "/startup" ||
-        req.path === "/api/startup"
+        req.path === "/startup"
     );
 }
 
-/** The session token as `protect` reads it: the session cookie first, then `Authorization: Bearer`. */
+/** The session token as `protect` reads it: the httpOnly session cookie. */
 function sessionTokenOf(req: Request): string | undefined {
     const cookieToken = req.cookies?.[ssoConfig.sessionCookieName];
-    if (typeof cookieToken === "string" && cookieToken.trim().length > 0) {
-        return cookieToken.trim();
-    }
-    const rawAuthHeader = req.headers.authorization;
-    const authHeader = Array.isArray(rawAuthHeader) ? rawAuthHeader[0] : rawAuthHeader;
-    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-        return authHeader.slice("Bearer ".length).trim() || undefined;
-    }
-    return undefined;
+    return typeof cookieToken === "string" ? cookieToken.trim() || undefined : undefined;
 }
 
 /**

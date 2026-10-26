@@ -9,6 +9,7 @@
 import path from "path";
 import express, { Express, Request, Response, NextFunction } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import createCorsOptions from "./src/config/corsOptions";
 import helmet from "helmet";
 import compression from "compression";
@@ -72,33 +73,9 @@ app.use(
 // CORS configuration: dynamic whitelist resolution tailored per environment
 app.use(cors(createCorsOptions(config.appEnv, config.security.corsOrigin)));
 
-// Lightweight native cookie parsing middleware to populate req.cookies
-app.use((req: Request, _res: Response, next: NextFunction): void => {
-    const rawCookies = req.headers.cookie;
-    const parsedCookies: Record<string, string> = {};
-
-    if (rawCookies && typeof rawCookies === "string") {
-        const pairs = rawCookies.split(";");
-        for (let i = 0; i < pairs.length; i++) {
-            const pair = pairs[i];
-            const eqIdx = pair.indexOf("=");
-            if (eqIdx !== -1) {
-                const key = pair.substring(0, eqIdx).trim();
-                const rawVal = pair.substring(eqIdx + 1).trim();
-                if (key && key !== "__proto__" && key !== "constructor" && key !== "prototype") {
-                    try {
-                        parsedCookies[key] = decodeURIComponent(rawVal);
-                    } catch {
-                        parsedCookies[key] = rawVal;
-                    }
-                }
-            }
-        }
-    }
-
-    req.cookies = parsedCookies;
-    next();
-});
+// Populates req.cookies. No secret: the auth cookies are HMAC-signed by authController itself,
+// and every reader checks for a string (cookie-parser turns `j:` values into objects)
+app.use(cookieParser());
 
 app.use(express.json());
 app.use(stripImmutableFields);

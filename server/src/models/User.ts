@@ -169,7 +169,6 @@ const UserSchema = new Schema<IUser>(
 
 // Optimize multi-key lookups for group-filtered user listings and member count aggregations
 UserSchema.index({ "groups.groupId": 1 });
-UserSchema.index({ "groups.groupId": 1, "groups.order": 1 });
 UserSchema.index(
     { ssoIssuer: 1, ssoSubject: 1 },
     {

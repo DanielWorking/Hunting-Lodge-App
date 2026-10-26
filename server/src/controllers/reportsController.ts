@@ -52,7 +52,6 @@ export interface ReportFilterCriteria {
         $lte?: Date;
     };
     $or?: Array<Record<string, unknown>>;
-    $and?: Array<Record<string, unknown>>;
     [key: string]: unknown;
 }
 
@@ -112,18 +111,10 @@ export async function getReports(req: Request, res: Response, next?: NextFunctio
             // Guard against malformed cursor parameters
             if (!isNaN(parsedDate.getTime()) && Types.ObjectId.isValid(rawCursorId)) {
                 const pId = new Types.ObjectId(rawCursorId);
-                const cursorCondition = {
-                    $or: [
-                        { date: { $lt: parsedDate } },
-                        { date: parsedDate, _id: { $lt: pId } },
-                    ],
-                };
-                if (reportFilter.$or) {
-                    reportFilter.$and = reportFilter.$and || [];
-                    reportFilter.$and.push(cursorCondition);
-                } else {
-                    Object.assign(reportFilter, cursorCondition);
-                }
+                reportFilter.$or = [
+                    { date: { $lt: parsedDate } },
+                    { date: parsedDate, _id: { $lt: pId } },
+                ];
             }
         }
 
@@ -350,10 +341,3 @@ export async function deleteReport(req: Request, res: Response, next?: NextFunct
         res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
-
-export default {
-    getReports,
-    createReport,
-    updateReport,
-    deleteReport,
-};

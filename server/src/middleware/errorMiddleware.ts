@@ -188,9 +188,3 @@ export function createErrorHandler(options: ErrorHandlerOptions = {}): ErrorRequ
 
 /** The error handler with error details off, as in preprod and prod. */
 export const errorHandler: ErrorRequestHandler = createErrorHandler();
-
-export default {
-    notFoundHandler,
-    errorHandler,
-    createErrorHandler,
-};

@@ -64,10 +64,9 @@ const PhoneSchema = new Schema<IPhone>(
     },
 );
 
-// Indexes for duplicate number lookups, alphabetical directory sorting, and type filtering
+// Indexes for duplicate number lookups and alphabetical directory sorting
 PhoneSchema.index({ numbers: 1 });
 PhoneSchema.index({ name: 1 });
-PhoneSchema.index({ type: 1, name: 1 });
 
 const Phone: PhoneModel = (mongoose.models.Phone as PhoneModel) || mongoose.model<IPhone, PhoneModel>("Phone", PhoneSchema);
 

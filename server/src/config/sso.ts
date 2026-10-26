@@ -20,9 +20,7 @@ const rawSsoConfig: SsoConfig = {
     redirectUri,
     identifierField: validatedEnv.SSO_IDENTIFIER_FIELD || "email",
     scope: "openid profile email",
-    usePkce: validatedEnv.SSO_USE_PKCE !== "false",
     cookieSecret: validatedEnv.SSO_COOKIE_SECRET || validatedEnv.JWT_SECRET || "",
-    cookieDomain: process.env.SSO_COOKIE_DOMAIN || undefined,
     // Always Secure over HTTPS; SSO_COOKIE_SECURE=false only takes effect on plain-http localhost
     cookieSecure: servedOverHttps || validatedEnv.SSO_COOKIE_SECURE === "true",
     sameSite: (validatedEnv.SSO_SAME_SITE as "lax" | "strict" | "none") || "lax",

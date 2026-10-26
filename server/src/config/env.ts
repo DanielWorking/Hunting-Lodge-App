@@ -9,6 +9,7 @@
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
+import cron from "node-cron";
 import { z } from "zod";
 import type { AppEnv } from "../types/config";
 
@@ -92,7 +93,6 @@ export const serverEnvSchema = z.object({
     SSO_REDIRECT_URI: z.string().optional(),
     SSO_IDENTIFIER_FIELD: z.string().default("email"),
     SSO_COOKIE_SECRET: z.string().optional(),
-    SSO_USE_PKCE: z.string().default("true"),
     SSO_COOKIE_SECURE: z.string().optional(),
     SSO_SAME_SITE: z.string().default("lax"),
     // No defaults: these identify the privileged root account and admin group, so a guessable
@@ -109,7 +109,8 @@ export const serverEnvSchema = z.object({
     EXPOSE_ERROR_DETAILS: z.string().optional(),
     LOG_FORMAT: z.string().optional(),
     STATIC_FILES_PATH: z.string().optional(),
-    SHIFT_REPORT_CRON_SCHEDULE: z.string().default("*/10 * * * *"),
+    ENABLE_IN_PROCESS_CRON: z.string().optional(),
+    SHIFT_REPORT_CRON_SCHEDULE: z.string().optional(),
     MONGO_AUTO_INDEX: z.string().optional(),
     MONGO_MAX_POOL_SIZE: z.string().optional(),
     MONGO_MIN_POOL_SIZE: z.string().optional(),
@@ -195,9 +196,20 @@ export function validateServerEnv(
     if (!rawEnv.SUPER_ADMIN_GROUP_NAME) {
         errors.push("SUPER_ADMIN_GROUP_NAME: Super Admin group name is required");
     }
-    // Like the localhost redirect above, error details are a nonprod-only allowance
+    // Like the localhost redirect above, error details and in-process cron are nonprod-only allowances
     if (isEnabledFlag(rawEnv.EXPOSE_ERROR_DETAILS) && currentAppEnv !== "nonprod") {
         errors.push("EXPOSE_ERROR_DETAILS: Must not be enabled in preprod or prod");
+    }
+    if (isEnabledFlag(rawEnv.ENABLE_IN_PROCESS_CRON)) {
+        if (currentAppEnv !== "nonprod") {
+            errors.push("ENABLE_IN_PROCESS_CRON: Must not be enabled in preprod or prod");
+        }
+        const cronSchedule = typeof rawEnv.SHIFT_REPORT_CRON_SCHEDULE === "string"
+            ? rawEnv.SHIFT_REPORT_CRON_SCHEDULE.trim()
+            : "";
+        if (!cronSchedule || !cron.validate(cronSchedule)) {
+            errors.push("SHIFT_REPORT_CRON_SCHEDULE: Valid cron expression is required when ENABLE_IN_PROCESS_CRON=true");
+        }
     }
 
     if (errors.length > 0 && exitOnError) {

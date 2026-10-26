@@ -33,9 +33,7 @@ export interface SsoConfig {
     readonly redirectUri: string;
     readonly identifierField: string;
     readonly scope: string;
-    readonly usePkce: boolean;
     readonly cookieSecret: string;
-    readonly cookieDomain?: string;
     readonly cookieSecure: boolean;
     readonly sameSite: "lax" | "strict" | "none";
     readonly sessionCookieName: string;
@@ -64,6 +62,11 @@ export interface LoggingConfig {
     readonly morganFormat: string;
 }
 
+export interface CronConfig {
+    readonly inProcess: boolean;
+    readonly shiftReportSchedule?: string;
+}
+
 export type AppEnv = "nonprod" | "preprod" | "prod";
 
 export interface ServerConfig {
@@ -80,6 +83,7 @@ export interface ServerConfig {
     readonly superAdmin: SuperAdminConfig;
     readonly security: SecurityConfig;
     readonly logging: LoggingConfig;
+    readonly cron: CronConfig;
     readonly staticFilesPath: string;
 }
 
@@ -104,9 +108,7 @@ export interface ServerProcessEnv {
     readonly SSO_CLIENT_SECRET?: string;
     readonly SSO_REDIRECT_URI?: string;
     readonly SSO_IDENTIFIER_FIELD?: string;
-    readonly SSO_USE_PKCE?: string;
     readonly SSO_COOKIE_SECRET?: string;
-    readonly SSO_COOKIE_DOMAIN?: string;
     readonly SSO_COOKIE_SECURE?: string;
     readonly SSO_SAME_SITE?: string;
     readonly SUPER_ADMIN_ID?: string;
@@ -120,6 +122,7 @@ export interface ServerProcessEnv {
     readonly EXPOSE_ERROR_DETAILS?: string;
     readonly LOG_FORMAT?: string;
     readonly STATIC_FILES_PATH?: string;
+    readonly ENABLE_IN_PROCESS_CRON?: string;
     readonly SHIFT_REPORT_CRON_SCHEDULE?: string;
 }
 

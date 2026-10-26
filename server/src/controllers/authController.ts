@@ -4,7 +4,6 @@
  * Handles user authentication via OpenID Connect (OIDC).
  * Integrates with an external SSO provider to manage user logins,
  * PKCE authorization flows, automatic user provisioning, and session identification.
- * Migrated to strict TypeScript with zero `any` and robust claim resolution.
  */
 
 import crypto from "crypto";
@@ -14,10 +13,10 @@ import mongoose from "mongoose";
 import { Issuer, BaseClient, TokenSet, custom, generators } from "openid-client";
 import User, { toPublicUser } from "../models/User";
 import Group from "../models/Group";
-import config from "../config";
 import ssoConfig from "../config/sso";
 import { generateToken, verifyToken } from "../utils/jwt";
-import { isSuperAdminUser, isAdmin, AuthUser } from "../utils/authHelpers";
+import { isSuperAdminUser, isAdmin, extractGroupId, AuthUser, AuthUserGroup } from "../utils/authHelpers";
+import { ensureAdminGroup, getAdminGroupId, isAdminGroup } from "../services/adminGroup";
 import { invalidateUserCache } from "../middleware/authMiddleware";
 import { resolveOrProvisionUser } from "../utils/ssoIdentity";
 import type { SsoLoginInput } from "../routes/auth";
@@ -185,7 +184,6 @@ export async function getSsoUrl(_req: Request, res: Response, next?: NextFunctio
             sameSite: ssoConfig.sameSite,
             maxAge: 600 * 1000, // 10 minutes
             path: "/api/auth",
-            domain: ssoConfig.cookieDomain,
         });
 
         const url = ssoClient.authorizationUrl({
@@ -216,6 +214,21 @@ function isDatabaseError(error: unknown): boolean {
         return true;
     }
     return false;
+}
+
+/**
+ * The memberships of a session response, each flagged `isSystemGroup` when it is the
+ * administrators group (compared by id, whether `groupId` is populated or not).
+ */
+function withSystemGroupFlags(groups: unknown): Record<string, unknown>[] {
+    const memberships = Array.isArray(groups) ? groups : [];
+    return memberships.map((g: { toObject?: () => Record<string, unknown> } & Record<string, unknown>) => {
+        const gDoc = typeof g?.toObject === "function" ? g.toObject() : { ...g };
+        return {
+            ...gDoc,
+            isSystemGroup: isAdminGroup(extractGroupId(gDoc as AuthUserGroup)),
+        };
+    });
 }
 
 /**
@@ -314,19 +327,7 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
         // vacation balance (only a Shift Manager sees balances, through the group's member list)
         const userObj = toPublicUser(user);
         delete userObj.vacationBalance;
-        const adminGroupName = config.superAdmin.groupName;
-        const rawGroups = Array.isArray(userObj.groups) ? [...userObj.groups] : [];
-        userObj.groups = rawGroups.map((g: any) => {
-            const gDoc = typeof g?.toObject === "function" ? g.toObject() : { ...g };
-            const gid = gDoc?.groupId && typeof gDoc.groupId === "object" && "_id" in gDoc.groupId
-                ? (gDoc.groupId as { _id?: unknown; name?: string }).name || String((gDoc.groupId as { _id?: unknown })._id)
-                : String(gDoc?.groupId);
-            const gName = gDoc?.name || gDoc?.groupName || (gDoc?.groupId && typeof gDoc.groupId === "object" ? gDoc.groupId.name : undefined);
-            return {
-                ...gDoc,
-                isSystemGroup: gid === adminGroupName || gName === adminGroupName,
-            };
-        });
+        userObj.groups = withSystemGroupFlags(userObj.groups);
         userObj.isSuperAdmin = isSuperAdminUser(user);
         userObj.isAdmin = isAdmin(user as unknown as AuthUser);
 
@@ -339,7 +340,6 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
             sameSite: ssoConfig.sameSite,
             maxAge: 24 * 60 * 60 * 1000,
             path: "/",
-            domain: ssoConfig.cookieDomain,
         });
 
         // Set httpOnly refresh token cookie if present in CompanyTokenSet
@@ -353,7 +353,6 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
                 sameSite: "strict",
                 maxAge: refreshMaxAge,
                 path: "/api/auth",
-                domain: ssoConfig.cookieDomain,
             });
         }
 
@@ -363,7 +362,6 @@ export async function login(req: Request<unknown, unknown, SsoLoginInput>, res: 
             secure: ssoConfig.cookieSecure,
             sameSite: ssoConfig.sameSite,
             path: "/api/auth",
-            domain: ssoConfig.cookieDomain,
         });
 
         res.json({ user: userObj, success: true });
@@ -475,7 +473,6 @@ export async function refreshToken(req: Request, res: Response, next?: NextFunct
             sameSite: ssoConfig.sameSite,
             maxAge: 24 * 60 * 60 * 1000,
             path: "/",
-            domain: ssoConfig.cookieDomain,
         });
 
         // Update refresh token cookie if renewed
@@ -489,7 +486,6 @@ export async function refreshToken(req: Request, res: Response, next?: NextFunct
                 sameSite: "strict",
                 maxAge: refreshMaxAge,
                 path: "/api/auth",
-                domain: ssoConfig.cookieDomain,
             });
         }
 
@@ -528,14 +524,12 @@ export async function refreshToken(req: Request, res: Response, next?: NextFunct
             secure: ssoConfig.cookieSecure,
             sameSite: ssoConfig.sameSite,
             path: "/",
-            domain: ssoConfig.cookieDomain,
         });
         res.clearCookie(ssoConfig.refreshCookieName, {
             httpOnly: true,
             secure: ssoConfig.cookieSecure,
             sameSite: "strict",
             path: "/api/auth",
-            domain: ssoConfig.cookieDomain,
         });
         res.status(401).json({
             message: "Session refresh failed",
@@ -551,31 +545,21 @@ interface LogoutSession {
 }
 
 /**
- * Collects the sessions behind every correctly signed token sent with the request:
- * the session cookie and/or an `Authorization: Bearer` header. Expired tokens still count,
- * since logging out must revoke them, but unsigned or tampered tokens are ignored so a
- * caller cannot revoke another user's sessions by forging a token.
+ * Collects the sessions behind the request's cookies: the session cookie and the sealed refresh
+ * cookie. An expired session token still counts, since logging out must revoke it, but an
+ * unsigned or tampered one is ignored so a caller cannot revoke another user's sessions by
+ * forging a token.
  */
 function collectLogoutSessions(req: Request): LogoutSession[] {
     const sessions = new Map<string, LogoutSession>();
 
-    const rawAuthHeader = req.headers?.authorization;
-    const bearerToken = typeof rawAuthHeader === "string" && rawAuthHeader.startsWith("Bearer ")
-        ? rawAuthHeader.split(" ")[1]?.trim()
-        : undefined;
     const cookieToken = req.cookies?.[ssoConfig.sessionCookieName];
-
-    for (const token of [cookieToken, bearerToken]) {
-        if (typeof token !== "string" || token.length === 0) {
-            continue;
-        }
+    if (typeof cookieToken === "string" && cookieToken.length > 0) {
         try {
-            const decoded = verifyToken(token, { ignoreExpiration: true });
+            const decoded = verifyToken(cookieToken, { ignoreExpiration: true });
             const userId = decoded.userId ? String(decoded.userId) : "";
-            if (mongoose.Types.ObjectId.isValid(userId)) {
-                // Same default as protect(): tokens issued before versioning count as version 0
-                const tokenVersion = typeof decoded.tokenVersion === "number" ? decoded.tokenVersion : 0;
-                sessions.set(`${userId}:${tokenVersion}`, { userId, tokenVersion });
+            if (mongoose.Types.ObjectId.isValid(userId) && typeof decoded.tokenVersion === "number") {
+                sessions.set(`${userId}:${decoded.tokenVersion}`, { userId, tokenVersion: decoded.tokenVersion });
             }
         } catch {
             // An unverifiable token identifies nobody; there is nothing to revoke for it
@@ -620,8 +604,8 @@ async function revokeRefreshTokenAtProvider(refreshToken: unknown): Promise<void
 
 /**
  * Terminates the application session, clears all auth cookies,
- * increments user tokenVersion for server-side revocation (for both cookie
- * and Bearer-header sessions), and provides OIDC RP-initiated logout URL if supported.
+ * increments user tokenVersion for server-side revocation of the cookie session,
+ * and provides OIDC RP-initiated logout URL if supported.
  */
 export async function logout(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
@@ -631,21 +615,18 @@ export async function logout(req: Request, res: Response, next?: NextFunction): 
             secure: ssoConfig.cookieSecure,
             sameSite: ssoConfig.sameSite,
             path: "/",
-            domain: ssoConfig.cookieDomain,
         });
         res.clearCookie(ssoConfig.refreshCookieName, {
             httpOnly: true,
             secure: ssoConfig.cookieSecure,
             sameSite: "strict",
             path: "/api/auth",
-            domain: ssoConfig.cookieDomain,
         });
         res.clearCookie(ssoConfig.stateCookieName, {
             httpOnly: true,
             secure: ssoConfig.cookieSecure,
             sameSite: "lax",
             path: "/api/auth",
-            domain: ssoConfig.cookieDomain,
         });
 
         // 2. Increment tokenVersion for every presented session so the token is revoked server-side,
@@ -700,7 +681,7 @@ export async function logout(req: Request, res: Response, next?: NextFunction): 
 
 /**
  * Retrieves the currently authenticated user's profile and permissions.
- * Dynamically restores Super Admin group claims if root admin lacks explicit group record.
+ * Lists the administrators group for the Super Admin even when their membership record is missing.
  * Requires protect middleware.
  */
 export async function getMe(req: Request, res: Response, next?: NextFunction): Promise<void> {
@@ -711,7 +692,6 @@ export async function getMe(req: Request, res: Response, next?: NextFunction): P
             return;
         }
 
-        const adminGroupName = config.superAdmin.groupName;
         const isSuperAdmin = isSuperAdminUser(user);
 
         // Response-safe copy: SSO issuer/subject and tokenVersion stay server-side, and so does the
@@ -719,42 +699,21 @@ export async function getMe(req: Request, res: Response, next?: NextFunction): P
         const userObj = toPublicUser(user);
         delete userObj.vacationBalance;
 
-        if (isSuperAdmin) {
-            const userGroups = Array.isArray(user.groups) ? [...user.groups] : [];
-            const hasAdminGroup = userGroups.some((g) => {
-                if (!g) return false;
-                const gid = typeof g.groupId === "object" && g.groupId !== null && "_id" in g.groupId
-                    ? (g.groupId as { _id?: unknown; name?: string }).name || String((g.groupId as { _id?: unknown })._id)
-                    : String(g.groupId);
-                const gName = (g as { name?: string; groupName?: string }).name || (g as { groupName?: string }).groupName;
-                return gid === adminGroupName || gName === adminGroupName;
-            });
-
-            if (!hasAdminGroup) {
-                const adminGroup = await Group.findOne({ name: adminGroupName });
-                const adminGroupEntry = {
-                    groupId: adminGroup ? adminGroup : adminGroupName,
-                    role: "shift_manager" as const,
-                    name: adminGroupName,
-                    groupName: adminGroupName,
-                    order: 0,
-                };
-                userObj.groups = [adminGroupEntry, ...userGroups];
+        // A membership of a group deleted outside the app populates as null: it names no group
+        let groups: unknown[] = (Array.isArray(userObj.groups) ? userObj.groups : [])
+            .filter((g) => extractGroupId(g as AuthUserGroup) !== undefined);
+        const isAdminMembership = (g: unknown) => isAdminGroup(extractGroupId(g as AuthUserGroup));
+        // The Super Admin may have been removed from the administrators group during this session;
+        // their next login re-adds them, and until then the group is still listed
+        if (isSuperAdmin && !groups.some(isAdminMembership)) {
+            // The id kept since startup is stale if the group was recreated meanwhile
+            await ensureAdminGroup();
+            const adminGroup = groups.some(isAdminMembership) ? null : await Group.findById(getAdminGroupId());
+            if (adminGroup) {
+                groups = [{ groupId: adminGroup, role: "shift_manager", order: 0 }, ...groups];
             }
         }
-
-        const finalGroups = Array.isArray(userObj.groups) ? [...userObj.groups] : [];
-        userObj.groups = finalGroups.map((g: any) => {
-            const gDoc = typeof g?.toObject === "function" ? g.toObject() : { ...g };
-            const gid = gDoc?.groupId && typeof gDoc.groupId === "object" && "_id" in gDoc.groupId
-                ? (gDoc.groupId as { _id?: unknown; name?: string }).name || String((gDoc.groupId as { _id?: unknown })._id)
-                : String(gDoc?.groupId);
-            const gName = gDoc?.name || gDoc?.groupName || (gDoc?.groupId && typeof gDoc.groupId === "object" ? gDoc.groupId.name : undefined);
-            return {
-                ...gDoc,
-                isSystemGroup: gid === adminGroupName || gName === adminGroupName,
-            };
-        });
+        userObj.groups = withSystemGroupFlags(groups);
 
         userObj.isSuperAdmin = isSuperAdmin;
         userObj.isAdmin = isAdmin(userObj as unknown as AuthUser);
@@ -769,13 +728,3 @@ export async function getMe(req: Request, res: Response, next?: NextFunction): P
         res.status(500).json({ message: "Internal server error", code: "INTERNAL_ERROR" });
     }
 }
-
-export default {
-    getClient,
-    resetClientCache,
-    getSsoUrl,
-    login,
-    refreshToken,
-    logout,
-    getMe,
-};

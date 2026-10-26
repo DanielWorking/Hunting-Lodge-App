@@ -6,11 +6,12 @@
  * rogue account takeovers, and cross-provider impersonation.
  */
 
+import { Types } from "mongoose";
 import User, { UserDocument } from "../models/User";
 import Group from "../models/Group";
-import config from "../config";
 import ssoConfig from "../config/sso";
-import { isSuperAdminUser } from "./authHelpers";
+import { ensureAdminGroup, getAdminGroupId, isAdminGroup } from "../services/adminGroup";
+import { isSuperAdminUser, extractGroupId, AuthUserGroup } from "./authHelpers";
 import type { SsoClaimsRecord } from "../types/auth";
 
 export interface ResolvedIdentity {
@@ -59,14 +60,34 @@ export function normalizeClaims(
 }
 
 /**
+ * Removes the user's memberships of groups that no longer exist. Deleting a group in the app
+ * already removes its memberships; this repairs a database changed outside the app (a wiping seed,
+ * a manual drop), where a membership would otherwise name a group nobody can open.
+ */
+async function dropDeletedGroupMemberships(user: UserDocument): Promise<void> {
+    const memberGroupIds = user.groups
+        .map((g) => extractGroupId(g as unknown as AuthUserGroup))
+        .filter((id): id is string => Boolean(id));
+    if (memberGroupIds.length === 0) {
+        return;
+    }
+    const liveGroupIds = new Set((await Group.distinct("_id", { _id: { $in: memberGroupIds } })).map(String));
+    const liveMemberships = user.groups.filter((g) => liveGroupIds.has(extractGroupId(g as unknown as AuthUserGroup) ?? ""));
+    if (liveMemberships.length < user.groups.length) {
+        user.groups = liveMemberships;
+    }
+}
+
+/**
  * Resolves an existing user or provisions a new user based on verified SSO claims.
  *
  * Identity binding protocol:
  * 1. Lookup: Match exact { ssoIssuer, ssoSubject }. Accounts are never matched by email or username.
  * 2. New provisioning: Create a new user with ssoIssuer, ssoSubject, and initial tokenVersion: 0.
  *
- * The Super Admin (matched by the SUPER_ADMIN_* settings) is added to the administrators group,
- * at first login and again whenever they are missing from it.
+ * Memberships of groups that no longer exist are dropped. The Super Admin (matched by the
+ * SUPER_ADMIN_* settings) is added to the administrators group, at first login and again whenever
+ * they are missing from it.
  *
  * @param claims - Claims dictionary from OIDC TokenSet.
  * @param fallbackIssuer - Issuer URL for the current OIDC provider.
@@ -109,26 +130,26 @@ export async function resolveOrProvisionUser(claims: SsoClaimsRecord, fallbackIs
         });
     }
 
+    await dropDeletedGroupMemberships(user);
+
     if (isSuperAdmin) {
-        const adminGroup = await Group.findOne({ name: config.superAdmin.groupName });
-        if (adminGroup) {
-            const hasAdminGroup = user.groups.some((g) => {
-                const gid = g.groupId && typeof g.groupId === "object" && "_id" in g.groupId
-                    ? String((g.groupId as { _id?: unknown })._id)
-                    : String(g.groupId);
-                return gid === adminGroup._id.toString();
+        // Re-read the group instead of trusting the id kept since startup: if the group was deleted
+        // and recreated meanwhile, that id names a group that no longer exists
+        await ensureAdminGroup();
+    }
+    const adminGroupId = getAdminGroupId();
+    if (isSuperAdmin && adminGroupId) {
+        const hasAdminGroup = user.groups.some((g) => isAdminGroup(extractGroupId(g as unknown as AuthUserGroup)));
+        if (!hasAdminGroup) {
+            user.groups.push({
+                groupId: new Types.ObjectId(adminGroupId),
+                role: "shift_manager",
+                order: 0,
             });
-            if (!hasAdminGroup) {
-                user.groups.push({
-                    groupId: adminGroup._id,
-                    role: "shift_manager",
-                    order: 0,
-                });
-                await Group.updateOne(
-                    { _id: adminGroup._id },
-                    { $addToSet: { members: user._id } }
-                );
-            }
+            await Group.updateOne(
+                { _id: adminGroupId },
+                { $addToSet: { members: user._id } }
+            );
         }
     }
 
@@ -145,8 +166,3 @@ export async function resolveOrProvisionUser(claims: SsoClaimsRecord, fallbackIs
     }
     return user;
 }
-
-export default {
-    normalizeClaims,
-    resolveOrProvisionUser,
-};

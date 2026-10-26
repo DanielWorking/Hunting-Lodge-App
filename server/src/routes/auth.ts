@@ -2,7 +2,6 @@
  * @module AuthRoutes
  * 
  * Routes for user authentication via OpenID Connect (OIDC).
- * Migrated to strict TypeScript with schema validation and rate limiting.
  */
 
 import { Router } from "express";
@@ -78,8 +77,7 @@ router.post("/refresh", authRateLimiter, authController.refreshToken);
  *
  * Terminates the application session, clears httpOnly auth cookies,
  * and provides OIDC RP-initiated logout redirection URL if supported.
- * Revokes the session server-side whether it was presented as the session cookie
- * or as an `Authorization: Bearer` token (expired-but-signed tokens included).
+ * Revokes the session server-side, expired-but-signed session cookies included.
  * Deliberately not behind protect(): an expired or revoked session must still be able to log out.
  */
 router.post("/logout", authRateLimiter, authController.logout);
@@ -88,9 +86,8 @@ router.post("/logout", authRateLimiter, authController.logout);
  * GET /me
  * 
  * Retrieves the currently authenticated user profile from token.
- * Protected endpoint requiring valid JWT Bearer token or session cookie.
+ * Protected endpoint requiring a valid session cookie.
  */
 router.get("/me", protect, authController.getMe);
 
-(router as unknown as { default: typeof router }).default = router;
 export default router;

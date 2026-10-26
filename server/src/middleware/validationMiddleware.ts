@@ -24,12 +24,6 @@ export interface ValidationErrorDetail {
     readonly message: string;
 }
 
-export interface ValidationErrorResponse {
-    readonly message: string;
-    readonly code: "VALIDATION_ERROR";
-    readonly errors: ReadonlyArray<ValidationErrorDetail>;
-}
-
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 
 /**

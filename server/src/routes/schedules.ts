@@ -4,7 +4,6 @@
  * Provides API endpoints for managing shift schedules.
  * Features include schedule retrieval, draft saving (never touches vacation balances),
  * and publishing schedules to members (settles vacation balances).
- * Migrated to strict TypeScript with schema validation and RBAC guardrails.
  */
 
 import { Request, Router } from "express";
@@ -22,7 +21,7 @@ const router = Router();
 // --- Validation Schemas ---
 
 export const getScheduleQuerySchema = z.object({
-    groupId: z.string({ message: "Missing groupId" }).trim().min(1, "Missing groupId"),
+    groupId: objectIdString("groupId"),
     date: isoDateString("date"),
 });
 
@@ -41,7 +40,7 @@ export const shiftAssignmentSchema = z.object({
 });
 
 export const saveScheduleSchema = z.object({
-    groupId: z.string({ message: "Missing groupId" }).trim().min(1, "Missing groupId"),
+    groupId: objectIdString("groupId"),
     startDate: isoDateString("startDate"),
     endDate: isoDateString("endDate"),
     shifts: z.array(shiftAssignmentSchema, { message: "shifts must be an array of shift assignments" }),
@@ -57,13 +56,8 @@ export const publishScheduleSchema = z.object({
 });
 
 export const getAllSchedulesQuerySchema = z.object({
-    groupId: z.string({ message: "Missing groupId" }).trim().min(1, "Missing groupId"),
+    groupId: objectIdString("groupId"),
 });
-
-export type GetScheduleQueryInput = z.infer<typeof getScheduleQuerySchema>;
-export type SaveScheduleInput = z.infer<typeof saveScheduleSchema>;
-export type PublishScheduleInput = z.infer<typeof publishScheduleSchema>;
-export type GetAllSchedulesQueryInput = z.infer<typeof getAllSchedulesQuerySchema>;
 
 // Ensure all routes are protected by authentication
 router.use(protect);
@@ -122,7 +116,7 @@ router.post(
 /**
  * GET /all
  * Retrieves all schedules for a specific group.
- * Filters unpublished schedules for non-shift-manager members.
+ * Returns only published schedules, for every member (managers included).
  * Authorization: Requires valid JWT and group membership.
  */
 router.get(
@@ -132,5 +126,4 @@ router.get(
     schedulesController.getAllSchedules,
 );
 
-(router as unknown as { default: typeof router }).default = router;
 export default router;

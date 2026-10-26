@@ -3,21 +3,20 @@
  * 
  * Provides API endpoints for user management, including authentication,
  * profile updates, group synchronization, and administrative controls.
- * Migrated to strict TypeScript with schema validation and RBAC guardrails.
  */
 
 import { Request, Router } from "express";
 import { z } from "zod";
 import * as usersController from "../controllers/usersController";
 import { protect, requireAdmin, requireShiftManager } from "../middleware/authMiddleware";
-import { validateRequest } from "../middleware/validationMiddleware";
+import { validateRequest, objectIdString } from "../middleware/validationMiddleware";
 
 const router = Router();
 
 // --- Validation Schemas ---
 
 export const getUsersQuerySchema = z.object({
-    groupId: z.string().trim().min(1).optional(),
+    groupId: objectIdString("groupId").optional(),
 });
 
 export const userIdParamSchema = z.object({
@@ -25,7 +24,7 @@ export const userIdParamSchema = z.object({
 });
 
 export const reorderUsersSchema = z.object({
-    groupId: z.string({ message: "groupId is required" }).trim().min(1, "groupId is required"),
+    groupId: objectIdString("groupId"),
     updates: z.array(
         z.object({
             userId: z.string({ message: "userId is required" }).trim().min(1, "userId must be a valid ID"),
@@ -40,24 +39,18 @@ export const updateUserSchema = z.object({
     isActive: z.boolean().optional(),
     groups: z.array(
         z.object({
-            groupId: z.unknown(),
+            groupId: objectIdString("groups.groupId"),
             role: z.string().optional(),
             order: z.number().optional(),
         }),
     ).optional(),
     favoritePhones: z.array(z.string()).optional(),
-    displayName: z.string().optional(),
 }).passthrough();
 
 export const managerUpdateSchema = z.object({
     isActive: z.boolean().optional(),
     vacationBalance: z.number().min(0, "Vacation balance cannot be negative").optional(),
-    displayName: z.string().optional(),
 }).passthrough();
-
-export type ReorderUsersInput = z.infer<typeof reorderUsersSchema>;
-export type UpdateUserInput = z.infer<typeof updateUserSchema>;
-export type ManagerUpdateInput = z.infer<typeof managerUpdateSchema>;
 
 // --- Protected Routes ---
 router.use(protect);
@@ -120,16 +113,6 @@ router.patch(
 );
 
 /**
- * PATCH /whats-new
- * Persists user acknowledgement of the "What's New" feature modal for the caller.
- * Authorization: Requires valid JWT.
- */
-router.patch(
-    "/whats-new",
-    usersController.acknowledgeWhatsNew,
-);
-
-/**
  * PATCH /:id/whats-new
  * Persists user acknowledgement of the "What's New" feature modal by user ID.
  * Authorization: Requires valid JWT; controller enforces self-acknowledgement or Administrator.
@@ -140,5 +123,4 @@ router.patch(
     usersController.acknowledgeWhatsNew,
 );
 
-(router as unknown as { default: typeof router }).default = router;
 export default router;

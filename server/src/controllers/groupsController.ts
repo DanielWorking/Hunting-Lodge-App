@@ -3,7 +3,6 @@
  * 
  * Handlers for managing groups, including their metadata,
  * shift settings, site tags, and member synchronization.
- * Migrated to strict TypeScript with zero `any` and strict tenancy safeguards.
  */
 
 import { Request, Response, NextFunction } from "express";
@@ -13,6 +12,7 @@ import User, { IUser } from "../models/User";
 import Site from "../models/Site";
 import config from "../config";
 import { resolveGroup, isAdmin, AuthUser, ResolvedGroup } from "../utils/authHelpers";
+import { isAdminGroup } from "../services/adminGroup";
 import ShiftSchedule from "../models/ShiftSchedule";
 import ShiftReport from "../models/ShiftReport";
 
@@ -39,18 +39,11 @@ export interface RenameTagRequestBody {
 export interface UpdateSettingsRequestBody {
     shiftTypes?: IShiftType[];
     timeSlots?: ITimeSlot[];
-    settings?: {
-        shiftTypes?: IShiftType[];
-        timeSlots?: ITimeSlot[];
-        [key: string]: unknown;
-    };
     [key: string]: unknown;
 }
 
 export interface UpdateGroupRequestBody {
-    name?: string;
-    settings?: Record<string, unknown>;
-    siteTags?: string[];
+    name: string;
 }
 
 export interface GroupWithUserCount extends IGroup {
@@ -81,75 +74,24 @@ export async function getGroups(req: Request, res: Response, next?: NextFunction
             groups = await Group.find({ _id: { $in: userGroupIds } }).lean();
         }
 
-        // Query the User collection using an optimized aggregation pipeline with batch fallback
-        let groupsWithCounts: GroupWithUserCount[];
         const groupIds = groups.map((g) => g._id);
+        const userCounts = await User.aggregate<{ _id: Types.ObjectId | string | null; count: number }>([
+            { $match: { "groups.groupId": { $in: groupIds } } },
+            { $project: { "groups.groupId": 1 } },
+            { $unwind: "$groups" },
+            { $match: { "groups.groupId": { $in: groupIds } } },
+            { $group: { _id: "$groups.groupId", count: { $sum: 1 } } },
+        ]);
 
-        try {
-            if (typeof User.aggregate === "function") {
-                const userCounts = await User.aggregate<{ _id: Types.ObjectId | string | null; count: number }>([
-                    { $match: { "groups.groupId": { $in: groupIds } } },
-                    { $project: { "groups.groupId": 1 } },
-                    { $unwind: "$groups" },
-                    { $match: { "groups.groupId": { $in: groupIds } } },
-                    { $group: { _id: "$groups.groupId", count: { $sum: 1 } } },
-                ]);
+        const countMap = new Map<string, number>(
+            userCounts.map((item) => [item._id ? item._id.toString() : "", item.count]),
+        );
 
-                if (Array.isArray(userCounts)) {
-                    const countMap = new Map<string, number>(
-                        userCounts.map((item) => [item._id ? item._id.toString() : "", item.count]),
-                    );
-
-                    groupsWithCounts = groups.map((group) => ({
-                        ...group,
-                        userCount: countMap.get(group._id ? group._id.toString() : "") || 0,
-                        isSystemGroup: group.name === config.superAdmin.groupName,
-                    }));
-                } else {
-                    throw new Error("Aggregation returned non-array");
-                }
-            } else {
-                throw new Error("User.aggregate is unavailable");
-            }
-        } catch (aggError: unknown) {
-            console.error("MongoDB group aggregation failed, using single batch fallback (no N+1 loops):", aggError);
-            try {
-                // Batch query all users for matching groups in a single operation
-                const userDocs = await User.find(
-                    { "groups.groupId": { $in: groupIds } },
-                    { "groups.groupId": 1 },
-                ).lean();
-
-                const countMap = new Map<string, number>();
-                if (Array.isArray(userDocs)) {
-                    for (const u of userDocs as any[]) {
-                        if (Array.isArray(u.groups)) {
-                            for (const g of u.groups) {
-                                const gid = g?.groupId && typeof g.groupId === "object" && "_id" in g.groupId
-                                    ? String(g.groupId._id)
-                                    : String(g?.groupId);
-                                if (gid) {
-                                    countMap.set(gid, (countMap.get(gid) || 0) + 1);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                groupsWithCounts = groups.map((group) => ({
-                    ...group,
-                    userCount: countMap.get(group._id ? group._id.toString() : "") || 0,
-                    isSystemGroup: group.name === config.superAdmin.groupName,
-                }));
-            } catch {
-                // Safe zero fallback if batch query also fails; prevents database overload
-                groupsWithCounts = groups.map((group) => ({
-                    ...group,
-                    userCount: 0,
-                    isSystemGroup: group.name === config.superAdmin.groupName,
-                }));
-            }
-        }
+        const groupsWithCounts: GroupWithUserCount[] = groups.map((group) => ({
+            ...group,
+            userCount: countMap.get(group._id ? group._id.toString() : "") || 0,
+            isSystemGroup: isAdminGroup(group._id),
+        }));
 
         res.json(groupsWithCounts);
     } catch (err: unknown) {
@@ -351,9 +293,7 @@ export async function deleteTag(req: Request, res: Response, next?: NextFunction
 
 export async function updateSettings(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
-        const body = (req.body || {}) as UpdateSettingsRequestBody;
-        const shiftTypes = body.shiftTypes || body.settings?.shiftTypes;
-        const timeSlots = body.timeSlots || body.settings?.timeSlots;
+        const { shiftTypes, timeSlots } = (req.body || {}) as UpdateSettingsRequestBody;
 
         const group = await resolveGroup<MutableGroup>(req.params.id);
         if (!group) {
@@ -384,14 +324,6 @@ export async function updateSettings(req: Request, res: Response, next?: NextFun
             currentSettings.timeSlots = timeSlots;
         }
 
-        // Fallback if settings object is sent directly
-        if (body.settings && typeof body.settings === "object") {
-            Object.assign(currentSettings, body.settings);
-        }
-        if (!shiftTypes && !timeSlots && (body.shiftTypes || body.timeSlots)) {
-            Object.assign(currentSettings, body);
-        }
-
         group.settings = currentSettings;
 
         let updatedGroup: unknown = group;
@@ -409,8 +341,7 @@ export async function updateSettings(req: Request, res: Response, next?: NextFun
 }
 
 export async function updateGroup(req: Request, res: Response, next?: NextFunction): Promise<void> {
-    const body = (req.body || {}) as UpdateGroupRequestBody;
-    const { name, settings, siteTags } = body;
+    const { name } = (req.body || {}) as UpdateGroupRequestBody;
 
     try {
         const group = await resolveGroup<MutableGroup>(req.params.id);
@@ -421,7 +352,7 @@ export async function updateGroup(req: Request, res: Response, next?: NextFuncti
         }
 
         // === SECURITY LAYER: Protect the System Admin Group ===
-        if (group.name === config.superAdmin.groupName) {
+        if (isAdminGroup(group._id)) {
             res.status(403).json({
                 message: `System Security: The '${config.superAdmin.groupName}' group cannot be modified.`,
                 code: "FORBIDDEN_SYSTEM_GROUP_PROTECTED",
@@ -429,10 +360,7 @@ export async function updateGroup(req: Request, res: Response, next?: NextFuncti
             return;
         }
 
-        // Update fields only if they were provided in the request
-        if (name !== undefined) group.name = name;
-        if (settings !== undefined) group.settings = settings;
-        if (siteTags !== undefined) group.siteTags = siteTags;
+        group.name = name;
 
         let updatedGroup: unknown = group;
         if (typeof group.save === "function") {
@@ -457,7 +385,7 @@ export async function deleteGroup(req: Request, res: Response, next?: NextFuncti
         }
 
         // === SECURITY LAYER: Protect System Admin Group ===
-        if (group.name === config.superAdmin.groupName) {
+        if (isAdminGroup(group._id)) {
             res.status(403).json({
                 message: `System Security: The '${config.superAdmin.groupName}' group cannot be deleted.`,
                 code: "FORBIDDEN_SYSTEM_GROUP_PROTECTED",
@@ -500,14 +428,3 @@ export async function deleteGroup(req: Request, res: Response, next?: NextFuncti
         res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
-
-export default {
-    getGroups,
-    createGroup,
-    addTag,
-    renameTag,
-    deleteTag,
-    updateSettings,
-    updateGroup,
-    deleteGroup,
-};

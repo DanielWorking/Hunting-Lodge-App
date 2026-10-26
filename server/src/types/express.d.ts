@@ -18,7 +18,6 @@ export interface OidcGroupMembership {
 
 export interface OidcUserProfile extends AuthUser {
     readonly _id?: Types.ObjectId | string;
-    readonly id?: string;
     readonly username: string;
     readonly displayName?: string;
     readonly email: string;

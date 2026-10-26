@@ -4,7 +4,6 @@
  * Handlers for managing a shared contact directory.
  * Includes features for contact creation, duplicate number validation,
  * and user-specific favorite phone lists.
- * Migrated to strict TypeScript with zero `any` and type-safe query filters.
  */
 
 import { Request, Response, NextFunction } from "express";
@@ -220,7 +219,7 @@ export async function updatePhone(req: Request, res: Response, next?: NextFuncti
 export async function toggleFavorite(req: Request, res: Response, next?: NextFunction): Promise<void> {
     try {
         const requestingUser = req.user as AuthUser | undefined;
-        const userId = requestingUser?._id || req.user?.id;
+        const userId = requestingUser?._id;
         if (!userId) {
             res.status(401).json({ message: "Unauthorized", code: "UNAUTHORIZED" });
             return;
@@ -298,12 +297,3 @@ export async function deletePhone(req: Request, res: Response, next?: NextFuncti
         res.status(500).json({ message: err instanceof Error ? err.message : String(err), code: "INTERNAL_ERROR" });
     }
 }
-
-export default {
-    findDuplicateNumber,
-    getPhones,
-    createPhone,
-    updatePhone,
-    toggleFavorite,
-    deletePhone,
-};

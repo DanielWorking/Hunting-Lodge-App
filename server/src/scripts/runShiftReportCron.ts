@@ -8,7 +8,7 @@
 
 import mongoose from "mongoose";
 import config from "../config";
-import { runShiftReportGenerator, stopCronJobs } from "../services/cronJobs";
+import { runShiftReportGenerator } from "../services/cronJobs";
 
 // Track exit status to avoid redundant signal invocations
 let isShuttingDown = false;
@@ -18,9 +18,6 @@ let isShuttingDown = false;
  */
 const safeDisconnect = async (timeoutMs: number = 5000): Promise<void> => {
     try {
-        if (typeof stopCronJobs === "function") {
-            stopCronJobs();
-        }
         if (mongoose.connection.readyState !== 0) {
             await Promise.race([
                 mongoose.disconnect(),

@@ -52,6 +52,10 @@ const rawConfig: ServerConfig = {
     logging: {
         morganFormat: validatedEnv.LOG_FORMAT || (isProd || isPreProd ? "combined" : "dev"),
     },
+    cron: {
+        inProcess: isEnabledFlag(validatedEnv.ENABLE_IN_PROCESS_CRON),
+        shiftReportSchedule: validatedEnv.SHIFT_REPORT_CRON_SCHEDULE?.trim() || undefined,
+    },
     staticFilesPath: validatedEnv.STATIC_FILES_PATH
         ? path.resolve(validatedEnv.STATIC_FILES_PATH)
         : path.resolve(__dirname, "../../../client/dist"),

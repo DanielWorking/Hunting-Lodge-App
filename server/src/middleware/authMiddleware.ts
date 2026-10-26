@@ -2,7 +2,7 @@
  * @module AuthMiddleware
  *
  * Provides authentication and role-based access control (RBAC) middleware functions.
- * Validates cryptographically signed JSON Web Tokens (JWT) from Bearer headers,
+ * Validates the cryptographically signed JSON Web Token (JWT) in the httpOnly session cookie,
  * attaches the authenticated user record to incoming requests, and enforces
  * administrative, shift manager, and group membership permissions.
  */
@@ -17,7 +17,7 @@ import {
     isShiftManager,
     resolveGroup,
 } from "../utils/authHelpers";
-import { BoundedLRUCache } from "../utils/lruCache";
+import { LRUCache } from "lru-cache";
 import ssoConfig from "../config/sso";
 
 export interface CachedUserSession {
@@ -27,13 +27,13 @@ export interface CachedUserSession {
 
 // In-memory bounded session cache to avoid per-request database lookups
 const USER_CACHE_TTL_MS = 30 * 1000; // 30-second TTL
-const userCache = new BoundedLRUCache<string, CachedUserSession>({
+const userCache = new LRUCache<string, CachedUserSession>({
     max: 1000,
     ttl: USER_CACHE_TTL_MS,
 });
 
 // Bounded token signature cache to avoid per-request synchronous HMAC-SHA256 digests
-const tokenSignatureCache = new BoundedLRUCache<string, DecodedTokenPayload>({
+const tokenSignatureCache = new LRUCache<string, DecodedTokenPayload>({
     max: 5000,
     ttl: 60 * 1000,
 });
@@ -77,8 +77,8 @@ export const invalidateUserCache = (userId?: string | mongoose.Types.ObjectId | 
 };
 
 /**
- * Protects routes by requiring a valid JSON Web Token in the Authorization header.
- * 
+ * Protects routes by requiring a valid JSON Web Token in the httpOnly session cookie.
+ *
  * Verifies the token signature and expiration, retrieves the active user from
  * the cache or database, and attaches the user document to `req.user`.
  */
@@ -88,34 +88,14 @@ export const protect: RequestHandler = async (
     next: NextFunction
 ): Promise<void> => {
     try {
-        let token: string | undefined;
-
-        // 1. Check for session token in req.cookies?.hunting_token first
-        const cookieToken = req.cookies?.hunting_token;
-        if (cookieToken && typeof cookieToken === "string" && cookieToken.trim().length > 0) {
-            token = cookieToken.trim();
-        } else {
-            // 2. Fall back to Authorization Bearer header
-            const rawAuthHeader = req.headers.authorization || req.headers.Authorization;
-            const authHeader = Array.isArray(rawAuthHeader) ? rawAuthHeader[0] : rawAuthHeader;
-
-            if (!authHeader || typeof authHeader !== "string" || !authHeader.startsWith("Bearer ")) {
-                res.status(401).json({
-                    message: "Unauthorized: No token provided",
-                    code: "NO_TOKEN",
-                });
-                return;
-            }
-
-            token = authHeader.split(" ")[1]?.trim();
-
-            if (!token) {
-                res.status(401).json({
-                    message: "Unauthorized: Malformed authorization header",
-                    code: "MALFORMED_TOKEN",
-                });
-                return;
-            }
+        const cookieToken = req.cookies?.[ssoConfig.sessionCookieName];
+        const token = typeof cookieToken === "string" ? cookieToken.trim() : "";
+        if (!token) {
+            res.status(401).json({
+                message: "Unauthorized: No token provided",
+                code: "NO_TOKEN",
+            });
+            return;
         }
 
         let decoded: DecodedTokenPayload | undefined = tokenSignatureCache.get(token);
@@ -177,13 +157,12 @@ export const protect: RequestHandler = async (
             }
         }
 
-        // Verify tokenVersion to enforce active session revocation
+        // Verify tokenVersion to enforce active session revocation (every issued token carries one)
         const expectedVersion = typeof (user as { tokenVersion?: number }).tokenVersion === "number"
             ? (user as { tokenVersion?: number }).tokenVersion!
             : 0;
-        const tokenVersion = typeof decoded.tokenVersion === "number" ? decoded.tokenVersion : 0;
 
-        if (tokenVersion !== expectedVersion) {
+        if (decoded.tokenVersion !== expectedVersion) {
             if (userIdStr) {
                 userCache.delete(userIdStr);
             }
@@ -194,14 +173,12 @@ export const protect: RequestHandler = async (
                 secure: ssoConfig.cookieSecure,
                 sameSite: ssoConfig.sameSite,
                 path: "/",
-                domain: ssoConfig.cookieDomain,
             });
             res.clearCookie(ssoConfig.refreshCookieName, {
                 httpOnly: true,
                 secure: ssoConfig.cookieSecure,
                 sameSite: "strict",
                 path: "/api/auth",
-                domain: ssoConfig.cookieDomain,
             });
 
             res.status(401).json({
@@ -239,9 +216,6 @@ export const requireAdmin: RequestHandler = (
     }
     next();
 };
-
-/** Alias for requireAdmin to match previous naming conventions. */
-export const requireSuperAdmin: RequestHandler = requireAdmin;
 
 export type GroupIdExtractor = (req: Request) => string | string[] | undefined | null;
 
@@ -341,15 +315,3 @@ export const requireShiftManager = (getGroupId?: GroupIdExtractor): RequestHandl
         }
     };
 };
-
-export default {
-    protect,
-    invalidateUserCache,
-    invalidateTokenCache,
-    getTokenCacheStats,
-    requireAdmin,
-    requireSuperAdmin,
-    requireGroupMember,
-    requireShiftManager,
-};
-

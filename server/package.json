@@ -23,13 +23,14 @@
     "type": "commonjs",
     "dependencies": {
         "compression": "^1.8.1",
+        "cookie-parser": "^1.4.7",
         "cors": "^2.8.5",
         "dotenv": "^17.2.3",
         "express": "^5.1.0",
         "express-rate-limit": "^8.5.2",
         "helmet": "^8.2.0",
         "jsonwebtoken": "^9.0.3",
-        "lru-cache": "^5.1.1",
+        "lru-cache": "^11.5.3",
         "migrate-mongo": "^14.0.7",
         "mongoose": "^9.9.3",
         "morgan": "^1.11.0",
@@ -39,6 +40,7 @@
     },
     "devDependencies": {
         "@types/compression": "^1.8.1",
+        "@types/cookie-parser": "^1.4.10",
         "@types/cors": "^2.8.19",
         "@types/express": "^5.0.6",
         "@types/jsonwebtoken": "^9.0.10",

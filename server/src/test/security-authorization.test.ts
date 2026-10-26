@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import type { Request, Response } from "express";
@@ -9,6 +9,7 @@ import Group from "../models/Group";
 import * as usersController from "../controllers/usersController";
 import * as authHelpers from "../utils/authHelpers";
 import * as sanitizationMiddleware from "../middleware/sanitizationMiddleware";
+import { ADMIN_GROUP_ID, registerAdminGroup } from "./adminGroupFixture";
 
 interface MockRes {
     statusCode: number;
@@ -44,6 +45,8 @@ interface MockUserDoc {
 }
 
 describe("Security Authorization Gates & Input Sanitization", () => {
+    before(registerAdminGroup);
+
     describe("AC-1: SSO Field Immutability (Display Name)", () => {
         it("AC-1a: usersController.updateUser must strip or reject displayName so it is never updated in MongoDB", async () => {
             const targetUserId = new mongoose.Types.ObjectId();
@@ -76,7 +79,7 @@ describe("Security Authorization Gates & Input Sanitization", () => {
             };
 
             const req = {
-                user: { username: config.superAdmin.username, groups: [{ groupId: config.superAdmin.groupName }] },
+                user: { username: config.superAdmin.username, groups: [{ groupId: ADMIN_GROUP_ID }] },
                 params: { id: targetUserId.toString() },
                 body: {
                     displayName: "Hacked Display Name",
@@ -166,8 +169,8 @@ describe("Security Authorization Gates & Input Sanitization", () => {
                 method: "PUT",
                 body: {
                     displayName: "Evil Name",
-                    sub: "sso-sub-123",
-                    oidcId: "oidc-456",
+                    ssoIssuer: "https://attacker.example.com",
+                    ssoSubject: "sso-sub-123",
                     email: "legit@example.com",
                     isActive: true,
                 },
@@ -182,8 +185,8 @@ describe("Security Authorization Gates & Input Sanitization", () => {
             assert.ok(nextCalled, "next() must be called");
             const body = req.body as Record<string, unknown>;
             assert.equal(body.displayName, undefined, "displayName must be stripped");
-            assert.equal(body.sub, undefined, "sub must be stripped");
-            assert.equal(body.oidcId, undefined, "oidcId must be stripped");
+            assert.equal(body.ssoIssuer, undefined, "ssoIssuer must be stripped");
+            assert.equal(body.ssoSubject, undefined, "ssoSubject must be stripped");
             assert.equal(body.email, "legit@example.com", "Legitimate fields must be preserved");
             assert.equal(body.isActive, true);
         });
@@ -222,7 +225,7 @@ describe("Security Authorization Gates & Input Sanitization", () => {
             };
 
             const req = {
-                user: { username: config.superAdmin.username, groups: [{ groupId: config.superAdmin.groupName }] },
+                user: { username: config.superAdmin.username, groups: [{ groupId: ADMIN_GROUP_ID }] },
                 params: { id: targetUserId.toString() },
                 body: {
                     displayName: "Attempted Name Change",
@@ -292,7 +295,7 @@ describe("Security Authorization Gates & Input Sanitization", () => {
             };
 
             const req = {
-                user: { username: config.superAdmin.username, groups: [{ groupId: config.superAdmin.groupName }] },
+                user: { username: config.superAdmin.username, groups: [{ groupId: ADMIN_GROUP_ID }] },
                 params: { id: targetUserId.toString() },
                 body: {
                     groups: [{ groupId: targetGroupId.toString(), role: "shift_manager", order: 0 }],
@@ -341,7 +344,7 @@ describe("Security Authorization Gates & Input Sanitization", () => {
             });
 
             const req = {
-                user: { username: config.superAdmin.username, groups: [{ groupId: config.superAdmin.groupName }] },
+                user: { username: config.superAdmin.username, groups: [{ groupId: ADMIN_GROUP_ID }] },
                 params: { id: targetUserId.toString() },
                 body: {
                     email: "newemail@example.com",
@@ -425,7 +428,7 @@ describe("Security Authorization Gates & Input Sanitization", () => {
                 user: {
                     _id: new mongoose.Types.ObjectId(),
                     username: config.superAdmin.username,
-                    groups: [{ groupId: config.superAdmin.groupName, role: "member" }],
+                    groups: [{ groupId: ADMIN_GROUP_ID, role: "member" }],
                 },
                 params: { id: targetUserId.toString() },
                 body: {
@@ -574,20 +577,20 @@ describe("Security Authorization Gates & Input Sanitization", () => {
                     },
                     items: [
                         { displayName: "Array Item Bad Name", valid: true },
-                        { sub: "nested-sub", value: 123 },
+                        { ssoSubject: "nested-sub", value: 123 },
                     ],
                 },
             } as unknown as Request;
             sanitizationMiddleware.stripImmutableFields(req, {} as Response, () => {});
             const body = req.body as {
                 user: { displayName?: string; email: string };
-                items: Array<{ displayName?: string; valid?: boolean; sub?: string; value?: number }>;
+                items: Array<{ displayName?: string; valid?: boolean; ssoSubject?: string; value?: number }>;
             };
             assert.equal(body.user.displayName, undefined, "Nested displayName must be stripped");
             assert.equal(body.user.email, "nested@example.com");
             assert.equal(body.items[0].displayName, undefined, "Array item displayName must be stripped");
             assert.equal(body.items[0].valid, true);
-            assert.equal(body.items[1].sub, undefined, "Array item sub must be stripped");
+            assert.equal(body.items[1].ssoSubject, undefined, "Array item ssoSubject must be stripped");
         });
 
         it("usersController.reorderUsers rejects NoSQL injection objects and invalid user IDs", async () => {
@@ -606,7 +609,7 @@ describe("Security Authorization Gates & Input Sanitization", () => {
 
             for (const body of maliciousPayloads) {
                 const req = {
-                    user: { username: config.superAdmin.username, groups: [{ groupId: config.superAdmin.groupName }] },
+                    user: { username: config.superAdmin.username, groups: [{ groupId: ADMIN_GROUP_ID }] },
                     body,
                 } as unknown as Request;
                 const res = createMockRes();
@@ -630,7 +633,7 @@ describe("Security Authorization Gates & Input Sanitization", () => {
             };
 
             const req = {
-                user: { username: config.superAdmin.username, groups: [{ groupId: config.superAdmin.groupName }] },
+                user: { username: config.superAdmin.username, groups: [{ groupId: ADMIN_GROUP_ID }] },
                 params: { id: "malformed" },
                 body: { email: "valid@example.com" },
             } as unknown as Request;
@@ -656,14 +659,14 @@ describe("Security Authorization Gates & Input Sanitization", () => {
                 username: config.superAdmin.username,
                 email: config.superAdmin.email || "superadmin@example.com",
                 isActive: true,
-                groups: [{ groupId: config.superAdmin.groupName, role: "member" }],
+                groups: [{ groupId: ADMIN_GROUP_ID, role: "member" }],
             };
             userHolder.findById = async () => superAdminDoc;
 
             const regularAdmin = {
                 _id: new mongoose.Types.ObjectId(),
                 username: "regular_admin",
-                groups: [{ groupId: config.superAdmin.groupName, role: "member" }],
+                groups: [{ groupId: ADMIN_GROUP_ID, role: "member" }],
             };
 
             const req = {
@@ -685,6 +688,7 @@ describe("Security Authorization Gates & Input Sanitization", () => {
         });
 
         it("usersController.managerUpdate blocks deactivation of the root Super Admin account", async () => {
+            const opsGroupId = new mongoose.Types.ObjectId().toString();
             const userHolder = User as unknown as Record<string, unknown>;
             const originalFindById = userHolder.findById;
             const superAdminDoc = {
@@ -692,14 +696,14 @@ describe("Security Authorization Gates & Input Sanitization", () => {
                 username: config.superAdmin.username,
                 email: config.superAdmin.email || "superadmin@example.com",
                 isActive: true,
-                groups: [{ groupId: "ops-group", role: "member" }],
+                groups: [{ groupId: opsGroupId, role: "member" }],
             };
             userHolder.findById = async () => superAdminDoc;
 
             const shiftManager = {
                 _id: new mongoose.Types.ObjectId(),
                 username: "shift_mgr",
-                groups: [{ groupId: "ops-group", role: "shift_manager" }],
+                groups: [{ groupId: opsGroupId, role: "shift_manager" }],
             };
 
             const req = {

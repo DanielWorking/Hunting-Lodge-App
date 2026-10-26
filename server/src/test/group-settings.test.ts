@@ -13,7 +13,9 @@ import express from "express";
 import mongoose from "mongoose";
 import Group from "../models/Group";
 import * as groupsController from "../controllers/groupsController";
+import { updateGroupSchema } from "../routes/groups";
 import { errorHandler } from "../middleware/errorMiddleware";
+import { validateRequest } from "../middleware/validationMiddleware";
 import { clearGroupCache } from "../utils/authHelpers";
 
 const restores: Array<() => void> = [];
@@ -67,7 +69,7 @@ async function send(method: "PUT" | "PATCH", path: string, body: unknown): Promi
     const app = express();
     app.use(express.json());
     app.put("/api/groups/:id/settings", groupsController.updateSettings);
-    app.patch("/api/groups/:id", groupsController.updateGroup);
+    app.patch("/api/groups/:id", validateRequest({ body: updateGroupSchema }), groupsController.updateGroup);
     app.use(errorHandler);
 
     const server: http.Server = await new Promise((resolve) => {
@@ -123,10 +125,13 @@ describe("Time slots cannot link vacation shift types", () => {
         assert.equal(group.saved(), true);
     });
 
-    it("applies the same rule when an administrator replaces the settings through PATCH /groups/:id", async () => {
+    it("rejects settings sent to PATCH /groups/:id (rename-only; settings go through PUT /:id/settings)", async () => {
         const group = mockGroup({ shiftTypes, timeSlots: [] });
 
-        const res = await send("PATCH", `/api/groups/${group.id}`, { settings: { shiftTypes, timeSlots: [slot([VACATION])] } });
+        const res = await send("PATCH", `/api/groups/${group.id}`, {
+            name: "Renamed",
+            settings: { shiftTypes, timeSlots: [slot([VACATION])] },
+        });
 
         assert.equal(res.status, 400);
         assert.equal(res.body.code, "VALIDATION_ERROR");

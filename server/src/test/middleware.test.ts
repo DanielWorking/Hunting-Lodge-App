@@ -9,7 +9,6 @@ import {
     protect,
     invalidateUserCache,
     requireAdmin,
-    requireSuperAdmin,
     requireGroupMember,
     requireShiftManager,
 } from "../middleware/authMiddleware";
@@ -54,7 +53,7 @@ describe("Migrated TypeScript Middleware Suite", () => {
             invalidateUserCache();
         });
 
-        it("protect should reject requests without authorization header with 401 NO_TOKEN", async () => {
+        it("protect should reject requests without a session cookie with 401 NO_TOKEN", async () => {
             const req = { headers: {} } as unknown as Request;
             const res = createMockResponse();
             let nextCalled = false;
@@ -68,24 +67,19 @@ describe("Migrated TypeScript Middleware Suite", () => {
             assert.equal(nextCalled, false);
         });
 
-        it("protect should reject authorization headers not starting with Bearer", async () => {
-            const req = { headers: { authorization: "Basic 12345" } } as unknown as Request;
+        it("protect ignores an Authorization: Bearer header, since sessions are cookie-only (401 NO_TOKEN)", async () => {
+            const validToken = jwt.sign(
+                { userId: "507f1f77bcf86cd799439010", username: "bearerUser", tokenVersion: 0 },
+                config.jwt.secret,
+                { expiresIn: "1h" }
+            );
+            const req = { headers: { authorization: "Bearer " + validToken } } as unknown as Request;
             const res = createMockResponse();
 
             await protect(req, res as unknown as Response, () => {});
 
             assert.equal(res.statusCode, 401);
             assert.equal(res.jsonPayload?.code, "NO_TOKEN");
-        });
-
-        it("protect should reject malformed Bearer token without token string", async () => {
-            const req = { headers: { authorization: "Bearer " } } as unknown as Request;
-            const res = createMockResponse();
-
-            await protect(req, res as unknown as Response, () => {});
-
-            assert.equal(res.statusCode, 401);
-            assert.equal(res.jsonPayload?.code, "MALFORMED_TOKEN");
         });
 
         it("protect should reject expired JWT tokens with 401 TOKEN_EXPIRED", async () => {
@@ -95,7 +89,7 @@ describe("Migrated TypeScript Middleware Suite", () => {
                 { expiresIn: -10 }
             );
 
-            const req = { headers: { authorization: "Bearer " + expiredToken } } as unknown as Request;
+            const req = { cookies: { hunting_token: expiredToken } } as unknown as Request;
             const res = createMockResponse();
 
             await protect(req, res as unknown as Response, () => {});
@@ -110,7 +104,7 @@ describe("Migrated TypeScript Middleware Suite", () => {
                 "wrong-secret-key"
             );
 
-            const req = { headers: { authorization: "Bearer " + forgedToken } } as unknown as Request;
+            const req = { cookies: { hunting_token: forgedToken } } as unknown as Request;
             const res = createMockResponse();
 
             await protect(req, res as unknown as Response, () => {});
@@ -121,12 +115,12 @@ describe("Migrated TypeScript Middleware Suite", () => {
 
         it("protect should reject if user is not found or inactive in database", async () => {
             const validToken = jwt.sign(
-                { userId: "507f1f77bcf86cd799439012", username: "inactive" },
+                { userId: "507f1f77bcf86cd799439012", username: "inactive", tokenVersion: 0 },
                 config.jwt.secret,
                 { expiresIn: "1h" }
             );
 
-            const req = { headers: { authorization: "Bearer " + validToken } } as unknown as Request;
+            const req = { cookies: { hunting_token: validToken } } as unknown as Request;
             const res = createMockResponse();
 
             const userHolder = User as unknown as Record<string, unknown>;
@@ -147,12 +141,12 @@ describe("Migrated TypeScript Middleware Suite", () => {
         it("protect should attach active user and decoded claims to req and utilize cache", async () => {
             const userId = "507f1f77bcf86cd799439013";
             const validToken = jwt.sign(
-                { userId, username: "validUser" },
+                { userId, username: "validUser", tokenVersion: 0 },
                 config.jwt.secret,
                 { expiresIn: "1h" }
             );
 
-            const req1 = { headers: { authorization: "Bearer " + validToken } } as unknown as Request;
+            const req1 = { cookies: { hunting_token: validToken } } as unknown as Request;
             let next1Called = false;
             let dbHits = 0;
 
@@ -181,7 +175,7 @@ describe("Migrated TypeScript Middleware Suite", () => {
                 assert.equal(dbHits, 1, "First invocation hits the DB");
 
                 // Second invocation should use in-memory cache
-                const req2 = { headers: { authorization: "Bearer " + validToken } } as unknown as Request;
+                const req2 = { cookies: { hunting_token: validToken } } as unknown as Request;
                 let next2Called = false;
                 await protect(req2, {} as Response, () => {
                     next2Called = true;
@@ -191,7 +185,7 @@ describe("Migrated TypeScript Middleware Suite", () => {
 
                 // Test cache invalidation
                 invalidateUserCache(userId);
-                const req3 = { headers: { authorization: "Bearer " + validToken } } as unknown as Request;
+                const req3 = { cookies: { hunting_token: validToken } } as unknown as Request;
                 await protect(req3, {} as Response, () => {});
                 assert.equal(dbHits, 2, "After cache invalidation, DB is queried again");
             } finally {
@@ -201,12 +195,12 @@ describe("Migrated TypeScript Middleware Suite", () => {
 
         it("protect should forward unexpected database errors to next(err) without swallowing", async () => {
             const validToken = jwt.sign(
-                { userId: "507f1f77bcf86cd799439014", username: "dbCrash" },
+                { userId: "507f1f77bcf86cd799439014", username: "dbCrash", tokenVersion: 0 },
                 config.jwt.secret,
                 { expiresIn: "1h" }
             );
 
-            const req = { headers: { authorization: "Bearer " + validToken } } as unknown as Request;
+            const req = { cookies: { hunting_token: validToken } } as unknown as Request;
             let nextError: Error | null = null;
 
             const userHolder = User as unknown as Record<string, unknown>;
@@ -248,13 +242,6 @@ describe("Migrated TypeScript Middleware Suite", () => {
                 adminNext = true;
             });
             assert.equal(adminNext, true);
-
-            // requireSuperAdmin alias
-            let superNext = false;
-            requireSuperAdmin(reqAdmin, res as unknown as Response, () => {
-                superNext = true;
-            });
-            assert.equal(superNext, true);
         });
 
         it("requireGroupMember should forward exceptions to next(err)", async () => {
@@ -422,8 +409,8 @@ describe("Migrated TypeScript Middleware Suite", () => {
                 method: "POST",
                 body: {
                     displayName: "Admin",
-                    sub: "sso-123",
-                    oidcId: "oidc-abc",
+                    ssoIssuer: "https://idp.example.com",
+                    ssoSubject: "sso-123",
                     allowedField: "safe value",
                 },
             } as unknown as Request;
@@ -436,8 +423,8 @@ describe("Migrated TypeScript Middleware Suite", () => {
             assert.equal(nextCalled, true);
             const body = req.body as Record<string, unknown>;
             assert.equal(body.displayName, undefined);
-            assert.equal(body.sub, undefined);
-            assert.equal(body.oidcId, undefined);
+            assert.equal(body.ssoIssuer, undefined);
+            assert.equal(body.ssoSubject, undefined);
             assert.equal(body.allowedField, "safe value");
         });
 
@@ -461,8 +448,9 @@ describe("Migrated TypeScript Middleware Suite", () => {
             assert.doesNotThrow(() => sanitizePayload(12345));
 
             assert.ok(IMMUTABLE_SSO_FIELDS.includes("displayName"));
-            assert.ok(IMMUTABLE_SSO_FIELDS.includes("sub"));
-            assert.ok(IMMUTABLE_SSO_FIELDS.includes("oidcId"));
+            assert.ok(IMMUTABLE_SSO_FIELDS.includes("ssoIssuer"));
+            assert.ok(IMMUTABLE_SSO_FIELDS.includes("ssoSubject"));
+            assert.ok(IMMUTABLE_SSO_FIELDS.includes("tokenVersion"));
         });
     });
 });

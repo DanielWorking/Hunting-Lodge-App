@@ -157,8 +157,8 @@ describe("Enterprise 9-Step OIDC SSO Integration Test Suite", () => {
         });
     });
 
-    describe("Step 6: Dual-Stack Auth Middleware (Cookie + Bearer fallback)", () => {
-        it("should authenticate using hunting_token cookie without Bearer header", async () => {
+    describe("Step 6: Cookie Session Auth Middleware", () => {
+        it("should authenticate using the hunting_token session cookie", async () => {
             invalidateUserCache();
             const userId = "507f1f77bcf86cd799439011";
             const testUser = {
@@ -205,7 +205,7 @@ describe("Enterprise 9-Step OIDC SSO Integration Test Suite", () => {
             }
         });
 
-        it("should fall back to Authorization: Bearer header when cookie is absent", async () => {
+        it("should reject an Authorization: Bearer header when the session cookie is absent", async () => {
             invalidateUserCache();
             const userId = "507f1f77bcf86cd799439012";
             const testUser = {
@@ -217,39 +217,34 @@ describe("Enterprise 9-Step OIDC SSO Integration Test Suite", () => {
             };
             const validToken = generateToken(testUser);
 
-            const userHolder = User as unknown as Record<string, unknown>;
-            const originalFindById = userHolder.findById;
-            userHolder.findById = () => ({
-                populate: () => ({
-                    lean: async () => testUser,
-                    then: (resolve: (val: unknown) => void) => resolve(testUser),
-                }),
+            const req = {
+                headers: {
+                    authorization: `Bearer ${validToken}`,
+                },
+                cookies: {},
+            } as unknown as Request;
+
+            let nextCalled = false;
+            let statusCode = 200;
+            let body: { code?: string } | undefined;
+            const res = {
+                status: (code: number) => {
+                    statusCode = code;
+                    return res;
+                },
+                json: (payload: { code?: string }) => {
+                    body = payload;
+                },
+            } as unknown as Response;
+
+            await protect(req, res, () => {
+                nextCalled = true;
             });
 
-            try {
-                const req = {
-                    headers: {
-                        authorization: `Bearer ${validToken}`,
-                    },
-                    cookies: {},
-                } as unknown as Request;
-
-                let nextCalled = false;
-                const res = {
-                    status: () => res,
-                    json: () => {},
-                } as unknown as Response;
-
-                await protect(req, res, () => {
-                    nextCalled = true;
-                });
-
-                assert.equal(nextCalled, true, "protect middleware must succeed with Bearer header fallback");
-                assert.ok(req.user, "req.user must be populated");
-                assert.equal(req.user?.username, "bearerUser");
-            } finally {
-                userHolder.findById = originalFindById;
-            }
+            assert.equal(nextCalled, false, "a Bearer token must not open a session");
+            assert.equal(statusCode, 401);
+            assert.equal(body?.code, "NO_TOKEN");
+            assert.equal(req.user, undefined);
         });
     });
 

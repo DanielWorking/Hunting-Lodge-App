@@ -18,6 +18,7 @@ describe("TypeScript Configuration Modules Verification", () => {
             assert.ok(Object.isFrozen(config.sso), "Config.sso should be frozen");
             assert.ok(Object.isFrozen(config.superAdmin), "Config.superAdmin should be frozen");
             assert.ok(Object.isFrozen(config.security), "Config.security should be frozen");
+            assert.ok(Object.isFrozen(config.cron), "Config.cron should be frozen");
 
             // Check core subsystem fields
             assert.equal(typeof config.env, "string");
@@ -198,6 +199,53 @@ describe("TypeScript Configuration Modules Verification", () => {
             }
             const switchedOff = validateServerEnv({ ...complete, APP_ENV: "prod", EXPOSE_ERROR_DETAILS: "false" }, "prod", false);
             assert.equal(switchedOff.valid, true);
+        });
+
+        it("should allow ENABLE_IN_PROCESS_CRON only in nonprod and require a valid SHIFT_REPORT_CRON_SCHEDULE", () => {
+            const base = {
+                MONGO_URI: "mongodb://db.internal:27017/hunting_lodge",
+                JWT_SECRET: "x".repeat(32),
+                SSO_ISSUER_URL: "https://idp.example.com/",
+                SSO_CLIENT_ID: "client",
+                SSO_CLIENT_SECRET: "secret",
+                SSO_REDIRECT_URI: "https://app.example.com/auth/callback",
+                SUPER_ADMIN_ID: "10001",
+                SUPER_ADMIN_GROUP_NAME: "ADMINISTRATORS",
+            };
+            assert.equal(
+                validateServerEnv(
+                    { ...base, APP_ENV: "nonprod", ENABLE_IN_PROCESS_CRON: "true", SHIFT_REPORT_CRON_SCHEDULE: "* * * * *" },
+                    "nonprod",
+                    false,
+                ).valid,
+                true,
+            );
+
+            for (const env of ["preprod", "prod"] as const) {
+                const res = validateServerEnv(
+                    { ...base, APP_ENV: env, ENABLE_IN_PROCESS_CRON: "true", SHIFT_REPORT_CRON_SCHEDULE: "* * * * *" },
+                    env,
+                    false,
+                );
+                assert.equal(res.valid, false);
+                assert.ok(res.errors.some((e) => e.includes("ENABLE_IN_PROCESS_CRON")), `${env} must refuse in-process cron`);
+            }
+
+            const missingSchedule = validateServerEnv(
+                { ...base, APP_ENV: "nonprod", ENABLE_IN_PROCESS_CRON: "true" },
+                "nonprod",
+                false,
+            );
+            assert.equal(missingSchedule.valid, false);
+            assert.ok(missingSchedule.errors.some((e) => e.includes("SHIFT_REPORT_CRON_SCHEDULE")));
+
+            const invalidSchedule = validateServerEnv(
+                { ...base, APP_ENV: "nonprod", ENABLE_IN_PROCESS_CRON: "true", SHIFT_REPORT_CRON_SCHEDULE: "not-a-cron" },
+                "nonprod",
+                false,
+            );
+            assert.equal(invalidSchedule.valid, false);
+            assert.ok(invalidSchedule.errors.some((e) => e.includes("SHIFT_REPORT_CRON_SCHEDULE")));
         });
     });
 

@@ -4,7 +4,7 @@
  * Comprehensive unit and integration tests for OpenShift / Kubernetes health probes:
  * - Liveness probe (/healthz): in-memory responsiveness, independent of MongoDB
  * - Readiness probe (/api/health): traffic readiness reflecting DB connectivity
- * - Startup probe (/startup, /api/startup): initial startup check with initialized flag
+ * - Startup probe (/startup): initial startup check with initialized flag
  * - Rate limiter bypass: ensures high-frequency probe polling never encounters HTTP 429
  */
 
@@ -22,6 +22,7 @@ import healthRoutes, {
     ReadinessResponse,
     StartupResponse,
 } from "../routes/health";
+import { isExemptFromGlobalRateLimit } from "../middleware/rateLimitMiddleware";
 
 // Helper to create mock Express Response objects for unit tests
 interface MockResponse {
@@ -137,7 +138,7 @@ describe("Health Probes - Unit Tests", () => {
         });
     });
 
-    describe("GET /startup & /api/startup (Startup Probe)", () => {
+    describe("GET /startup (Startup Probe)", () => {
         it("returns HTTP 200 OK with initialized: true when MongoDB readyState === 1", () => {
             mockReadyState(1);
 
@@ -229,15 +230,6 @@ describe("Health Probes - HTTP Route Integration Tests", () => {
         assert.ok(typeof data.initialized === "boolean");
         assert.ok(data.status === "UP" || data.status === "STARTING");
     });
-
-    it("GET /api/startup responds with valid JSON startup response", async () => {
-        const res = await fetch(`${baseUrl}/api/startup`);
-        assert.ok(res.status === 200 || res.status === 503);
-        assert.strictEqual(res.headers.get("content-type")?.includes("application/json"), true);
-
-        const data = (await res.json()) as StartupResponse;
-        assert.ok(typeof data.initialized === "boolean");
-    });
 });
 
 describe("Health Probes - Rate Limiter Bypass Integration", () => {
@@ -247,18 +239,12 @@ describe("Health Probes - Rate Limiter Bypass Integration", () => {
     it("setup server with rate limiter", async () => {
         const app: Express = express();
 
-        // Exact rate limiter pattern configured in app.ts, with a low limit to test bypass
+        // The production skip rule (isExemptFromGlobalRateLimit), with a low limit to test bypass
         const limiter = rateLimit({
             windowMs: 60 * 1000,
             max: 3, // Very low threshold to trigger 429 quickly on normal routes
             message: "Too many requests from this IP, please try again after 15 minutes",
-            skip: (req) =>
-                req.path.startsWith("/api/auth") ||
-                req.path === "/api/users/login" ||
-                req.path === "/api/health" ||
-                req.path === "/healthz" ||
-                req.path === "/startup" ||
-                req.path === "/api/startup",
+            skip: isExemptFromGlobalRateLimit,
         });
 
         app.use(limiter);
@@ -313,13 +299,10 @@ describe("Health Probes - Rate Limiter Bypass Integration", () => {
         }
     });
 
-    it("/startup and /api/startup bypass rate limiting", async () => {
+    it("/startup bypasses rate limiting", async () => {
         for (let i = 0; i < 10; i++) {
-            const resRoot = await fetch(`${baseUrl}/startup`);
-            assert.notStrictEqual(resRoot.status, 429);
-
-            const resApi = await fetch(`${baseUrl}/api/startup`);
-            assert.notStrictEqual(resApi.status, 429);
+            const res = await fetch(`${baseUrl}/startup`);
+            assert.notStrictEqual(res.status, 429);
         }
     });
 });

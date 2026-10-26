@@ -13,6 +13,7 @@ import path from "node:path";
 import http from "node:http";
 import express, { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { Issuer } from "openid-client";
@@ -649,6 +650,27 @@ describe("user responses never expose ssoIssuer, ssoSubject or tokenVersion", ()
         assert.equal("vacationBalance" in bodyOf(res), false);
         assert.equal((req.user as unknown as Record<string, unknown>).vacationBalance, 7, "the session's user object is not modified");
     });
+
+    it("GET /auth/me drops a membership whose group no longer exists (it populates as null)", async () => {
+        const groupId = newId();
+        const req = {
+            user: {
+                _id: newId(),
+                username: "dana",
+                groups: [
+                    { groupId: null, role: "shift_manager", order: 0 },
+                    { groupId: { _id: groupId, name: "noc" }, role: "member", order: 1 },
+                ],
+            },
+        } as unknown as Request;
+        const res = createMockRes();
+
+        await authController.getMe(req, res as unknown as Response, () => {});
+
+        assert.deepEqual(bodyOf(res).groups, [
+            { groupId: { _id: groupId, name: "noc" }, role: "member", order: 1, isSystemGroup: false },
+        ]);
+    });
 });
 
 // --- Schedule lookup --------------------------------------------------------
@@ -812,7 +834,7 @@ describe("tag names travel in the body or the query string, never in the path", 
 
 // --- Logout -----------------------------------------------------------------
 
-describe("logout revokes Bearer sessions, not only cookie sessions", () => {
+describe("logout revokes the session behind the session cookie", () => {
     /**
      * @param storedVersions - Each user's stored tokenVersion.
      * @returns The ids whose tokenVersion was incremented, honouring the controller's version filter.
@@ -841,29 +863,29 @@ describe("logout revokes Bearer sessions, not only cookie sessions", () => {
         return revoked;
     }
 
-    async function logoutWith(headers: Record<string, string>, cookies: Record<string, string> = {}): Promise<MockRes> {
+    async function logoutWith(cookies: Record<string, string>, headers: Record<string, string> = {}): Promise<MockRes> {
         const res = createMockRes();
         await authController.logout({ headers, cookies } as unknown as Request, res as unknown as Response, () => {});
         return res;
     }
 
-    it("increments tokenVersion for the user behind an Authorization: Bearer token", async () => {
+    it("increments tokenVersion for the user behind the session cookie", async () => {
         const userId = newId();
         const revoked = setup({ [userId]: 0 });
-        const token = generateToken({ _id: userId, username: "bearer-user", tokenVersion: 0 });
+        const token = generateToken({ _id: userId, username: "cookie-user", tokenVersion: 0 });
 
-        const res = await logoutWith({ authorization: `Bearer ${token}` });
+        const res = await logoutWith({ [ssoConfig.sessionCookieName]: token });
 
         assert.equal(res.statusCode, 200);
         assert.deepEqual(revoked, [userId]);
     });
 
-    it("still revokes an expired but correctly signed Bearer token", async () => {
+    it("still revokes an expired but correctly signed session token", async () => {
         const userId = newId();
         const revoked = setup({ [userId]: 2 });
         const expired = jwt.sign({ userId, username: "late", tokenVersion: 2 }, config.jwt.secret, { expiresIn: -60 });
 
-        await logoutWith({ authorization: `Bearer ${expired}` });
+        await logoutWith({ [ssoConfig.sessionCookieName]: expired });
 
         assert.deepEqual(revoked, [userId]);
     });
@@ -873,7 +895,7 @@ describe("logout revokes Bearer sessions, not only cookie sessions", () => {
         const revoked = setup({ [userId]: 2 });
         const stale = generateToken({ _id: userId, username: "owner", tokenVersion: 1 });
 
-        await logoutWith({ authorization: `Bearer ${stale}` });
+        await logoutWith({ [ssoConfig.sessionCookieName]: stale });
 
         assert.deepEqual(revoked, [], "a token older than the current version must not bump it again");
     });
@@ -883,9 +905,20 @@ describe("logout revokes Bearer sessions, not only cookie sessions", () => {
         const revoked = setup({ [victimId]: 0 });
         const forged = jwt.sign({ userId: victimId, username: "victim", tokenVersion: 0 }, "not-the-server-secret");
 
-        const res = await logoutWith({ authorization: `Bearer ${forged}` }, { [ssoConfig.sessionCookieName]: forged });
+        const res = await logoutWith({ [ssoConfig.sessionCookieName]: forged });
 
         assert.equal(res.statusCode, 200, "logout itself still succeeds");
+        assert.deepEqual(revoked, []);
+    });
+
+    it("revokes nothing for an Authorization: Bearer token: sessions are cookie-only", async () => {
+        const userId = newId();
+        const revoked = setup({ [userId]: 0 });
+        const token = generateToken({ _id: userId, username: "bearer-user", tokenVersion: 0 });
+
+        const res = await logoutWith({}, { authorization: `Bearer ${token}` });
+
+        assert.equal(res.statusCode, 200);
         assert.deepEqual(revoked, []);
     });
 });
@@ -1059,16 +1092,18 @@ describe("the global rate limiter answers 429 as JSON", () => {
         });
     });
 
-    // The budget is per signed-in user; callers without a valid token share their IP's budget
+    // The budget is per signed-in user; callers without a valid session cookie share their IP's budget
     function limitedApp(max: number): express.Express {
         const app = express();
+        // As in app.ts, cookies are parsed before the limiter runs
+        app.use(cookieParser());
         app.use(createGlobalRateLimiter({ windowMs: 60_000, max }));
         app.get("/api/ping", (_req, res) => {
             res.json({ ok: true });
         });
         return app;
     }
-    const bearer = (token: string) => ({ headers: { Authorization: `Bearer ${token}` } });
+    const session = (token: string) => ({ headers: { Cookie: `${ssoConfig.sessionCookieName}=${token}` } });
     const tokenFor = (userId: string) => generateToken({ _id: userId, username: `u-${userId}` });
 
     it("gives two signed-in users on the same IP separate budgets", async () => {
@@ -1076,10 +1111,10 @@ describe("the global rate limiter answers 429 as JSON", () => {
         const bob = tokenFor(newId());
 
         await withServer(limitedApp(2), async (baseUrl) => {
-            assert.equal((await fetch(`${baseUrl}/api/ping`, bearer(alice))).status, 200);
-            assert.equal((await fetch(`${baseUrl}/api/ping`, bearer(alice))).status, 200);
-            assert.equal((await fetch(`${baseUrl}/api/ping`, bearer(alice))).status, 429);
-            assert.equal((await fetch(`${baseUrl}/api/ping`, bearer(bob))).status, 200, "Alice's lockout must not affect Bob");
+            assert.equal((await fetch(`${baseUrl}/api/ping`, session(alice))).status, 200);
+            assert.equal((await fetch(`${baseUrl}/api/ping`, session(alice))).status, 200);
+            assert.equal((await fetch(`${baseUrl}/api/ping`, session(alice))).status, 429);
+            assert.equal((await fetch(`${baseUrl}/api/ping`, session(bob))).status, 200, "Alice's lockout must not affect Bob");
         });
     });
 
@@ -1089,7 +1124,7 @@ describe("the global rate limiter answers 429 as JSON", () => {
         await withServer(limitedApp(1), async (baseUrl) => {
             assert.equal((await fetch(`${baseUrl}/api/ping`)).status, 200);
             assert.equal((await fetch(`${baseUrl}/api/ping`)).status, 429);
-            assert.equal((await fetch(`${baseUrl}/api/ping`, bearer(alice))).status, 200);
+            assert.equal((await fetch(`${baseUrl}/api/ping`, session(alice))).status, 200);
         });
     });
 
@@ -1099,8 +1134,8 @@ describe("the global rate limiter answers 429 as JSON", () => {
 
         await withServer(limitedApp(1), async (baseUrl) => {
             assert.equal((await fetch(`${baseUrl}/api/ping`)).status, 200);
-            assert.equal((await fetch(`${baseUrl}/api/ping`, bearer(forged))).status, 429);
-            assert.equal((await fetch(`${baseUrl}/api/ping`, bearer(expired))).status, 429);
+            assert.equal((await fetch(`${baseUrl}/api/ping`, session(forged))).status, 429);
+            assert.equal((await fetch(`${baseUrl}/api/ping`, session(expired))).status, 429);
         });
     });
 

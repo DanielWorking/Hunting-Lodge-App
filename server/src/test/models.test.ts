@@ -88,16 +88,12 @@ describe("Mongoose Schema Validations & Constraints", () => {
             assert.deepEqual(user.favoritePhones, []);
         });
 
-        it("should define compound & multikey indexes for groups", () => {
+        it("should define multikey index for groups.groupId", () => {
             const indexes = User.schema.indexes();
             const hasGroupIndex = indexes.some(
                 ([spec]) => (spec as IndexSpecMap)["groups.groupId"] === 1 && Object.keys(spec).length === 1
             );
-            const hasGroupOrderIndex = indexes.some(
-                ([spec]) => (spec as IndexSpecMap)["groups.groupId"] === 1 && (spec as IndexSpecMap)["groups.order"] === 1
-            );
             assert.ok(hasGroupIndex, "Expected index on groups.groupId");
-            assert.ok(hasGroupOrderIndex, "Expected compound index on groups.groupId and groups.order");
         });
     });
 
@@ -280,10 +276,10 @@ describe("Mongoose Schema Validations & Constraints", () => {
             assert.ok(err.errors.endTime, "endTime is required");
         });
 
-        it("should define compound index on { groupId: 1, startTime: -1 } and unique compound index on { groupId: 1, title: 1 }", () => {
+        it("should define compound index on { groupId: 1, date: -1, startTime: -1 } and unique compound index on { groupId: 1, title: 1 }", () => {
             const indexes = ShiftReport.schema.indexes();
             const hasStartTimeIndex = indexes.some(
-                ([spec]) => (spec as IndexSpecMap).groupId === 1 && (spec as IndexSpecMap).startTime === -1
+                ([spec]) => (spec as IndexSpecMap).groupId === 1 && (spec as IndexSpecMap).date === -1 && (spec as IndexSpecMap).startTime === -1
             );
             const hasUniqueTitleIndex = indexes.some(
                 ([spec, options]) =>

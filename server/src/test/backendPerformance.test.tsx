@@ -126,7 +126,7 @@ describe("Comprehensive Backend Performance & Optimization Suite", () => {
 
             // Mock request and response
             const req1 = {
-                headers: { authorization: `Bearer ${token}` },
+                cookies: { hunting_token: token },
             } as any;
             let next1Called = false;
             const res1 = {
@@ -164,7 +164,7 @@ describe("Comprehensive Backend Performance & Optimization Suite", () => {
                 // Second verification: warm cache hit
                 let next2Called = false;
                 const req2 = {
-                    headers: { authorization: `Bearer ${token}` },
+                    cookies: { hunting_token: token },
                 } as any;
 
                 const startNs = process.hrtime.bigint();
@@ -189,48 +189,7 @@ describe("Comprehensive Backend Performance & Optimization Suite", () => {
         });
     });
 
-    describe("4. Batched Atomic Vacation Deductions", () => {
-        it("should aggregate multi-shift deductions by userId for single atomic bulkWrite operation", () => {
-            // Simulate 10 shifts across 3 unique users (e.g. 4 shifts for user A, 4 for user B, 2 for user C)
-            const shifts = [
-                { userId: "userA", isVacation: true },
-                { userId: "userA", isVacation: true },
-                { userId: "userB", isVacation: true },
-                { userId: "userA", isVacation: true },
-                { userId: "userC", isVacation: true },
-                { userId: "userB", isVacation: true },
-                { userId: "userA", isVacation: true },
-                { userId: "userB", isVacation: true },
-                { userId: "userB", isVacation: true },
-                { userId: "userC", isVacation: true },
-            ];
-
-            // In-memory aggregation logic
-            const userDeductions = new Map<string, number>();
-            for (const shift of shifts) {
-                if (shift.isVacation && shift.userId) {
-                    const current = userDeductions.get(shift.userId) || 0;
-                    userDeductions.set(shift.userId, current + 1);
-                }
-            }
-
-            assert.strictEqual(userDeductions.size, 3, "10 shifts across 3 users should yield exactly 3 aggregate entries");
-            assert.strictEqual(userDeductions.get("userA"), 4, "User A should aggregate 4 days");
-            assert.strictEqual(userDeductions.get("userB"), 4, "User B should aggregate 4 days");
-            assert.strictEqual(userDeductions.get("userC"), 2, "User C should aggregate 2 days");
-
-            const bulkOps = Array.from(userDeductions.entries()).map(([userId, count]) => ({
-                updateOne: {
-                    filter: { _id: userId, vacationBalance: { $gte: count } },
-                    update: { $inc: { vacationBalance: -count } },
-                },
-            }));
-
-            assert.strictEqual(bulkOps.length, 3, "bulkWrite operations should equal unique users, avoiding multi-shift race conditions");
-        });
-    });
-
-    describe("5. Bounded LRU Cache Eviction & Memory Bounding", () => {
+    describe("4. Bounded LRU Cache Eviction & Memory Bounding", () => {
         it("should enforce bounded maximum size and prune entries in groupCache", async () => {
             clearGroupCache();
 
@@ -249,7 +208,7 @@ describe("Comprehensive Backend Performance & Optimization Suite", () => {
         });
     });
 
-    describe("6. Connection Tuning & Keep-Alive Configuration", () => {
+    describe("5. Connection Tuning & Keep-Alive Configuration", () => {
         it("should configure HTTP server keepAliveTimeout >= 65000 and headersTimeout > keepAliveTimeout", () => {
             const server = http.createServer(app);
             // Default node server keepAliveTimeout is 5000ms.

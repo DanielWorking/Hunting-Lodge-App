@@ -15,6 +15,8 @@ import Group from "../models/Group";
 import config from "../config";
 import { protect, invalidateUserCache, invalidateTokenCache } from "../middleware/authMiddleware";
 import { generateToken } from "../utils/jwt";
+import { getAdminGroupId } from "../services/adminGroup";
+import { ADMIN_GROUP_ID, registerAdminGroup, stubAdminGroupInDb } from "./adminGroupFixture";
 
 describe("SSO Identity & Session Revocation Verification", () => {
     describe("1. Claim Normalization (ssoIdentity.normalizeClaims)", () => {
@@ -199,7 +201,8 @@ describe("SSO Identity & Session Revocation Verification", () => {
             "provisions the Super Admin into the administrators group at first login",
             { skip: !config.superAdmin.id && "SUPER_ADMIN_ID is not configured" },
             async () => {
-                const adminGroup = { _id: new mongoose.Types.ObjectId(), name: config.superAdmin.groupName };
+                // The server learned the administrators group's id at startup
+                await registerAdminGroup();
                 const groupMemberUpdates: unknown[] = [];
 
                 const userHolder = User as unknown as Record<string, unknown>;
@@ -207,19 +210,18 @@ describe("SSO Identity & Session Revocation Verification", () => {
                 const prototypeHolder = User.prototype as unknown as Record<string, unknown>;
                 const originals = {
                     findOne: userHolder.findOne,
-                    groupFindOne: groupHolder.findOne,
                     groupUpdateOne: groupHolder.updateOne,
                     save: prototypeHolder.save,
                 };
                 // Nothing seeded: the Super Admin has no account yet
                 userHolder.findOne = async () => null;
-                groupHolder.findOne = async (query: { name?: string }) => (query.name === adminGroup.name ? adminGroup : null);
                 groupHolder.updateOne = async (filter: unknown, update: unknown) => {
                     groupMemberUpdates.push({ filter, update });
                 };
                 prototypeHolder.save = async function (this: unknown) {
                     return this;
                 };
+                const restoreAdminGroup = stubAdminGroupInDb();
 
                 try {
                     // SUPER_ADMIN_ID becomes the System ID in either SSO_IDENTIFIER_FIELD mode
@@ -234,19 +236,128 @@ describe("SSO Identity & Session Revocation Verification", () => {
                     assert.equal(resolved.ssoSubject, "sub-admin");
                     assert.deepEqual(
                         resolved.groups.map((g) => ({ groupId: String(g.groupId), role: g.role })),
-                        [{ groupId: String(adminGroup._id), role: "shift_manager" }],
+                        [{ groupId: ADMIN_GROUP_ID, role: "shift_manager" }],
                     );
                     assert.deepEqual(groupMemberUpdates, [
-                        { filter: { _id: adminGroup._id }, update: { $addToSet: { members: resolved._id } } },
+                        { filter: { _id: ADMIN_GROUP_ID }, update: { $addToSet: { members: resolved._id } } },
                     ]);
                 } finally {
+                    restoreAdminGroup();
                     userHolder.findOne = originals.findOne;
-                    groupHolder.findOne = originals.groupFindOne;
                     groupHolder.updateOne = originals.groupUpdateOne;
                     prototypeHolder.save = originals.save;
                 }
             },
         );
+
+        it(
+            "adds the Super Admin to the administrators group as it exists now, after it was recreated under a new id",
+            { skip: !config.superAdmin.id && "SUPER_ADMIN_ID is not configured" },
+            async () => {
+                // At startup the server learned ADMIN_GROUP_ID; since then a wiping seed recreated the group
+                await registerAdminGroup();
+                const recreatedGroupId = new mongoose.Types.ObjectId().toString();
+                const superAdmin = new User({
+                    username: config.superAdmin.id,
+                    email: config.superAdmin.id,
+                    ssoIssuer: "https://idp.org",
+                    ssoSubject: "sub-admin",
+                    groups: [{ groupId: new mongoose.Types.ObjectId(ADMIN_GROUP_ID), role: "shift_manager", order: 0 }],
+                });
+                const groupMemberUpdates: unknown[] = [];
+
+                const userHolder = User as unknown as Record<string, unknown>;
+                const groupHolder = Group as unknown as Record<string, unknown>;
+                const prototypeHolder = User.prototype as unknown as Record<string, unknown>;
+                const originals = {
+                    findOne: userHolder.findOne,
+                    groupDistinct: groupHolder.distinct,
+                    groupUpdateOne: groupHolder.updateOne,
+                    save: prototypeHolder.save,
+                };
+                userHolder.findOne = async () => superAdmin;
+                // The group the membership names is gone
+                groupHolder.distinct = async () => [];
+                groupHolder.updateOne = async (filter: unknown, update: unknown) => {
+                    groupMemberUpdates.push({ filter, update });
+                };
+                prototypeHolder.save = async function (this: unknown) {
+                    return this;
+                };
+                const restoreAdminGroup = stubAdminGroupInDb(recreatedGroupId);
+
+                try {
+                    const resolved = await resolveOrProvisionUser({
+                        iss: "https://idp.org",
+                        sub: "sub-admin",
+                        preferred_username: config.superAdmin.id,
+                        email: config.superAdmin.id,
+                    });
+
+                    assert.deepEqual(
+                        resolved.groups.map((g) => ({ groupId: String(g.groupId), role: g.role })),
+                        [{ groupId: recreatedGroupId, role: "shift_manager" }],
+                        "the membership of the deleted group is replaced by the live one",
+                    );
+                    assert.equal(getAdminGroupId(), recreatedGroupId, "every later administrator check uses the live id");
+                    assert.deepEqual(groupMemberUpdates, [
+                        { filter: { _id: recreatedGroupId }, update: { $addToSet: { members: resolved._id } } },
+                    ]);
+                } finally {
+                    restoreAdminGroup();
+                    userHolder.findOne = originals.findOne;
+                    groupHolder.distinct = originals.groupDistinct;
+                    groupHolder.updateOne = originals.groupUpdateOne;
+                    prototypeHolder.save = originals.save;
+                    await registerAdminGroup();
+                }
+            },
+        );
+
+        it("drops memberships of groups that no longer exist at login", async () => {
+            const deletedGroupId = new mongoose.Types.ObjectId();
+            const liveGroupId = new mongoose.Types.ObjectId();
+            const member = new User({
+                username: "dana",
+                email: "dana@example.com",
+                ssoIssuer: "https://idp.org",
+                ssoSubject: "sub-dana",
+                groups: [
+                    { groupId: deletedGroupId, role: "shift_manager", order: 0 },
+                    { groupId: liveGroupId, role: "member", order: 1 },
+                ],
+            });
+            const groupQueries: unknown[] = [];
+
+            const userHolder = User as unknown as Record<string, unknown>;
+            const groupHolder = Group as unknown as Record<string, unknown>;
+            const prototypeHolder = User.prototype as unknown as Record<string, unknown>;
+            const originals = { findOne: userHolder.findOne, groupDistinct: groupHolder.distinct, save: prototypeHolder.save };
+            userHolder.findOne = async () => member;
+            groupHolder.distinct = async (field: string, filter: unknown) => {
+                groupQueries.push({ field, filter });
+                return [liveGroupId];
+            };
+            prototypeHolder.save = async function (this: unknown) {
+                return this;
+            };
+
+            try {
+                const resolved = await resolveOrProvisionUser({ iss: "https://idp.org", sub: "sub-dana", email: "dana@example.com" });
+
+                assert.deepEqual(groupQueries, [
+                    { field: "_id", filter: { _id: { $in: [String(deletedGroupId), String(liveGroupId)] } } },
+                ]);
+                assert.deepEqual(
+                    resolved.groups.map((g) => ({ groupId: String(g.groupId), role: g.role })),
+                    [{ groupId: String(liveGroupId), role: "member" }],
+                );
+            } finally {
+                userHolder.findOne = originals.findOne;
+                groupHolder.distinct = originals.groupDistinct;
+                prototypeHolder.save = originals.save;
+            }
+        });
     });
 
     describe("4. Session Invalidation via tokenVersion (authMiddleware.protect)", () => {

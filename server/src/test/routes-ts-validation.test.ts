@@ -11,6 +11,7 @@ import Group from "../models/Group";
 import Site from "../models/Site";
 import mongoose from "mongoose";
 import { validateRequest } from "../middleware/validationMiddleware";
+import { ADMIN_GROUP_ID, registerAdminGroup, stubAdminGroupInDb } from "./adminGroupFixture";
 import { z } from "zod";
 
 interface ValidationErrorItem {
@@ -218,7 +219,7 @@ describe("Migrated TypeScript API Routes & Schema Validation Suite", () => {
         it("GET /api/sites with query params succeeds without Express v5 query setter crash", async () => {
             const adminId = new mongoose.Types.ObjectId().toString();
             const token = jwt.sign(
-                { userId: adminId, username: config.superAdmin.id },
+                { userId: adminId, username: config.superAdmin.id, tokenVersion: 0 },
                 config.jwt.secret,
                 { expiresIn: "1h" }
             );
@@ -245,7 +246,7 @@ describe("Migrated TypeScript API Routes & Schema Validation Suite", () => {
             try {
                 const res = await fetch(`${baseUrl}/api/sites?tag=General`, {
                     headers: {
-                        Authorization: `Bearer ${token}`,
+                        Cookie: `hunting_token=${token}`,
                     },
                 });
 
@@ -262,7 +263,7 @@ describe("Migrated TypeScript API Routes & Schema Validation Suite", () => {
             const adminId = new mongoose.Types.ObjectId().toString();
             const groupId = new mongoose.Types.ObjectId().toString();
             const token = jwt.sign(
-                { userId: adminId, username: config.superAdmin.id },
+                { userId: adminId, username: config.superAdmin.id, tokenVersion: 0 },
                 config.jwt.secret,
                 { expiresIn: "1h" }
             );
@@ -295,7 +296,7 @@ describe("Migrated TypeScript API Routes & Schema Validation Suite", () => {
             try {
                 const res = await fetch(`${baseUrl}/api/users?groupId=${groupId}`, {
                     headers: {
-                        Authorization: `Bearer ${token}`,
+                        Cookie: `hunting_token=${token}`,
                     },
                 });
 
@@ -309,10 +310,11 @@ describe("Migrated TypeScript API Routes & Schema Validation Suite", () => {
             }
         });
 
-        it("GET /api/auth/me returns Super Admin profile with ADMINISTRATORS group claims", async () => {
+        it("GET /api/auth/me lists the administrators group, by id, for a Super Admin missing the membership", async () => {
+            await registerAdminGroup();
             const adminId = new mongoose.Types.ObjectId().toString();
             const token = jwt.sign(
-                { userId: adminId, username: config.superAdmin.id },
+                { userId: adminId, username: config.superAdmin.id, tokenVersion: 0 },
                 config.jwt.secret,
                 { expiresIn: "1h" }
             );
@@ -320,7 +322,7 @@ describe("Migrated TypeScript API Routes & Schema Validation Suite", () => {
             const userHolder = User as unknown as Record<string, unknown>;
             const groupHolder = Group as unknown as Record<string, unknown>;
             const origUserFindById = userHolder.findById;
-            const origGroupFindOne = groupHolder.findOne;
+            const origGroupFindById = groupHolder.findById;
 
             userHolder.findById = () => ({
                 populate: async () => ({
@@ -341,30 +343,93 @@ describe("Migrated TypeScript API Routes & Schema Validation Suite", () => {
                 }),
             });
 
-            const adminGroupId = new mongoose.Types.ObjectId();
-            groupHolder.findOne = async () => ({
-                _id: adminGroupId,
-                name: config.superAdmin.groupName,
-            });
+            const groupLookups: string[] = [];
+            groupHolder.findById = async (id: unknown) => {
+                groupLookups.push(String(id));
+                return { _id: ADMIN_GROUP_ID, name: config.superAdmin.groupName };
+            };
+            const restoreAdminGroup = stubAdminGroupInDb();
 
             try {
                 const res = await fetch(`${baseUrl}/api/auth/me`, {
                     headers: {
-                        Authorization: `Bearer ${token}`,
+                        Cookie: `hunting_token=${token}`,
                     },
                 });
 
                 assert.equal(res.status, 200, `Expected 200 OK, got ${res.status}`);
-                const user = (await res.json()) as { groups?: Array<{ groupId: unknown; groupName?: string; name?: string; role?: string }> };
-                assert.ok(Array.isArray(user.groups), "Expected groups array in /api/auth/me");
-                const hasAdminGroup = user.groups.some((g) => {
-                    const gid = typeof g.groupId === "object" && g.groupId !== null ? (g.groupId as { name?: string }).name : String(g.groupId);
-                    return gid === config.superAdmin.groupName || g.groupName === config.superAdmin.groupName || g.name === config.superAdmin.groupName;
-                });
-                assert.ok(hasAdminGroup, `Expected user to contain ${config.superAdmin.groupName} group claim`);
+                const user = (await res.json()) as { isAdmin?: boolean; groups?: Array<Record<string, unknown>> };
+                assert.deepEqual(groupLookups, [ADMIN_GROUP_ID], "the administrators group is looked up by its id");
+                // The canonical membership shape: no name or groupName copied onto the entry
+                assert.deepEqual(user.groups, [{
+                    groupId: { _id: ADMIN_GROUP_ID, name: config.superAdmin.groupName },
+                    role: "shift_manager",
+                    order: 0,
+                    isSystemGroup: true,
+                }]);
+                assert.equal(user.isAdmin, true);
             } finally {
+                restoreAdminGroup();
                 userHolder.findById = origUserFindById;
-                groupHolder.findOne = origGroupFindOne;
+                groupHolder.findById = origGroupFindById;
+            }
+        });
+
+        it("GET /api/auth/me drops a membership of a deleted group and lists the recreated administrators group", async () => {
+            // At startup the server learned ADMIN_GROUP_ID; since then the group was recreated, and the
+            // Super Admin's membership still names the deleted one (it populates as null)
+            await registerAdminGroup();
+            const recreatedGroupId = new mongoose.Types.ObjectId().toString();
+            const adminId = new mongoose.Types.ObjectId().toString();
+            const token = jwt.sign(
+                { userId: adminId, username: config.superAdmin.id, tokenVersion: 0 },
+                config.jwt.secret,
+                { expiresIn: "1h" }
+            );
+            const superAdmin = {
+                _id: adminId,
+                username: config.superAdmin.id,
+                email: config.superAdmin.email || "admin@example.com",
+                isActive: true,
+                groups: [{ groupId: null, role: "shift_manager", order: 0 }],
+            };
+
+            const userHolder = User as unknown as Record<string, unknown>;
+            const groupHolder = Group as unknown as Record<string, unknown>;
+            const origUserFindById = userHolder.findById;
+            const origGroupFindById = groupHolder.findById;
+            userHolder.findById = () => ({
+                populate: async () => ({ ...superAdmin, toObject: () => ({ ...superAdmin }) }),
+            });
+            const groupLookups: string[] = [];
+            groupHolder.findById = async (id: unknown) => {
+                groupLookups.push(String(id));
+                return { _id: recreatedGroupId, name: config.superAdmin.groupName };
+            };
+            const restoreAdminGroup = stubAdminGroupInDb(recreatedGroupId);
+
+            try {
+                const res = await fetch(`${baseUrl}/api/auth/me`, {
+                    headers: {
+                        Cookie: `hunting_token=${token}`,
+                    },
+                });
+
+                assert.equal(res.status, 200, `Expected 200 OK, got ${res.status}`);
+                const user = (await res.json()) as { isAdmin?: boolean; groups?: Array<Record<string, unknown>> };
+                assert.deepEqual(groupLookups, [recreatedGroupId], "the group is looked up under its live id");
+                assert.deepEqual(user.groups, [{
+                    groupId: { _id: recreatedGroupId, name: config.superAdmin.groupName },
+                    role: "shift_manager",
+                    order: 0,
+                    isSystemGroup: true,
+                }]);
+                assert.equal(user.isAdmin, true);
+            } finally {
+                restoreAdminGroup();
+                userHolder.findById = origUserFindById;
+                groupHolder.findById = origGroupFindById;
+                await registerAdminGroup();
             }
         });
     });

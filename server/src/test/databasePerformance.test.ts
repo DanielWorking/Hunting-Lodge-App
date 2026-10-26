@@ -210,9 +210,14 @@ describe("Database & Query Performance Benchmark Suite", () => {
 
             // ShiftSchedule indexes
             const schedIndexes = ShiftSchedule.schema.indexes();
-            const hasSchedMultikey = schedIndexes.some((idx) => {
+            const hasSchedPublishedRange = schedIndexes.some((idx) => {
                 const fields = idx[0];
-                return fields.groupId === 1 && fields.isPublished === 1 && fields["shifts.userId"] === 1;
+                return (
+                    fields.groupId === 1 &&
+                    fields.isPublished === 1 &&
+                    fields.startDate === 1 &&
+                    fields.endDate === 1
+                );
             });
 
             // Verify definitions
@@ -225,8 +230,8 @@ describe("Database & Query Performance Benchmark Suite", () => {
                 "ShiftReport should declare cursor pagination index { groupId: 1, date: -1, _id: -1 }"
             );
             assert.ok(
-                hasSchedMultikey,
-                "ShiftSchedule should declare multikey index { groupId: 1, isPublished: 1, 'shifts.userId': 1 }"
+                hasSchedPublishedRange,
+                "ShiftSchedule should declare compound index { groupId: 1, isPublished: 1, startDate: 1, endDate: 1 }"
             );
         });
     });

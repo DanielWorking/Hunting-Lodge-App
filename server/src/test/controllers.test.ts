@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import type { Request, Response } from "express";
@@ -20,6 +20,7 @@ import * as groupsController from "../controllers/groupsController";
 import { updateReportSchema } from "../routes/reports";
 import * as authHelpers from "../utils/authHelpers";
 import { errorHandler } from "../middleware/errorMiddleware";
+import { ADMIN_GROUP_ID, registerAdminGroup } from "./adminGroupFixture";
 
 interface MockRes {
     statusCode: number;
@@ -44,6 +45,8 @@ function createMockRes(): MockRes {
 }
 
 describe("Controller Cascading & Validation Rules", () => {
+    before(registerAdminGroup);
+
     describe("usersController.deleteUser", () => {
         it("should remove user from Site favoritedBy and Group members upon deletion", async () => {
             const userId = new mongoose.Types.ObjectId();
@@ -107,7 +110,7 @@ describe("Controller Cascading & Validation Rules", () => {
 
         it("should reject user deletion by non-admin user", async () => {
             const req = {
-                user: { username: "regular_user", groups: [{ groupId: "group1", role: "member" }] },
+                user: { username: "regular_user", groups: [{ groupId: new mongoose.Types.ObjectId().toString(), role: "member" }] },
                 params: { id: new mongoose.Types.ObjectId().toString() },
             } as unknown as Request;
 
@@ -125,7 +128,7 @@ describe("Controller Cascading & Validation Rules", () => {
                 user: {
                     _id: adminUserId,
                     username: "regular_admin",
-                    groups: [{ groupId: config.superAdmin.groupName, role: "member" }],
+                    groups: [{ groupId: ADMIN_GROUP_ID, role: "member" }],
                 },
                 params: { id: adminUserId.toString() },
             } as unknown as Request;
@@ -232,7 +235,7 @@ describe("Controller Cascading & Validation Rules", () => {
             };
 
             const req = {
-                user: { username: "ADMINISTRATORS", groups: [{ groupId: "ADMINISTRATORS" }] },
+                user: { username: "regular_admin", groups: [{ groupId: ADMIN_GROUP_ID }] },
                 params: { id: new mongoose.Types.ObjectId().toString() },
                 body: {
                     email: "updated@example.com",
@@ -699,9 +702,9 @@ describe("Controller Cascading & Validation Rules", () => {
                 }
             });
 
-            it("should identify regular admin when user belongs to SUPER_ADMIN_GROUP_NAME with populated group document", () => {
+            it("should identify regular admin when user belongs to the administrators group with populated group document", () => {
                 const adminGroupDoc = {
-                    _id: new mongoose.Types.ObjectId(),
+                    _id: new mongoose.Types.ObjectId(ADMIN_GROUP_ID),
                     name: config.superAdmin.groupName,
                 };
                 const regularAdminUser = {
@@ -711,20 +714,25 @@ describe("Controller Cascading & Validation Rules", () => {
                 assert.equal(authHelpers.isAdmin(regularAdminUser as unknown as Parameters<typeof authHelpers.isAdmin>[0]), true);
             });
 
-            it("should identify regular admin when user has literal admin group string name", () => {
+            it("should identify regular admin by the administrators group id when the membership is not populated", () => {
                 const regularAdminUser = {
                     username: "reg_admin_2",
-                    groups: [{ groupId: config.superAdmin.groupName, role: "member" }],
+                    groups: [{ groupId: new mongoose.Types.ObjectId(ADMIN_GROUP_ID), role: "member" }],
                 };
                 assert.equal(authHelpers.isAdmin(regularAdminUser as unknown as Parameters<typeof authHelpers.isAdmin>[0]), true);
             });
 
-            it("should identify regular admin when user has g.name or g.groupName set to SUPER_ADMIN_GROUP_NAME", () => {
-                const regularAdminUser = {
-                    username: "reg_admin_3",
-                    groups: [{ groupId: new mongoose.Types.ObjectId(), name: config.superAdmin.groupName, role: "member" }],
+            it("should not treat a group that is merely named like the administrators group as admin", () => {
+                const lookalikeGroupMember = {
+                    username: "reg_user_lookalike",
+                    groups: [{ groupId: { _id: new mongoose.Types.ObjectId(), name: config.superAdmin.groupName }, role: "member" }],
                 };
-                assert.equal(authHelpers.isAdmin(regularAdminUser as unknown as Parameters<typeof authHelpers.isAdmin>[0]), true);
+                const groupNameAsIdMember = {
+                    username: "reg_user_name_as_id",
+                    groups: [{ groupId: config.superAdmin.groupName, role: "member" }],
+                };
+                assert.equal(authHelpers.isAdmin(lookalikeGroupMember as unknown as Parameters<typeof authHelpers.isAdmin>[0]), false);
+                assert.equal(authHelpers.isAdmin(groupNameAsIdMember as unknown as Parameters<typeof authHelpers.isAdmin>[0]), false);
             });
 
             it("should return false for regular users belonging only to operational groups", () => {
@@ -752,7 +760,7 @@ describe("Controller Cascading & Validation Rules", () => {
                 const regularAdminUser = {
                     _id: new mongoose.Types.ObjectId(),
                     username: "regular_admin",
-                    groups: [{ groupId: { _id: new mongoose.Types.ObjectId(), name: config.superAdmin.groupName }, role: "member" }],
+                    groups: [{ groupId: { _id: new mongoose.Types.ObjectId(ADMIN_GROUP_ID), name: config.superAdmin.groupName }, role: "member" }],
                 };
 
                 const req = {
@@ -799,7 +807,7 @@ describe("Controller Cascading & Validation Rules", () => {
 
         describe("groupsController.getGroups for Regular Admin", () => {
             it("should return all groups with user counts to a regular admin identical to super admin", async () => {
-                const groupA = { _id: new mongoose.Types.ObjectId(), name: config.superAdmin.groupName };
+                const groupA = { _id: new mongoose.Types.ObjectId(ADMIN_GROUP_ID), name: config.superAdmin.groupName };
                 const groupB = { _id: new mongoose.Types.ObjectId(), name: "NOC" };
                 const groupC = { _id: new mongoose.Types.ObjectId(), name: "Support" };
 
@@ -810,9 +818,11 @@ describe("Controller Cascading & Validation Rules", () => {
                 const originalUserAggregate = userHolder.aggregate;
                 const originalUserFind = userHolder.find;
 
-                groupHolder.find = () => ({
-                    lean: async () => [groupA, groupB, groupC],
-                });
+                const groupFilters: unknown[] = [];
+                groupHolder.find = (...args: unknown[]) => {
+                    groupFilters.push(args[0]);
+                    return { lean: async () => [groupA, groupB, groupC] };
+                };
 
                 userHolder.aggregate = async () => [
                     { _id: groupA._id, count: 1 },
@@ -834,11 +844,14 @@ describe("Controller Cascading & Validation Rules", () => {
                 try {
                     await groupsController.getGroups(req, res as unknown as Response);
                     assert.equal(res.statusCode, 200);
-                    const list = res.jsonData as Array<{ userCount?: number }>;
+                    // Administrators query every group, not only the ones they are a member of
+                    assert.deepEqual(groupFilters, [undefined]);
+                    const list = res.jsonData as Array<{ userCount?: number; isSystemGroup?: boolean }>;
                     assert.equal(list.length, 3);
                     assert.equal(list[0].userCount, 1);
                     assert.equal(list[1].userCount, 5);
                     assert.equal(list[2].userCount, 0);
+                    assert.deepEqual(list.map((g) => g.isSystemGroup), [true, false, false]);
                 } finally {
                     groupHolder.find = originalGroupFind;
                     userHolder.aggregate = originalUserAggregate;

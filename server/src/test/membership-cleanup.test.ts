@@ -22,6 +22,7 @@ import * as schedulesController from "../controllers/schedulesController";
 import { clearGroupCache } from "../utils/authHelpers";
 import { invalidateUserCache } from "../middleware/authMiddleware";
 import { startOfJerusalemDay } from "../utils/jerusalemTime";
+import { ADMIN_GROUP_ID } from "./adminGroupFixture";
 
 const restores: Array<() => void> = [];
 function patch(target: unknown, key: string, value: unknown): void {
@@ -136,7 +137,7 @@ function mockStore(store: Store, options: { failScheduleWrite?: boolean } = {}) 
     return calls;
 }
 
-const admin = () => ({ _id: newId(), username: config.superAdmin.username, groups: [{ groupId: config.superAdmin.groupName }] });
+const admin = () => ({ _id: newId(), username: config.superAdmin.username, groups: [{ groupId: ADMIN_GROUP_ID }] });
 
 function scenario() {
     const today = startOfJerusalemDay();

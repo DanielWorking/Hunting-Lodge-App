@@ -4,6 +4,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import fs from "node:fs";
 import path from "node:path";
+import cron from "node-cron";
 import mongoose from "mongoose";
 
 import config from "../config";
@@ -85,6 +86,14 @@ describe("Defect Regression: Event Loop Non-Blocking & Cron/Mongoose Resilience"
                 typeof cronJobs.stopCronJobs,
                 "function",
                 "cronJobs must export stopCronJobs function"
+            );
+        });
+
+        it("should not schedule any cron task on module import", () => {
+            assert.equal(
+                cron.getTasks().size,
+                0,
+                "importing cronJobs must not schedule any task until startCronJobs() is called"
             );
         });
 

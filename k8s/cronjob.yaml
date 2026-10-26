@@ -1,17 +1,20 @@
+# Placeholders, substituted by the CI deploy job (see README for a manual apply):
+#   <NAMESPACE>                   target namespace
+#   <ENV>                         nonprod, preprod or prod
+#   <SHIFT_REPORT_CRON_SCHEDULE>  SHIFT_REPORT_CRON_SCHEDULE from the backend-config-<ENV> ConfigMap
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: shift-report-cronjob
-  # <YOUR_NAMESPACE>: change to the current namespace
-  namespace: <YOUR_NAMESPACE>
+  namespace: <NAMESPACE>
   labels:
     app.kubernetes.io/name: shift-report-cronjob
-    app.kubernetes.io/part-of: <YOUR_NAMESPACE>
+    app.kubernetes.io/part-of: <NAMESPACE>
     app.kubernetes.io/component: cron
-    environment: <YOUR_ENV>
+    environment: <ENV>
 spec:
-  # Run every minute in Asia/Jerusalem time
-  schedule: "* * * * *"
+  # Interpreted in Asia/Jerusalem time
+  schedule: "<SHIFT_REPORT_CRON_SCHEDULE>"
   timeZone: "Asia/Jerusalem"
   startingDeadlineSeconds: 60
   concurrencyPolicy: Forbid
@@ -26,7 +29,7 @@ spec:
           labels:
             app.kubernetes.io/name: shift-report-cronjob
             app.kubernetes.io/component: cron
-            environment: <YOUR_ENV>
+            environment: <ENV>
         spec:
           restartPolicy: Never
           automountServiceAccountToken: false
@@ -36,9 +39,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: shift-report-worker
-              # <YOUR_NAMESPACE>: change to the current namespace
-              # <YOUR_DEPLOYMENT>: change to the current deployment
-              image: image-registry.openshift-image-registry.svc:5000/<YOUR_NAMESPACE>/<YOUR_DEPLOYMENT>:latest
+              image: image-registry.openshift-image-registry.svc:5000/<NAMESPACE>/hunting-lodge-app-<ENV>:latest
               imagePullPolicy: Always
               command:
                 ["dumb-init", "--", "node", "src/scripts/runShiftReportCron.js"]
@@ -60,6 +61,6 @@ spec:
                   memory: 512Mi
               envFrom:
                 - secretRef:
-                    name: backend-secrets-<YOUR_ENV>
+                    name: backend-secrets-<ENV>
                 - configMapRef:
-                    name: backend-config-<YOUR_ENV>
+                    name: backend-config-<ENV>

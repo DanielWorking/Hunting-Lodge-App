@@ -1,3 +1,5 @@
+# Placeholders, substituted by the CI deploy job (see README for a manual apply):
+#   <NAMESPACE>                   target namespace
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -36,7 +38,8 @@ spec:
       containers:
         - name: hunting-lodge-app-preprod
           image: image-registry.openshift-image-registry.svc:5000/<NAMESPACE>/hunting-lodge-app-preprod:latest
-          imagePullPolicy: IfNotPresent
+          # Always: the tag is ":latest", so a node that cached an older build would otherwise keep running it
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 5000
@@ -119,12 +122,6 @@ spec:
                   name: backend-config-preprod
                   key: MONGO_MAX_IDLE_TIME_MS
                   optional: false
-            - name: SHIFT_REPORT_CRON_SCHEDULE
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-config-preprod
-                  key: SHIFT_REPORT_CRON_SCHEDULE
-                  optional: false
             - name: LOG_FORMAT
               valueFrom:
                 configMapKeyRef:
@@ -172,12 +169,6 @@ spec:
                 secretKeyRef:
                   name: backend-secrets-preprod
                   key: SSO_COOKIE_SECRET
-                  optional: true
-            - name: SSO_USE_PKCE
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-config-preprod
-                  key: SSO_USE_PKCE
                   optional: true
             - name: SSO_COOKIE_SECURE
               valueFrom:

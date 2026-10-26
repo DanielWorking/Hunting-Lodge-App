@@ -1,12 +1,14 @@
+# Placeholders, substituted by the CI deploy job (see README for a manual apply):
+#   <NAMESPACE>                   target namespace
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hunting-lodge-app-nonprod
-  namespace: danielrei-dev
+  namespace: <NAMESPACE>
   labels:
     app: hunting-lodge-app-nonprod
     app.kubernetes.io/name: hunting-lodge-app-nonprod
-    app.kubernetes.io/part-of: danielrei-dev
+    app.kubernetes.io/part-of: <NAMESPACE>
     app.kubernetes.io/component: backend
     environment: nonprod
 spec:
@@ -24,7 +26,7 @@ spec:
       labels:
         app: hunting-lodge-app-nonprod
         app.kubernetes.io/name: hunting-lodge-app-nonprod
-        app.kubernetes.io/part-of: danielrei-dev
+        app.kubernetes.io/part-of: <NAMESPACE>
         app.kubernetes.io/component: backend
         environment: nonprod
     spec:
@@ -35,8 +37,9 @@ spec:
           type: RuntimeDefault
       containers:
         - name: hunting-lodge-app-nonprod
-          image: image-registry.openshift-image-registry.svc:5000/danielrei-dev/hunting-lodge-app-nonprod:latest
-          imagePullPolicy: IfNotPresent
+          image: image-registry.openshift-image-registry.svc:5000/<NAMESPACE>/hunting-lodge-app-nonprod:latest
+          # Always: the tag is ":latest", so a node that cached an older build would otherwise keep running it
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 5000
@@ -119,12 +122,6 @@ spec:
                   name: backend-config-nonprod
                   key: MONGO_MAX_IDLE_TIME_MS
                   optional: false
-            - name: SHIFT_REPORT_CRON_SCHEDULE
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-config-nonprod
-                  key: SHIFT_REPORT_CRON_SCHEDULE
-                  optional: false
             - name: LOG_FORMAT
               valueFrom:
                 configMapKeyRef:
@@ -172,12 +169,6 @@ spec:
                 secretKeyRef:
                   name: backend-secrets-nonprod
                   key: SSO_COOKIE_SECRET
-                  optional: true
-            - name: SSO_USE_PKCE
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-config-nonprod
-                  key: SSO_USE_PKCE
                   optional: true
             - name: SSO_COOKIE_SECURE
               valueFrom:
@@ -297,11 +288,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: hunting-lodge-app-nonprod-service
-  namespace: danielrei-dev
+  namespace: <NAMESPACE>
   labels:
     app: hunting-lodge-app-nonprod
     app.kubernetes.io/name: hunting-lodge-app-nonprod
-    app.kubernetes.io/part-of: danielrei-dev
+    app.kubernetes.io/part-of: <NAMESPACE>
     app.kubernetes.io/component: backend
     environment: nonprod
 spec:
@@ -318,13 +309,13 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   name: hunting-lodge-app-nonprod-route
-  namespace: danielrei-dev
+  namespace: <NAMESPACE>
   annotations:
     haproxy.router.openshift.io/ip_whitelist: "[IP_ADDRESS]"
   labels:
     app: hunting-lodge-app-nonprod
     app.kubernetes.io/name: hunting-lodge-app-nonprod
-    app.kubernetes.io/part-of: danielrei-dev
+    app.kubernetes.io/part-of: <NAMESPACE>
     app.kubernetes.io/component: backend
     environment: nonprod
 spec:

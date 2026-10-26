@@ -13,12 +13,12 @@ spec:
         - name: seeder
           # <YOUR_NAMESPACE>: change to the current namespace
           # <YOUR_DEPLOYMENT>: change to the current deployment
-          image: image-registry.openshift-image-registry.svc:5000/<YOUR_NAMESPACE>/<YOUR_DEPLOYMENT>:latest
+          image: image-registry.openshift-image-registry.svc:5000/<YOUR_NAMESPACE>/hunting-lodge-app-<ENV>:latest
           # --idempotent: seeds only an unseeded database and never wipes, so it is safe in every environment
           command: ["node", "src/scripts/seed.js", "--idempotent"]
           envFrom:
             # <YOUR_ENV>: change to the target environment (nonprod, preprod or prod)
             - configMapRef:
-                name: backend-config-<YOUR_ENV>
+                name: backend-config-<ENV>
             - secretRef:
-                name: backend-secrets-<YOUR_ENV>
+                name: backend-secrets-<ENV>

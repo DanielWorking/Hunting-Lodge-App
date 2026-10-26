@@ -10,7 +10,6 @@ const mockCommands = {
 
 let currentHTML = "<p>Initial</p>";
 let isFocused = false;
-let isEditable = true;
 let isEmpty = false;
 
 // Proxy to satisfy any chain().focus()... calls in toolbar
@@ -26,16 +25,10 @@ const createChainable = (): unknown => {
 const mockEditor = {
     getHTML: () => currentHTML,
     commands: mockCommands,
-    setEditable: vi.fn((editable: boolean) => {
-        isEditable = editable;
-    }),
     isActive: vi.fn(() => false),
     getAttributes: vi.fn(() => ({ color: "inherit" })),
     can: () => createChainable(),
     chain: () => createChainable(),
-    get isEditable() {
-        return isEditable;
-    },
     get isFocused() {
         return isFocused;
     },
@@ -61,7 +54,6 @@ describe("TiptapEditor - Synchronization & Isolation Invariants", () => {
                 value="<p>Initial</p>"
                 onChange={vi.fn()}
                 placeholder="Enter tasks..."
-                readOnly={false}
             />
         );
 
@@ -71,7 +63,6 @@ describe("TiptapEditor - Synchronization & Isolation Invariants", () => {
                 value="<p>Updated from server</p>"
                 onChange={vi.fn()}
                 placeholder="Enter tasks..."
-                readOnly={false}
             />
         );
 
@@ -91,7 +82,6 @@ describe("TiptapEditor - Synchronization & Isolation Invariants", () => {
                 value="<p>User is typing...</p>"
                 onChange={vi.fn()}
                 placeholder="Enter tasks..."
-                readOnly={false}
             />
         );
 
@@ -101,37 +91,10 @@ describe("TiptapEditor - Synchronization & Isolation Invariants", () => {
                 value="<p>Different text</p>"
                 onChange={vi.fn()}
                 placeholder="Enter tasks..."
-                readOnly={false}
             />
         );
 
         expect(mockCommands.setContent).not.toHaveBeenCalled();
-    });
-
-    it("should synchronize readOnly state without emitting update events", () => {
-        isEditable = true;
-        mockEditor.setEditable.mockClear();
-
-        const { rerender } = render(
-            <TiptapEditor
-                value="<p>Content</p>"
-                onChange={vi.fn()}
-                placeholder="Enter tasks..."
-                readOnly={false}
-            />
-        );
-
-        // Report becomes locked (readOnly = true)
-        rerender(
-            <TiptapEditor
-                value="<p>Content</p>"
-                onChange={vi.fn()}
-                placeholder="Enter tasks..."
-                readOnly={true}
-            />
-        );
-
-        expect(mockEditor.setEditable).toHaveBeenCalledWith(false, false);
     });
 
     it("should isolate state between different report instances via React keys", () => {
@@ -150,7 +113,6 @@ describe("TiptapEditor - Synchronization & Isolation Invariants", () => {
                         value={tasks[activeReportId]}
                         onChange={vi.fn()}
                         placeholder="Tasks"
-                        readOnly={false}
                     />
                 </div>
             );

@@ -37,7 +37,6 @@ vi.mock("../context/DataContext", () => ({
         users: [],
         setUsers: vi.fn(),
         groups: [],
-        setGroups: vi.fn(),
     }),
 }));
 
@@ -88,7 +87,6 @@ describe("PhonesPage - Favorite Icon UI Update Regression Test Suite", () => {
             setCurrentGroup: vi.fn(),
             isAdmin: true,
             isShiftManager: true,
-            login: vi.fn(),
             logout: vi.fn(),
             switchGroup: vi.fn(),
             isRestoringSession: false,

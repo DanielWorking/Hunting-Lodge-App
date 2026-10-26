@@ -62,7 +62,6 @@ describe("DataProvider refresh behaviour", () => {
             setCurrentGroup: vi.fn(),
             isAdmin: false,
             isShiftManager: false,
-            login: vi.fn(),
             logout: vi.fn(),
             switchGroup: vi.fn(),
             isRestoringSession: false,

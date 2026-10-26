@@ -44,7 +44,6 @@ function mockUser() {
         setCurrentGroup: vi.fn(),
         isAdmin: false,
         isShiftManager: false,
-        login: vi.fn(),
         logout: vi.fn(),
         switchGroup: vi.fn(),
         isRestoringSession: false,
@@ -149,7 +148,7 @@ describe("a failed first load is explained, never retried on its own", () => {
         const retry = vi.fn();
         vi.spyOn(DataContextModule, "useData").mockReturnValue({
             sites: [], setSites: vi.fn(), phones: [], setPhones: vi.fn(), users: [], setUsers: vi.fn(),
-            groups: [], setGroups: vi.fn(), loading: false, refreshData: vi.fn(),
+            groups: [], loading: false, refreshData: vi.fn(),
             loadError: { status: 429, message: "Too many requests. Please try again in 5 minutes." },
             retry,
         });

@@ -131,11 +131,11 @@ describe("ShiftSchedulePage in StrictMode", () => {
         clearInFlightRequests();
         vi.spyOn(UserContextModule, "useUser").mockReturnValue({
             user: dana, currentGroup: group, isShiftManager: true, setCurrentGroup: vi.fn(), isAdmin: false,
-            login: vi.fn(), logout: vi.fn(), switchGroup: vi.fn(), isRestoringSession: false,
+            logout: vi.fn(), switchGroup: vi.fn(), isRestoringSession: false,
         });
         vi.spyOn(DataContextModule, "useData").mockReturnValue({
             users: [dana], groups: [group], sites: [], phones: [], setSites: vi.fn(), setPhones: vi.fn(), setUsers: vi.fn(),
-            setGroups: vi.fn(), refreshData: vi.fn(), loadError: null, retry: vi.fn(), loading: false,
+            refreshData: vi.fn(), loadError: null, retry: vi.fn(), loading: false,
         });
         vi.spyOn(NotificationContextModule, "useNotification").mockReturnValue({ showNotification: vi.fn() });
 

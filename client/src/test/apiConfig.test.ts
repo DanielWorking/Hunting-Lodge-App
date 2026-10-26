@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectClientAppEnv, apiConfig, getSsoCallbackUrl } from "../config/apiConfig";
+import { detectClientAppEnv, apiConfig } from "../config/apiConfig";
 import { envConfig } from "../config/env";
 
 describe("Client Tri-Environment apiConfig & envConfig Suite", () => {
@@ -19,18 +19,12 @@ describe("Client Tri-Environment apiConfig & envConfig Suite", () => {
         expect(Object.isFrozen(apiConfig)).toBe(true);
         expect(typeof apiConfig.apiUrl).toBe("string");
         expect(apiConfig.apiUrl.startsWith("/")).toBe(true);
-        expect(apiConfig.ssoCallbackPath).toBe("/auth/callback");
         expect(typeof apiConfig.isNonProd).toBe("boolean");
         expect(typeof apiConfig.isPreProd).toBe("boolean");
         expect(typeof apiConfig.isProd).toBe("boolean");
     });
 
-    it("should resolve ssoCallbackUrl based on window origin", () => {
-        const url = getSsoCallbackUrl();
-        expect(url.endsWith("/auth/callback")).toBe(true);
-    });
-
-    it("should maintain 100% backwards compatibility in envConfig", () => {
+    it("should expose the same resolved values through envConfig", () => {
         expect(envConfig.apiUrl).toBe(apiConfig.apiUrl);
         expect(envConfig.appVersion).toBe(apiConfig.appVersion);
         expect(envConfig.isProd).toBe(apiConfig.isProd);

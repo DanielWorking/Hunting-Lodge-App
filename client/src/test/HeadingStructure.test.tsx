@@ -19,8 +19,8 @@ import type { Group, PhoneRow, ShiftType, TimeSlot, SiteCard } from "../types";
 
 // Mock external dependencies and APIs
 vi.mock("../api/reportsApi", () => ({
-    getReports: vi.fn().mockResolvedValue({
-        data: [
+    getReportsPage: vi.fn().mockResolvedValue({
+        reports: [
             {
                 _id: "report-1",
                 title: "Morning Shift Report",
@@ -31,6 +31,9 @@ vi.mock("../api/reportsApi", () => ({
                 currentTasks: "<p>Current tasks log</p>",
             },
         ],
+        hasMore: false,
+        nextCursorDate: null,
+        nextCursorId: null,
     }),
     createReport: vi.fn(),
     updateReport: vi.fn(),
@@ -62,7 +65,6 @@ vi.mock("../api/phonesApi", () => ({
 }));
 
 vi.mock("../api/schedulesApi", () => ({
-    getSchedules: vi.fn().mockResolvedValue({ data: [] }),
 }));
 
 vi.mock("@tiptap/react", () => ({
@@ -132,7 +134,6 @@ describe("Heading Hierarchy & Accessibility Compliance (WCAG 2.2 SC 2.4.10 / Sec
             users: [mockUser],
             setUsers: vi.fn(),
             groups: [mockGroup],
-            setGroups: vi.fn(),
             loading: false,
             refreshData: vi.fn(),
             loadError: null,
@@ -145,7 +146,6 @@ describe("Heading Hierarchy & Accessibility Compliance (WCAG 2.2 SC 2.4.10 / Sec
             setCurrentGroup: vi.fn(),
             isAdmin: true,
             isShiftManager: true,
-            login: vi.fn(),
             logout: vi.fn(),
             switchGroup: vi.fn(),
             isRestoringSession: false,

@@ -5,7 +5,7 @@ import ShiftReportPage from "../pages/ShiftReportPage";
 import * as UserContextModule from "../context/UserContext";
 import * as DataContextModule from "../context/DataContext";
 import * as NotificationContextModule from "../context/NotificationContext";
-import { getReports, updateReport } from "../api/reportsApi";
+import { getReportsPage, updateReport, type PaginatedReportsResult } from "../api/reportsApi";
 import type { User, Group, ShiftReport } from "../types";
 import { format } from "date-fns";
 import { AxiosHeaders, type AxiosResponse } from "axios";
@@ -20,9 +20,20 @@ const createMockAxiosResponse = <T,>(data: T): AxiosResponse<T> => ({
     },
 });
 
+/** A page of reports as `getReportsPage` returns it, with the cursor of the next page when there is one. */
+const pageOf = (
+    reports: ShiftReport[],
+    next?: { date: string; id: string },
+): PaginatedReportsResult => ({
+    reports,
+    hasMore: Boolean(next),
+    nextCursorDate: next?.date ?? null,
+    nextCursorId: next?.id ?? null,
+});
+
 // Mock external dependencies and APIs
 vi.mock("../api/reportsApi", () => ({
-    getReports: vi.fn(),
+    getReportsPage: vi.fn(),
     createReport: vi.fn(),
     updateReport: vi.fn(),
     deleteReport: vi.fn(),
@@ -119,7 +130,6 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
             setSites: vi.fn(),
             setPhones: vi.fn(),
             setUsers: vi.fn(),
-            setGroups: vi.fn(),
             refreshData: vi.fn(),
             loadError: null,
             retry: vi.fn(),
@@ -132,7 +142,6 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
             isShiftManager: true,
             setCurrentGroup: vi.fn(),
             isAdmin: false,
-            login: vi.fn().mockResolvedValue(true),
             logout: vi.fn(),
             switchGroup: vi.fn(),
             isRestoringSession: false,
@@ -144,7 +153,7 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
     });
 
     it("should NOT revert active member modifications back to the original list when background polling occurs", async () => {
-        vi.mocked(getReports).mockResolvedValue(createMockAxiosResponse([...mockReports]));
+        vi.mocked(getReportsPage).mockResolvedValue(pageOf([...mockReports]));
         vi.mocked(updateReport).mockResolvedValue(createMockAxiosResponse(mockReports[0]));
 
         render(
@@ -174,7 +183,7 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
         });
 
         // Polling triggered
-        expect(getReports).toHaveBeenCalledTimes(2);
+        expect(getReportsPage).toHaveBeenCalledTimes(2);
 
         // 4. ASSERTION: The attendee removal must NOT revert back to having "Daniel Reifer"
         // In the unshielded code, this fails because polling resets selectedReport to res.data[0]
@@ -195,7 +204,7 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
     });
 
     it("should NOT revert the selected report back to report-1 when a different report is chosen", async () => {
-        vi.mocked(getReports).mockResolvedValue(createMockAxiosResponse([...mockReports]));
+        vi.mocked(getReportsPage).mockResolvedValue(pageOf([...mockReports]));
 
         render(
             <MemoryRouter>
@@ -247,7 +256,7 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
             await vi.advanceTimersByTimeAsync(30000);
         });
 
-        expect(getReports).toHaveBeenCalledTimes(2);
+        expect(getReportsPage).toHaveBeenCalledTimes(2);
 
         // Selected report must STILL be Night Shift Report, NOT reverted back to Morning Shift Report
         const headingAfterPoll = screen.getAllByRole("heading", { level: 2 }).find(
@@ -257,7 +266,7 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
     });
 
     it("should allow discarding unsaved member modifications", async () => {
-        vi.mocked(getReports).mockResolvedValue(createMockAxiosResponse([...mockReports]));
+        vi.mocked(getReportsPage).mockResolvedValue(pageOf([...mockReports]));
 
         render(
             <MemoryRouter>
@@ -285,7 +294,7 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
     });
 
     it("should prompt confirmation before switching reports when unsaved changes exist", async () => {
-        vi.mocked(getReports).mockResolvedValue(createMockAxiosResponse([...mockReports]));
+        vi.mocked(getReportsPage).mockResolvedValue(pageOf([...mockReports]));
 
         render(
             <MemoryRouter>
@@ -383,7 +392,6 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
                 setSites: vi.fn(),
                 setPhones: vi.fn(),
                 setUsers: vi.fn(),
-                setGroups: vi.fn(),
                 refreshData: vi.fn(),
                 loadError: null,
                 retry: vi.fn(),
@@ -393,7 +401,7 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
 
         it("does not offer a deactivated member in the attendee picker", async () => {
             useUsers([mockUser1, mockUser2, deactivated]);
-            vi.mocked(getReports).mockResolvedValue(createMockAxiosResponse([...mockReports]));
+            vi.mocked(getReportsPage).mockResolvedValue(pageOf([...mockReports]));
             render(
                 <MemoryRouter>
                     <ShiftReportPage />
@@ -410,7 +418,7 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
         it("keeps a deactivated member who is already listed, as history", async () => {
             useUsers([mockUser1, mockUser2, deactivated]);
             const withFormer = { ...mockReports[0], attendees: [{ userId: "user-3", name: "Former Member", isManual: false }] };
-            vi.mocked(getReports).mockResolvedValue(createMockAxiosResponse([withFormer, mockReports[1]]));
+            vi.mocked(getReportsPage).mockResolvedValue(pageOf([withFormer, mockReports[1]]));
             render(
                 <MemoryRouter>
                     <ShiftReportPage />
@@ -429,7 +437,7 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
                     { userId: "user-2", name: "Alice Smith", isManual: true },
                 ],
             };
-            vi.mocked(getReports).mockResolvedValue(createMockAxiosResponse([mixed, mockReports[1]]));
+            vi.mocked(getReportsPage).mockResolvedValue(pageOf([mixed, mockReports[1]]));
             vi.mocked(updateReport).mockResolvedValue(createMockAxiosResponse(mixed));
             render(
                 <MemoryRouter>
@@ -448,6 +456,111 @@ describe("ShiftReportPage - Background Polling State Shielding", () => {
                     expect.objectContaining({ attendees: [{ userId: "user-1", name: "Daniel Reifer", isManual: false }] }),
                 ),
             );
+        });
+    });
+
+    describe("cursor pagination", () => {
+        // A year of its own, so it shows up as a top-level archive entry once loaded
+        const olderReport: ShiftReport = {
+            ...mockReports[1],
+            _id: "report-0",
+            title: "Archived Shift Report",
+            date: "2025-06-15T08:00:00Z",
+            startTime: "2025-06-15T08:00:00Z",
+            endTime: "2025-06-15T16:00:00Z",
+        };
+        const afterNewestPage = { date: "2026-09-06T20:00:00Z", id: "report-2" };
+
+        const renderPage = () =>
+            render(
+                <MemoryRouter>
+                    <ShiftReportPage />
+                </MemoryRouter>
+            );
+
+        it("offers 'Load older reports' only while the server has more reports", async () => {
+            vi.mocked(getReportsPage).mockResolvedValue(pageOf([...mockReports]));
+            renderPage();
+
+            await waitFor(() => expect(screen.getByText("Morning Shift Report")).toBeInTheDocument());
+            expect(screen.queryByRole("button", { name: /load older reports/i })).not.toBeInTheDocument();
+        });
+
+        it("requests the next page with the server's cursor and appends it to the archive", async () => {
+            vi.mocked(getReportsPage)
+                .mockResolvedValueOnce(pageOf([...mockReports], afterNewestPage))
+                .mockResolvedValueOnce(pageOf([olderReport]));
+            renderPage();
+
+            fireEvent.click(await screen.findByRole("button", { name: /load older reports/i }));
+
+            await waitFor(() => expect(screen.getByText("2025")).toBeInTheDocument());
+            expect(getReportsPage).toHaveBeenLastCalledWith({
+                groupId: "group-1",
+                cursorDate: afterNewestPage.date,
+                cursorId: afterNewestPage.id,
+            });
+            expect(screen.getByText("2026")).toBeInTheDocument();
+            // The last page has been loaded
+            expect(screen.queryByRole("button", { name: /load older reports/i })).not.toBeInTheDocument();
+        });
+
+        it("keeps the older reports already loaded when the background poll refreshes the newest page", async () => {
+            vi.mocked(getReportsPage).mockImplementation(async (params) =>
+                params.cursorId
+                    ? pageOf([olderReport], { date: olderReport.startTime, id: olderReport._id })
+                    : pageOf([...mockReports], afterNewestPage),
+            );
+            renderPage();
+
+            fireEvent.click(await screen.findByRole("button", { name: /load older reports/i }));
+            await waitFor(() => expect(screen.getByText("2025")).toBeInTheDocument());
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(30000);
+            });
+
+            expect(getReportsPage).toHaveBeenCalledTimes(3);
+            expect(screen.getByText("2025")).toBeInTheDocument();
+            expect(screen.getByText("2026")).toBeInTheDocument();
+        });
+
+        it("announces a report created since the last fetch", async () => {
+            const newReport: ShiftReport = {
+                ...mockReports[0],
+                _id: "report-3",
+                title: "Next Morning Shift Report",
+                date: "2026-09-08T08:00:00Z",
+                startTime: "2026-09-08T08:00:00Z",
+                endTime: "2026-09-08T16:00:00Z",
+            };
+            vi.mocked(getReportsPage)
+                .mockResolvedValueOnce(pageOf([...mockReports], afterNewestPage))
+                .mockResolvedValueOnce(pageOf([newReport, ...mockReports], afterNewestPage));
+            renderPage();
+            await waitFor(() => expect(screen.getByText("Morning Shift Report")).toBeInTheDocument());
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(30000);
+            });
+
+            expect(mockShowNotification).toHaveBeenCalledWith("New shift report received", "info");
+        });
+
+        it("does not announce a report that only moved up from the next page after a deletion", async () => {
+            // report-1 was deleted, so the newest page now ends with the first report of the next page
+            vi.mocked(getReportsPage)
+                .mockResolvedValueOnce(pageOf([...mockReports], afterNewestPage))
+                .mockResolvedValueOnce(pageOf([mockReports[1], olderReport], { date: olderReport.startTime, id: olderReport._id }));
+            renderPage();
+            await waitFor(() => expect(screen.getByText("Morning Shift Report")).toBeInTheDocument());
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(30000);
+            });
+
+            expect(getReportsPage).toHaveBeenCalledTimes(2);
+            expect(mockShowNotification).not.toHaveBeenCalledWith("New shift report received", "info");
         });
     });
 });

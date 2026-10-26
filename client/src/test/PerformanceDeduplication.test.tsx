@@ -71,7 +71,6 @@ describe("Performance Optimization & Deduplication Suite", () => {
                 setCurrentGroup: vi.fn(),
                 isAdmin: false,
                 isShiftManager: false,
-                login: vi.fn(),
                 logout: vi.fn(),
                 switchGroup: vi.fn(),
                 isRestoringSession: false,
@@ -113,7 +112,6 @@ describe("Performance Optimization & Deduplication Suite", () => {
 
     describe("DataContext Single-Flight Data Synchronization", () => {
         it("fetches sites, phones, groups, and users exactly once on initial load without duplicate re-fetches", async () => {
-            localStorage.setItem("hunting_token", "test-token");
             localStorage.setItem("hunting_userId", "user-1");
 
             const mockUser: User = {
@@ -140,7 +138,6 @@ describe("Performance Optimization & Deduplication Suite", () => {
                 setCurrentGroup: setCurrentGroupMock,
                 isAdmin: false,
                 isShiftManager: false,
-                login: vi.fn(),
                 logout: vi.fn(),
                 switchGroup: vi.fn(),
                 isRestoringSession: false,

@@ -106,7 +106,7 @@ export default function Navbar() {
 
     const getGroupName = (groupId: string, fallbackName?: string) => {
         if (!groups || groups.length === 0) return fallbackName || "Loading...";
-        const group = groups.find((g) => g._id === groupId || g.name === groupId);
+        const group = groups.find((g) => g._id === groupId);
         return group ? group.name : fallbackName || "Unknown Group";
     };
 
@@ -117,16 +117,10 @@ export default function Navbar() {
      */
     const validUserGroups = (user?.groups || []).filter((userGroup) => {
         if (!groups || groups.length === 0) {
-            return Boolean(userGroup.groupId || userGroup.groupName || userGroup.name);
+            return Boolean(userGroup.groupId);
         }
         return (
-            groups.some(
-                (g) =>
-                    g._id === userGroup.groupId ||
-                    g.name === userGroup.groupId ||
-                    g.name === userGroup.groupName ||
-                    g.name === userGroup.name,
-            ) || Boolean(userGroup.groupName || userGroup.name)
+            groups.some((g) => g._id === userGroup.groupId) || Boolean(userGroup.groupName)
         );
     });
 
@@ -403,7 +397,7 @@ export default function Navbar() {
                                             <GroupsIcon fontSize="small" />
                                         )}
                                     </ListItemIcon>
-                                    {getGroupName(groupId, membership.groupName || membership.name)}
+                                    {getGroupName(groupId, membership.groupName)}
 
                                     {membership.role === "shift_manager" && (
                                         <Typography

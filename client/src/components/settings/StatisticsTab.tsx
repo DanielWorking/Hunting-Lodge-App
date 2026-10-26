@@ -90,9 +90,8 @@ export default function StatisticsTab() {
             const rawStats: any = {};
             const schedules = res.data;
 
+            // The server returns only published schedules
             schedules.forEach((sched: any) => {
-                if (!sched.isPublished) return;
-
                 sched.shifts.forEach((shift: any) => {
                     if (!rawStats[shift.userId])
                         rawStats[shift.userId] = { byType: {} };

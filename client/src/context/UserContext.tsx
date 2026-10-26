@@ -2,7 +2,7 @@
  * @module UserContext
  *
  * Manages user authentication, session restoration, and current group scope.
- * Handles login/logout operations and provides reactive state for the 
+ * Restores the SSO session, handles logout, and provides reactive state for the
  * authenticated user's permissions and active organizational group.
  */
 
@@ -32,20 +32,10 @@ interface UserContextType {
     currentGroup: Group | null;
     /** Direct state setter for currentGroup. */
     setCurrentGroup: React.Dispatch<React.SetStateAction<Group | null>>;
-    /** True if the user is the system super administrator. */
-    isSuperAdmin?: boolean;
     /** True if the user is currently acting with administrator privileges. */
     isAdmin: boolean;
     /** True if the user has a 'shift_manager' role in the current group. */
     isShiftManager: boolean;
-    /**
-     * Performs authentication against the backend.
-     * 
-     * @param {string} username - The identifier for the user.
-     * @param {string} [password] - The user's password (optional).
-     * @returns {Promise<boolean>} True if login was successful.
-     */
-    login: (username: string, password?: string) => Promise<boolean>;
     /** Clears the session and redirects to the login state. */
     logout: () => void | Promise<void>;
     /**
@@ -63,30 +53,27 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+/** A populated membership group (GET /auth/me populates `groupId` with the group document). */
 interface RawGroupObject {
-    _id?: string;
+    _id: string;
     name?: string;
 }
 
 interface RawUserGroup {
-    groupId: string | RawGroupObject;
+    /** Null when the group no longer exists (a populated reference to a deleted group). */
+    groupId: string | RawGroupObject | null;
     role: GroupRole;
-    name?: string;
-    groupName?: string;
     order?: number;
     isSystemGroup?: boolean;
 }
 
 interface RawUserData {
     _id: string;
-    id?: string;
     username: string;
     displayName?: string;
     email?: string;
     groups?: RawUserGroup[];
     isActive: boolean;
-    /** Never sent for the signed-in user's own profile: only Shift Managers see balances. */
-    vacationBalance?: number;
     favoritePhones?: string[];
     createdAt?: string;
     updatedAt?: string;
@@ -102,26 +89,23 @@ const normalizeUser = (foundUser: RawUserData): User => {
         isSuperAdmin: Boolean(foundUser.isSuperAdmin),
         isAdmin: Boolean(foundUser.isAdmin),
         hasSeenWhatsNew: foundUser.hasSeenWhatsNew ?? false,
-        groups: (foundUser.groups || []).map((g) => {
+        groups: (foundUser.groups || []).flatMap((g) => {
             const rawGid = g.groupId;
-            let gidString: string;
-            let groupName: string | undefined = g.name || g.groupName;
-
-            if (typeof rawGid === "object" && rawGid !== null) {
-                gidString = rawGid._id || rawGid.name || "";
-                if (rawGid.name) {
-                    groupName = rawGid.name;
-                }
-            } else {
-                gidString = String(rawGid);
+            const isPopulated = typeof rawGid === "object" && rawGid !== null;
+            const groupId = isPopulated ? rawGid._id : rawGid;
+            // A membership without a group names nothing to open (never send it as the id "null")
+            if (!groupId) {
+                return [];
             }
+            // The group's name is only for display; memberships are always matched by id
+            const groupName = isPopulated ? rawGid.name : undefined;
 
-            return {
+            return [{
                 ...g,
-                groupId: gidString,
+                groupId,
                 ...(groupName ? { groupName } : {}),
                 isSystemGroup: Boolean(g.isSystemGroup),
-            };
+            }];
         }),
     };
 };
@@ -143,11 +127,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const isRestoringRef = useRef(false);
 
     /**
-     * True if the authenticated user has system super administrator privileges.
-     */
-    const isSuperAdmin = Boolean(user?.isSuperAdmin);
-
-    /**
      * Determines whether the user account possesses global administrative eligibility.
      * True if the user has isSuperAdmin or isAdmin flags returned by the server.
      */
@@ -159,9 +138,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
      */
     const activeGroupId = currentGroup?._id || localStorage.getItem("hunting_groupId");
 
-    const activeGroupMembership = user?.groups?.find(
-        (g) => g.groupId === activeGroupId || g.name === activeGroupId || g.groupName === activeGroupId
-    ) || user?.groups?.[0];
+    const activeGroupMembership = user?.groups?.find((g) => g.groupId === activeGroupId) || user?.groups?.[0];
 
     /**
      * Determines if the active group is the system administrator group.
@@ -178,13 +155,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const isAdmin = Boolean(isUserAdminEligible && isActiveAdminGroup);
 
     const isShiftManagerBool = Boolean(
-        user?.groups?.some((g) => {
-            const gName = g.name || g.groupName;
-            return (
-                (g.groupId === activeGroupId || gName === activeGroupId) &&
-                g.role === "shift_manager"
-            );
-        }),
+        user?.groups?.some((g) => g.groupId === activeGroupId && g.role === "shift_manager"),
     );
 
     /**
@@ -199,7 +170,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         } finally {
             setUser(null);
             setCurrentGroup(null);
-            localStorage.removeItem("hunting_token");
             localStorage.removeItem("hunting_userId");
             localStorage.removeItem("hunting_groupId");
         }
@@ -207,11 +177,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
     /**
      * Session Restoration logic.
-     * 
+     *
      * Runs on initial mount. Validates session against `/api/auth/me` endpoint
-     * using httpOnly cookies or fallback Bearer token to safely reconstruct user state.
-     * Does not require token in localStorage.
-     * 
+     * using the httpOnly session cookie to safely reconstruct user state.
+     *
      * Only invokes logout() if the server explicitly responds with HTTP 401 Unauthorized
      * (indicating an invalid or expired token). Transient network disruptions, timeouts,
      * or 5xx server errors preserve stored credentials to allow recovery upon reconnection.
@@ -239,7 +208,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 if (axios.isAxiosError(error) && error.response?.status === 401) {
                     setUser(null);
                     setCurrentGroup(null);
-                    localStorage.removeItem("hunting_token");
                     localStorage.removeItem("hunting_userId");
                     localStorage.removeItem("hunting_groupId");
                 } else {
@@ -255,28 +223,13 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }, [logout]);
 
     /**
-     * Authenticates the user and initializes the session.
-     * Deprecated in favor of SSO authentication via OpenID Connect.
-     */
-    const login = useCallback(async (_username: string): Promise<boolean> => {
-        console.warn("Local username login has been deprecated in favor of SSO.");
-        return false;
-    }, []);
-
-    /**
      * Switches the current active group scope if the user has permission.
      *
      * @param {string} groupId - The target group identifier.
      * @param {Group} [targetGroup] - Optional pre-resolved group object.
      */
     const switchGroup = useCallback((groupId: string, targetGroup?: Group) => {
-        const membership = user?.groups?.find((g) => {
-            return (
-                g.groupId === groupId ||
-                g.groupName === groupId ||
-                g.name === groupId
-            );
-        });
+        const membership = user?.groups?.find((g) => g.groupId === groupId);
         if (membership || isUserAdminEligible) {
             localStorage.setItem("hunting_groupId", groupId);
             if (targetGroup) {
@@ -285,10 +238,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                     isSystemGroup: targetGroup.isSystemGroup ?? Boolean(membership?.isSystemGroup),
                 });
             } else {
-                const resolvedName =
-                    membership?.groupName ||
-                    membership?.name ||
-                    groupId;
+                const resolvedName = membership?.groupName || groupId;
                 setCurrentGroup((prev) => {
                     if (prev && prev._id === groupId && prev.name === resolvedName) return prev;
                     return {
@@ -314,10 +264,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated,
         currentGroup,
         setCurrentGroup,
-        isSuperAdmin,
         isAdmin,
         isShiftManager: isShiftManagerBool,
-        login,
         logout,
         switchGroup,
         isRestoringSession,
@@ -326,10 +274,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         user,
         isAuthenticated,
         currentGroup,
-        isSuperAdmin,
         isAdmin,
         isShiftManagerBool,
-        login,
         logout,
         switchGroup,
         isRestoringSession,

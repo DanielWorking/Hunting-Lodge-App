@@ -66,8 +66,6 @@ interface DataContextType {
     setUsers: React.Dispatch<React.SetStateAction<User[]>>;
     /** List of user groups/departments accessible to the authenticated user. */
     groups: Group[];
-    /** Direct state setter for groups. */
-    setGroups: React.Dispatch<React.SetStateAction<Group[]>>;
     /** Indicates if a background data fetch is currently in progress. */
     loading: boolean;
     /** Triggers a full re-fetch of all data entities from the API. */
@@ -85,12 +83,10 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 /**
- * Lists the ids and names of every group the user belongs to, used to check a stored group selection.
+ * Lists the ids of every group the user belongs to, used to check a stored group selection.
  */
-const memberGroupKeys = (user: User | null): string[] =>
-    (user?.groups ?? []).flatMap((membership) =>
-        [membership.groupId, membership.groupName].filter((key): key is string => Boolean(key)),
-    );
+const memberGroupIds = (user: User | null): string[] =>
+    (user?.groups ?? []).map((membership) => membership.groupId).filter(Boolean);
 
 /**
  * Context provider that handles data synchronization and state distribution.
@@ -165,15 +161,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             const currentUser = userRef.current;
             const storedGroupId = localStorage.getItem("hunting_groupId");
             // A stored group is trusted only if the user belongs to it (administrators may open any group)
-            const memberKeys = memberGroupKeys(currentUser);
-            const validStoredGroupId = storedGroupId && (isAdminRef.current || memberKeys.includes(storedGroupId))
+            const validStoredGroupId = storedGroupId && (isAdminRef.current || memberGroupIds(currentUser).includes(storedGroupId))
                 ? storedGroupId
                 : undefined;
-            const firstRawGid = currentUser?.groups?.[0]?.groupId;
-            const fallbackGid = typeof firstRawGid === "object" && firstRawGid !== null
-                ? (firstRawGid as { _id?: string; name?: string })._id || (firstRawGid as { _id?: string; name?: string }).name
-                : firstRawGid ? String(firstRawGid) : undefined;
-            const activeGroupIdToFetch = validStoredGroupId || fallbackGid;
+            const activeGroupIdToFetch = validStoredGroupId || currentUser?.groups?.[0]?.groupId;
 
             // Determine if users should be fetched in parallel with other entities
             const usersPromise = isAdminRef.current
@@ -235,20 +226,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             }
 
             if (!targetGroup && validStoredGroupId) {
-                targetGroup = fetchedGroups.find(
-                    (g) => g._id === validStoredGroupId || g.name === validStoredGroupId,
-                );
+                targetGroup = fetchedGroups.find((g) => g._id === validStoredGroupId);
             }
 
             const latestUser = userRef.current;
             if (!targetGroup && latestUser?.groups && latestUser.groups.length > 0) {
-                const rawGid = latestUser.groups[0].groupId;
-                const firstGid = typeof rawGid === "object" && rawGid !== null
-                    ? (rawGid as { _id?: string; name?: string })._id || (rawGid as { _id?: string; name?: string }).name
-                    : String(rawGid);
-                targetGroup = fetchedGroups.find(
-                    (g) => g._id === firstGid || g.name === firstGid,
-                );
+                const firstGid = latestUser.groups[0].groupId;
+                targetGroup = fetchedGroups.find((g) => g._id === firstGid);
             }
 
             if (targetGroup) {
@@ -364,7 +348,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             users,
             setUsers,
             groups,
-            setGroups,
             loading,
             refreshData: fetchData,
             loadError,

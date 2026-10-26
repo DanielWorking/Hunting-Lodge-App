@@ -25,15 +25,12 @@ import { useUser } from "./UserContext";
 interface ColorModeContextType {
     /** Toggles the current mode between 'light' and 'dark'. */
     toggleColorMode: () => void;
-    /** Directly sets the theme mode. */
-    setMode: (mode: PaletteMode) => void;
     /** The currently active theme mode. */
     mode: PaletteMode;
 }
 
 const ColorModeContext = createContext<ColorModeContextType>({
     toggleColorMode: () => {},
-    setMode: () => {},
     mode: "light",
 });
 
@@ -102,16 +99,6 @@ export const ColorModeProvider = ({ children }: { children: ReactNode }) => {
 
                     return newMode;
                 });
-            },
-            /**
-             * Explicitly sets the theme mode and updates the user's persistent preference.
-             * 
-             * @param {PaletteMode} newMode - The mode to apply.
-             */
-            setMode: (newMode: PaletteMode) => {
-                setModeState(newMode);
-                const key = getThemeKey(user?._id);
-                localStorage.setItem(key, newMode);
             },
             mode,
         }),

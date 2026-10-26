@@ -28,9 +28,10 @@ export interface GroupMembership {
     role: GroupRole;
     /** Optional sorting order for the group in the user's view. */
     order?: number;
-    /** Optional group display name when populated or aliased. */
-    name?: string;
-    /** Optional group name alias. */
+    /**
+     * Display name taken from the populated group (signed-in user's own profile only).
+     * Never used for matching: memberships are identified by `groupId`.
+     */
     groupName?: string;
     /** Computed server-side: true if this group is the protected administrative system group. */
     isSystemGroup?: boolean;
@@ -213,8 +214,6 @@ export interface ShiftSchedule {
     isPublished?: boolean;
     /** Array of assignment objects. */
     shifts: ShiftAssignment[];
-    /** Pending unpublished draft assignments stored by a Shift Manager. */
-    draftShifts?: ShiftAssignment[];
     /** Published assignments returned alongside draft edits for manager diffing. */
     publishedShifts?: ShiftAssignment[];
     /** Server-computed flag indicating unpublished draft edits exist on a published schedule. */

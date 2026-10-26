@@ -36,7 +36,7 @@ import { apiErrorMessage } from "../../api/apiClient";
  *
  * Integrates with DataContext for user and group data, and UserContext for
  * the current group context. Handles member reordering, status updates,
- * and report email distribution lists.
+ * and vacation balance adjustments.
  *
  * @returns {JSX.Element} The rendered MembersTab component.
  */

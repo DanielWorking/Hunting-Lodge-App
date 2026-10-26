@@ -63,21 +63,16 @@ export default function SSOCallback() {
                     code,
                     state,
                 });
-                const data = response.data;
-                const user = data.user || data;
+                const user = response.data.user;
 
                 if (user && user._id) {
                     // Session persistence is managed exclusively via secure httpOnly cookies.
                     localStorage.setItem("hunting_userId", user._id);
 
-                    if (Array.isArray(user.groups) && user.groups.length > 0) {
-                        const firstGroup = user.groups[0];
-                        const gid = typeof firstGroup.groupId === "object" && firstGroup.groupId !== null
-                            ? (firstGroup.groupId as { _id?: string; name?: string })._id || (firstGroup.groupId as { name?: string }).name
-                            : firstGroup.groupId || (firstGroup as { name?: string }).name || (firstGroup as { groupName?: string }).groupName;
-                        if (gid) {
-                            localStorage.setItem("hunting_groupId", String(gid));
-                        }
+                    // Login memberships carry plain group ids (the user is not populated)
+                    const firstGroupId = user.groups?.[0]?.groupId;
+                    if (firstGroupId) {
+                        localStorage.setItem("hunting_groupId", firstGroupId);
                     }
 
                     // Force a full application reload to synchronize contexts and session cookies.

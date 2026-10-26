@@ -39,8 +39,6 @@ interface AdminTableProps {
     groups: Group[];
     /** The master list of all groups, used for membership resolution. */
     allGroups: Group[];
-    /** The master list of all users, used for population metrics. */
-    allUsers: User[];
     /** Callback triggered when an item's edit action is invoked. */
     onEdit: (item: User | Group) => void;
     /** Callback triggered when an item's delete action is invoked. */
@@ -61,7 +59,6 @@ export default function AdminTable({
     users,
     groups,
     allGroups,
-    allUsers,
     onEdit,
     onDelete,
 }: AdminTableProps) {
@@ -276,14 +273,9 @@ export default function AdminTable({
      */
     const renderGroupRow = (group: Group) => {
         const isSystemGroup = Boolean(group.isSystemGroup);
-        const groupId = group._id;
 
-        /**
-         * Calculate user population for this group in real-time.
-         */
-        const userCount = allUsers.filter((u) =>
-            u.groups?.some((g) => g.groupId === groupId),
-        ).length;
+        /** Member count computed by the server (GET /api/groups). */
+        const userCount = group.userCount ?? 0;
 
         /**
          * Groups can only be deleted if they are not system-protected 

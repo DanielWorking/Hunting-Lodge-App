@@ -37,7 +37,13 @@ import { useUser } from "../context/UserContext";
 import { useData } from "../context/DataContext";
 import { useNotification } from "../context/NotificationContext";
 import ConfirmDialog from "../components/ConfirmDialog";
-import { getReports, createReport, updateReport, deleteReport } from "../api/reportsApi";
+import {
+    getReportsPage,
+    createReport,
+    updateReport,
+    deleteReport,
+    type PaginatedReportsResult,
+} from "../api/reportsApi";
 import { apiErrorMessage } from "../api/apiClient";
 import { format } from "date-fns";
 import ThinkingLoader from "../components/ThinkingLoader";
@@ -45,12 +51,9 @@ import type { ShiftReport, ShiftReportAttendee, User } from "../types";
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyleKit } from "@tiptap/extension-text-style";
-import { Color } from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
-import TiptapLink from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Tooltip from "@mui/material/Tooltip";
 import FormatBoldIcon from "@mui/icons-material/FormatBold";
@@ -76,44 +79,40 @@ import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
  * @param {string}   props.value        The current HTML content of the editor.
  * @param {function} props.onChange     Callback function to handle content updates.
  * @param {string}   props.placeholder  The text to display when the editor is empty.
- * @param {boolean}  [props.readOnly=false] If true, the editor is in read-only mode.
  * @returns {JSX.Element | null} The rendered editor or null if not initialized.
  */
 export const TiptapEditor = ({
     value,
     onChange,
     placeholder,
-    readOnly = false,
 }: {
     value: string;
     onChange: (val: string) => void;
     placeholder: string;
-    readOnly?: boolean;
 }) => {
     const editor = useEditor({
         extensions: [
-            StarterKit,
-            Underline,
+            // StarterKit already bundles Link and Underline; TextStyleKit bundles Color
+            StarterKit.configure({
+                link: {
+                    openOnClick: false,
+                    HTMLAttributes: {
+                        target: "_blank",
+                        rel: "noopener noreferrer",
+                    },
+                },
+            }),
             TextAlign.configure({
                 types: ["heading", "paragraph"],
                 defaultAlignment: "right", // Native support for RTL alignment
             }),
             TextStyleKit,
-            Color,
             Highlight.configure({ multicolor: true }), // Support for multi-colored highlighting
-            TiptapLink.configure({
-                openOnClick: false,
-                HTMLAttributes: {
-                    target: "_blank",
-                    rel: "noopener noreferrer",
-                },
-            }),
             Placeholder.configure({
                 placeholder: placeholder,
             }),
         ],
         content: value,
-        editable: !readOnly,
         onUpdate: ({ editor }) => {
             onChange(editor.getHTML());
         },
@@ -130,13 +129,6 @@ export const TiptapEditor = ({
         }
     }, [value, editor]);
 
-    useEffect(() => {
-        if (!editor) return;
-        if (editor.isEditable === readOnly) {
-            editor.setEditable(!readOnly, false);
-        }
-    }, [readOnly, editor]);
-
     if (!editor) {
         return null;
     }
@@ -144,281 +136,279 @@ export const TiptapEditor = ({
     return (
         <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
             {/* Toolbar with formatting icons */}
-            {!readOnly && (
-                <Box
-                    sx={{
-                        display: "flex",
-                        gap: 0.5,
-                        p: 1,
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                        flexWrap: "wrap",
-                        direction: "ltr",
-                        alignItems: "center",
-                    }}
-                >
-                    {/* Basic text formatting */}
-                    <Tooltip title="Bold">
-                        <IconButton
-                            size="small"
-                            color={
-                                editor.isActive("bold") ? "primary" : "default"
-                            }
-                            onClick={() =>
-                                editor.chain().focus().toggleBold().run()
-                            }
-                        >
-                            <FormatBoldIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Italic">
-                        <IconButton
-                            size="small"
-                            color={
-                                editor.isActive("italic")
-                                    ? "primary"
-                                    : "default"
-                            }
-                            onClick={() =>
-                                editor.chain().focus().toggleItalic().run()
-                            }
-                        >
-                            <FormatItalicIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Underline">
-                        <IconButton
-                            size="small"
-                            color={
-                                editor.isActive("underline")
-                                    ? "primary"
-                                    : "default"
-                            }
-                            onClick={() =>
-                                editor.chain().focus().toggleUnderline().run()
-                            }
-                        >
-                            <FormatUnderlinedIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Strike">
-                        <IconButton
-                            size="small"
-                            color={
-                                editor.isActive("strike")
-                                    ? "primary"
-                                    : "default"
-                            }
-                            onClick={() =>
-                                editor.chain().focus().toggleStrike().run()
-                            }
-                        >
-                            <StrikethroughSIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
+            <Box
+                sx={{
+                    display: "flex",
+                    gap: 0.5,
+                    p: 1,
+                    borderBottom: "1px solid",
+                    borderColor: "divider",
+                    flexWrap: "wrap",
+                    direction: "ltr",
+                    alignItems: "center",
+                }}
+            >
+                {/* Basic text formatting */}
+                <Tooltip title="Bold">
+                    <IconButton
+                        size="small"
+                        color={
+                            editor.isActive("bold") ? "primary" : "default"
+                        }
+                        onClick={() =>
+                            editor.chain().focus().toggleBold().run()
+                        }
+                    >
+                        <FormatBoldIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
+                <Tooltip title="Italic">
+                    <IconButton
+                        size="small"
+                        color={
+                            editor.isActive("italic")
+                                ? "primary"
+                                : "default"
+                        }
+                        onClick={() =>
+                            editor.chain().focus().toggleItalic().run()
+                        }
+                    >
+                        <FormatItalicIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
+                <Tooltip title="Underline">
+                    <IconButton
+                        size="small"
+                        color={
+                            editor.isActive("underline")
+                                ? "primary"
+                                : "default"
+                        }
+                        onClick={() =>
+                            editor.chain().focus().toggleUnderline().run()
+                        }
+                    >
+                        <FormatUnderlinedIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
+                <Tooltip title="Strike">
+                    <IconButton
+                        size="small"
+                        color={
+                            editor.isActive("strike")
+                                ? "primary"
+                                : "default"
+                        }
+                        onClick={() =>
+                            editor.chain().focus().toggleStrike().run()
+                        }
+                    >
+                        <StrikethroughSIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
 
-                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-                    {/* Text alignment controls */}
-                    <Tooltip title="Align Right (RTL)">
-                        <IconButton
-                            size="small"
-                            color={
-                                editor.isActive({ textAlign: "right" })
-                                    ? "primary"
-                                    : "default"
-                            }
-                            onClick={() =>
-                                editor
-                                    .chain()
-                                    .focus()
-                                    .setTextAlign("right")
-                                    .run()
-                            }
-                        >
-                            <FormatAlignRightIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
-                    {/* Added center alignment button */}
-                    <Tooltip title="Align Center">
-                        <IconButton
-                            size="small"
-                            color={
-                                editor.isActive({ textAlign: "center" })
-                                    ? "primary"
-                                    : "default"
-                            }
-                            onClick={() =>
-                                editor
-                                    .chain()
-                                    .focus()
-                                    .setTextAlign("center")
-                                    .run()
-                            }
-                        >
-                            <FormatAlignCenterIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Align Left (LTR)">
-                        <IconButton
-                            size="small"
-                            color={
-                                editor.isActive({ textAlign: "left" })
-                                    ? "primary"
-                                    : "default"
-                            }
-                            onClick={() =>
-                                editor
-                                    .chain()
-                                    .focus()
-                                    .setTextAlign("left")
-                                    .run()
-                            }
-                        >
-                            <FormatAlignLeftIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
+                {/* Text alignment controls */}
+                <Tooltip title="Align Right (RTL)">
+                    <IconButton
+                        size="small"
+                        color={
+                            editor.isActive({ textAlign: "right" })
+                                ? "primary"
+                                : "default"
+                        }
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .setTextAlign("right")
+                                .run()
+                        }
+                    >
+                        <FormatAlignRightIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
+                {/* Added center alignment button */}
+                <Tooltip title="Align Center">
+                    <IconButton
+                        size="small"
+                        color={
+                            editor.isActive({ textAlign: "center" })
+                                ? "primary"
+                                : "default"
+                        }
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .setTextAlign("center")
+                                .run()
+                        }
+                    >
+                        <FormatAlignCenterIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
+                <Tooltip title="Align Left (LTR)">
+                    <IconButton
+                        size="small"
+                        color={
+                            editor.isActive({ textAlign: "left" })
+                                ? "primary"
+                                : "default"
+                        }
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .setTextAlign("left")
+                                .run()
+                        }
+                    >
+                        <FormatAlignLeftIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
 
-                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-                    {/* List controls */}
-                    <Tooltip title="Bullet List">
-                        <IconButton
-                            size="small"
-                            color={
-                                editor.isActive("bulletList")
-                                    ? "primary"
-                                    : "default"
-                            }
-                            onClick={() =>
-                                editor.chain().focus().toggleBulletList().run()
-                            }
-                        >
-                            <FormatListBulletedIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Ordered List">
-                        <IconButton
-                            size="small"
-                            color={
-                                editor.isActive("orderedList")
-                                    ? "primary"
-                                    : "default"
-                            }
-                            onClick={() =>
-                                editor.chain().focus().toggleOrderedList().run()
-                            }
-                        >
-                            <FormatListNumberedIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
+                {/* List controls */}
+                <Tooltip title="Bullet List">
+                    <IconButton
+                        size="small"
+                        color={
+                            editor.isActive("bulletList")
+                                ? "primary"
+                                : "default"
+                        }
+                        onClick={() =>
+                            editor.chain().focus().toggleBulletList().run()
+                        }
+                    >
+                        <FormatListBulletedIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
+                <Tooltip title="Ordered List">
+                    <IconButton
+                        size="small"
+                        color={
+                            editor.isActive("orderedList")
+                                ? "primary"
+                                : "default"
+                        }
+                        onClick={() =>
+                            editor.chain().focus().toggleOrderedList().run()
+                        }
+                    >
+                        <FormatListNumberedIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
 
-                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-                    {/* Colors and highlights */}
-                    <Tooltip title="Text Color">
-                        <Box
+                {/* Colors and highlights */}
+                <Tooltip title="Text Color">
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            position: "relative",
+                            cursor: "pointer",
+                            width: 26,
+                            height: 26,
+                            ml: 1,
+                            mr: 1,
+                        }}
+                    >
+                        <FormatColorTextIcon
+                            fontSize="small"
                             sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                position: "relative",
-                                cursor: "pointer",
-                                width: 26,
-                                height: 26,
-                                ml: 1,
-                                mr: 1,
+                                color:
+                                    editor.getAttributes("textStyle")
+                                        .color || "inherit",
+                                position: "absolute",
+                                pointerEvents: "none",
                             }}
-                        >
-                            <FormatColorTextIcon
-                                fontSize="small"
-                                sx={{
-                                    color:
-                                        editor.getAttributes("textStyle")
-                                            .color || "inherit",
-                                    position: "absolute",
-                                    pointerEvents: "none",
-                                }}
-                            />
-                            <input
-                                type="color"
-                                aria-label="Text Color"
-                                onInput={(event) =>
-                                    editor
-                                        .chain()
-                                        .focus()
-                                        .setColor(
-                                            (event.target as HTMLInputElement)
-                                                .value,
-                                        )
-                                        .run()
-                                }
-                                value={
-                                    editor.getAttributes("textStyle").color ||
-                                    "#000000"
-                                }
-                                style={{
-                                    opacity: 0,
-                                    width: "100%",
-                                    height: "100%",
-                                    cursor: "pointer",
-                                }}
-                            />
-                        </Box>
-                    </Tooltip>
+                        />
+                        <input
+                            type="color"
+                            aria-label="Text Color"
+                            onInput={(event) =>
+                                editor
+                                    .chain()
+                                    .focus()
+                                    .setColor(
+                                        (event.target as HTMLInputElement)
+                                            .value,
+                                    )
+                                    .run()
+                            }
+                            value={
+                                editor.getAttributes("textStyle").color ||
+                                "#000000"
+                            }
+                            style={{
+                                opacity: 0,
+                                width: "100%",
+                                height: "100%",
+                                cursor: "pointer",
+                            }}
+                        />
+                    </Box>
+                </Tooltip>
 
-                    {/* Using a color picker for highlighters to match standard word processors */}
-                    <Tooltip title="Highlight Color">
-                        <Box
+                {/* Using a color picker for highlighters to match standard word processors */}
+                <Tooltip title="Highlight Color">
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            position: "relative",
+                            cursor: "pointer",
+                            width: 26,
+                            height: 26,
+                            ml: 1,
+                            mr: 1,
+                        }}
+                    >
+                        <HighlightIcon
+                            fontSize="small"
                             sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                position: "relative",
-                                cursor: "pointer",
-                                width: 26,
-                                height: 26,
-                                ml: 1,
-                                mr: 1,
+                                color:
+                                    editor.getAttributes("highlight")
+                                        .color || "inherit",
+                                position: "absolute",
+                                pointerEvents: "none",
                             }}
-                        >
-                            <HighlightIcon
-                                fontSize="small"
-                                sx={{
-                                    color:
-                                        editor.getAttributes("highlight")
-                                            .color || "inherit",
-                                    position: "absolute",
-                                    pointerEvents: "none",
-                                }}
-                            />
-                            <input
-                                type="color"
-                                aria-label="Highlight Color"
-                                onInput={(event) =>
-                                    editor
-                                        .chain()
-                                        .focus()
-                                        .setHighlight({
-                                            color: (
-                                                event.target as HTMLInputElement
-                                            ).value,
-                                        })
-                                        .run()
-                                }
-                                value={
-                                    editor.getAttributes("highlight").color ||
-                                    "#ffff00"
-                                }
-                                style={{
-                                    opacity: 0,
-                                    width: "100%",
-                                    height: "100%",
-                                    cursor: "pointer",
-                                }}
-                            />
-                        </Box>
-                    </Tooltip>
-                </Box>
-            )}
+                        />
+                        <input
+                            type="color"
+                            aria-label="Highlight Color"
+                            onInput={(event) =>
+                                editor
+                                    .chain()
+                                    .focus()
+                                    .setHighlight({
+                                        color: (
+                                            event.target as HTMLInputElement
+                                        ).value,
+                                    })
+                                    .run()
+                            }
+                            value={
+                                editor.getAttributes("highlight").color ||
+                                "#ffff00"
+                            }
+                            style={{
+                                opacity: 0,
+                                width: "100%",
+                                height: "100%",
+                                cursor: "pointer",
+                            }}
+                        />
+                    </Box>
+                </Tooltip>
+            </Box>
 
             {/* Main editing area */}
             <Box
@@ -447,11 +437,31 @@ export const TiptapEditor = ({
     );
 };
 
-/** The user id of a report attendee, whether `userId` is populated or not. */
-const attendeeUserId = (attendee: ShiftReportAttendee): string | undefined =>
-    typeof attendee.userId === "object" && attendee.userId !== null
-        ? (attendee.userId as { _id?: string })._id
-        : attendee.userId;
+/** Keyset position of the next, older page of reports (from the server's pagination headers). */
+interface ReportsCursor {
+    readonly date: string;
+    readonly id: string;
+}
+
+const cursorOf = (page: PaginatedReportsResult): ReportsCursor | null =>
+    page.nextCursorDate && page.nextCursorId ? { date: page.nextCursorDate, id: page.nextCursorId } : null;
+
+/** True if `report` sorts after `pivot` in the server's order: newest `date` first, then `_id` descending. */
+const isOlderThan = (report: ShiftReport, pivot: ShiftReport): boolean => {
+    const diff = new Date(report.date).getTime() - new Date(pivot.date).getTime();
+    return diff < 0 || (diff === 0 && report._id < pivot._id);
+};
+
+/**
+ * Puts a freshly fetched newest page in front of the older reports already loaded: the page
+ * replaces everything it covers, and only the reports older than its last one are kept.
+ */
+const mergeNewestPage = (loaded: ShiftReport[], newest: ShiftReport[]): ShiftReport[] => {
+    const last = newest[newest.length - 1];
+    if (!last) return newest;
+    const newestIds = new Set(newest.map((r) => r._id));
+    return [...newest, ...loaded.filter((r) => !newestIds.has(r._id) && isOlderThan(r, last))];
+};
 
 /**
  * The shift report management page.
@@ -472,11 +482,20 @@ export default function ShiftReportPage() {
     const [isDirty, setIsDirty] = useState(false);
     const [loading, setLoading] = useState(false);
     const [pendingSwitchReport, setPendingSwitchReport] = useState<ShiftReport | null>(null);
+    // Cursor pagination: the server returns the newest reports first, a page at a time
+    const [hasMore, setHasMore] = useState(false);
+    const [cursor, setCursor] = useState<ReportsCursor | null>(null);
+    const [loadingOlder, setLoadingOlder] = useState(false);
 
     const isDirtyRef = useRef(false);
     const selectedReportRef = useRef<ShiftReport | null>(null);
     const reportsRef = useRef<ShiftReport[]>(reports);
     const isMountedRef = useRef(true);
+    /** Set once an older page was appended; polling then keeps those reports on screen. */
+    const olderLoadedRef = useRef(false);
+    const loadingOlderRef = useRef(false);
+    /** The group whose reports are on screen; responses for any other group are dropped. */
+    const activeGroupIdRef = useRef<string | undefined>(undefined);
 
     // Keep synchronization refs up-to-date with current state
     useEffect(() => {
@@ -514,8 +533,9 @@ export default function ShiftReportPage() {
     const groupId = currentGroup?._id;
 
     /**
-     * Fetches reports from the server.
+     * Fetches the newest page of reports from the server.
      *
+     * Older pages already loaded with "Load older reports" stay on screen behind it.
      * Shields active edits: if the user has unsaved modifications (isDirty),
      * background polling updates the archive list without overwriting the active report draft.
      *
@@ -527,22 +547,34 @@ export default function ShiftReportPage() {
             try {
                 if (!isBackground && isMountedRef.current) setLoading(true);
 
-                const res = await getReports({ groupId });
-                if (!isMountedRef.current) return;
+                const page = await getReportsPage({ groupId });
+                if (!isMountedRef.current || activeGroupIdRef.current !== groupId) return;
 
-                const incomingReports: ShiftReport[] = Array.isArray(res.data)
-                    ? res.data
-                    : [];
+                const incomingReports = page.reports;
 
-                // Check if a new report was added (for notification purposes) safely outside state updater
+                // Notify about reports that appeared since the last fetch (never on the first load). The
+                // screen holds every report from the newest down to its last one, so an unseen report
+                // older than that one is not new: it only moved up from the next page after a deletion.
+                const onScreen = reportsRef.current;
+                const oldestOnScreen = onScreen[onScreen.length - 1];
+                const knownIds = new Set(onScreen.map((r) => r._id));
                 if (
-                    incomingReports.length > reportsRef.current.length &&
-                    reportsRef.current.length > 0 &&
-                    isMountedRef.current
+                    oldestOnScreen &&
+                    incomingReports.some((r) => !knownIds.has(r._id) && !isOlderThan(r, oldestOnScreen))
                 ) {
                     showNotification("New shift report received", "info");
                 }
-                setReports(incomingReports);
+
+                // Older pages on screen (or being loaded) are kept unless the newest page is now complete
+                const keepOlder = page.hasMore && (olderLoadedRef.current || loadingOlderRef.current);
+                if (keepOlder) {
+                    setReports((prev) => mergeNewestPage(prev, incomingReports));
+                } else {
+                    olderLoadedRef.current = false;
+                    setReports(incomingReports);
+                    setHasMore(page.hasMore);
+                    setCursor(cursorOf(page));
+                }
 
                 if (!isMountedRef.current) return;
 
@@ -581,6 +613,15 @@ export default function ShiftReportPage() {
         if (!groupId) return;
         isMountedRef.current = true;
 
+        // A newly opened group starts a fresh archive: its first page replaces the list
+        activeGroupIdRef.current = groupId;
+        reportsRef.current = [];
+        olderLoadedRef.current = false;
+        loadingOlderRef.current = false;
+        setHasMore(false);
+        setCursor(null);
+        setLoadingOlder(false);
+
         const loadReports = async () => {
             await fetchReports(false);
         };
@@ -599,6 +640,34 @@ export default function ShiftReportPage() {
             clearInterval(intervalId);
         };
     }, [groupId, fetchReports]);
+
+    /**
+     * Appends the next, older page of reports to the archive using the server's keyset cursor.
+     */
+    const loadOlderReports = async () => {
+        if (!groupId || !cursor || loadingOlderRef.current) return;
+        loadingOlderRef.current = true;
+        setLoadingOlder(true);
+        try {
+            const page = await getReportsPage({ groupId, cursorDate: cursor.date, cursorId: cursor.id });
+            if (!isMountedRef.current || activeGroupIdRef.current !== groupId) return;
+
+            setReports((prev) => {
+                const knownIds = new Set(prev.map((r) => r._id));
+                return [...prev, ...page.reports.filter((r) => !knownIds.has(r._id))];
+            });
+            olderLoadedRef.current = true;
+            setHasMore(page.hasMore);
+            setCursor(cursorOf(page));
+        } catch (error) {
+            if (!isMountedRef.current) return;
+            console.error(error);
+            showNotification(apiErrorMessage(error, "Error loading older shift reports"), "error");
+        } finally {
+            loadingOlderRef.current = false;
+            if (isMountedRef.current) setLoadingOlder(false);
+        }
+    };
 
     /**
      * Identifies the current shift slot based on the system time.
@@ -808,7 +877,7 @@ export default function ShiftReportPage() {
         if (!selectedReport) return;
         // An entry keeps how it got on the report: automatic ones stay automatic, so a later publish
         // can still update them; only people added here count as added by hand
-        const listed = new Map(selectedReport.attendees.map((a) => [attendeeUserId(a), a]));
+        const listed = new Map(selectedReport.attendees.map((a) => [a.userId, a]));
         const newAttendees: ShiftReportAttendee[] = newValue.map((u) => ({
             userId: u._id,
             name: u.displayName || u.username,
@@ -1136,6 +1205,18 @@ export default function ShiftReportPage() {
                                     </Box>
                                 ))}
                         </List>
+
+                        {hasMore && !loading && (
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={() => void loadOlderReports()}
+                                disabled={loadingOlder}
+                                sx={{ alignSelf: "center", mt: 1 }}
+                            >
+                                {loadingOlder ? "Loading..." : "Load older reports"}
+                            </Button>
+                        )}
                     </Paper>
                 </Grid>
 
@@ -1264,14 +1345,14 @@ export default function ShiftReportPage() {
                                     options={groupUsers.filter(
                                         (u) =>
                                             u.isActive ||
-                                            (selectedReport.attendees || []).some((a) => attendeeUserId(a) === u._id),
+                                            (selectedReport.attendees || []).some((a) => a.userId === u._id),
                                     )}
                                     getOptionLabel={(option) =>
                                         option.displayName || option.username
                                     }
                                     value={(selectedReport.attendees || [])
                                         .map((a: ShiftReportAttendee) =>
-                                            groupUsers.find((u) => u._id === attendeeUserId(a)),
+                                            groupUsers.find((u) => u._id === a.userId),
                                         )
                                         .filter((u): u is User => Boolean(u))}
                                     onChange={handleAttendanceChange}

@@ -42,10 +42,8 @@ export interface WhatsNewModalProps {
     open: boolean;
     /** Callback fired when the user successfully acknowledges the updates. */
     onClose: () => void;
-    /** Optional specific user ID to acknowledge for; defaults to authenticated token session. */
-    userId?: string;
-    /** Optional application version override to display. */
-    version?: string;
+    /** ID of the signed-in user acknowledging the updates. */
+    userId: string;
 }
 
 interface FeatureSlide {
@@ -81,8 +79,8 @@ const FEATURE_SLIDES: FeatureSlide[] = [
         title: "Vacation Management & Quotas",
         tag: "Vacation",
         description:
-            "Submit leave requests, track remaining vacation balances in real time, and review shift manager approvals directly inside the app.",
-        benefit: "Self-service vacation balance tracking and quick approvals",
+            "Track every member's remaining vacation balance. Vacation shifts are charged automatically when a schedule is published and refunded when they are removed.",
+        benefit: "Accurate vacation balances without manual bookkeeping",
         accentColor: "#ed6c02", // Amber / Orange
     },
     {
@@ -99,9 +97,9 @@ const FEATURE_SLIDES: FeatureSlide[] = [
 /**
  * Centered, compact slide-by-slide "What's New" modal dialog.
  */
-export default function WhatsNewModal({ open, onClose, userId, version }: WhatsNewModalProps) {
+export default function WhatsNewModal({ open, onClose, userId }: WhatsNewModalProps) {
     const theme = useTheme();
-    const clientVersion = version || import.meta.env.VITE_APP_VERSION || envConfig.appVersion || "1.0.0";
+    const clientVersion = envConfig.appVersion;
     const [activeStep, setActiveStep] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);

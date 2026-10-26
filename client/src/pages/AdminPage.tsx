@@ -160,11 +160,11 @@ export default function AdminPage() {
     const handleSaveGroup = async (groupData: Partial<Group>) => {
         try {
             if (editingGroup) {
-                // Update mode: The server expects only the name field for group updates.
+                // Update mode: the server accepts only the name field for group updates.
                 const identifier = editingGroup._id;
 
                 await updateGroup(identifier, {
-                    name: groupData.name,
+                    name: groupData.name ?? editingGroup.name,
                 });
                 showNotification("Group updated successfully", "success");
             } else {
@@ -249,7 +249,6 @@ export default function AdminPage() {
                 users={filteredUsers}
                 groups={filteredGroups}
                 allGroups={groups}
-                allUsers={users}
                 onEdit={handleEditClick}
                 onDelete={handleDeleteClick}
             />

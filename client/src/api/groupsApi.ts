@@ -3,7 +3,7 @@
  *
  * Provides client-side API methods for managing organizational groups.
  * Handles group CRUD operations, shift scheduling settings (shift types and time slots),
- * site bookmark tag management, and report distribution.
+ * and site bookmark tag management.
  */
 
 import apiClient from "./apiClient";
@@ -30,17 +30,16 @@ export const getGroups = () => apiClient.get("/groups");
 export const createGroup = (groupData: any) => apiClient.post("/groups", groupData);
 
 /**
- * Partially updates general metadata and properties for an existing group
- * (PATCH: omitted fields keep their stored values).
+ * Renames an existing group (the server accepts only `name` and rejects any other field;
+ * settings go through {@link updateGroupSettings} and tags through the tag endpoints).
  *
- * Updates fields such as group name, settings, or site tags.
  * Protected system administrator groups cannot be modified. Restricted to system administrators.
  *
- * @param  {string}                          id         The unique identifier of the group to update.
- * @param  {Partial<import("../types").Group>} groupData  The updated group fields (e.g., name, settings, siteTags).
+ * @param  {string}           id         The unique identifier of the group to rename.
+ * @param  {{ name: string }} groupData  The new group name.
  * @returns {Promise<import("axios").AxiosResponse<import("../types").Group>>} Axios promise resolving to the updated group record.
  */
-export const updateGroup = (id: string, groupData: any) => apiClient.patch(`/groups/${id}`, groupData);
+export const updateGroup = (id: string, groupData: { name: string }) => apiClient.patch(`/groups/${id}`, groupData);
 
 /**
  * Deletes a group and cleans up all associated resources.

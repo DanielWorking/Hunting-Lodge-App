@@ -95,17 +95,6 @@ export default function PhonesTable({
         }
     };
 
-    /**
-     * Placeholder for future complex number formatting.
-     * Currently returns the number as-is.
-     * 
-     * @param {string} number  The raw phone number string.
-     * @returns {string}       The formatted phone number.
-     */
-    const formatPhoneNumber = (number: string) => {
-        return number;
-    };
-
     return (
         <TableContainer
             component={Paper}
@@ -191,7 +180,7 @@ export default function PhonesTable({
                                     <Link
                                         href={`tel:${row.numbers[0]}`}
                                         onClick={(e) => e.stopPropagation()}
-                                        aria-label={`Dial ${row.name}: ${formatPhoneNumber(row.numbers[0])}`}
+                                        aria-label={`Dial ${row.name}: ${row.numbers[0]}`}
                                         sx={{
                                             color: "text.primary",
                                             textDecoration: "none",
@@ -212,7 +201,7 @@ export default function PhonesTable({
                                             },
                                         }}
                                     >
-                                        {formatPhoneNumber(row.numbers[0])}
+                                        {row.numbers[0]}
                                     </Link>
                                 ) : (
                                     ""

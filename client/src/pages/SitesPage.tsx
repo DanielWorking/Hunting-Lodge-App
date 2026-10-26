@@ -7,7 +7,6 @@
  */
 
 import { useState, useMemo, useCallback, useRef } from "react";
-// ... (imports remain unchanged)
 import {
     Container,
     Typography,
@@ -665,11 +664,13 @@ export default function SitesPage() {
                 onConfirm={handleConfirmDeleteTag}
             />
 
-            <WhatsNewModal
-                open={shouldShowWhatsNew}
-                onClose={handleWhatsNewClose}
-                userId={user?._id}
-            />
+            {user && (
+                <WhatsNewModal
+                    open={shouldShowWhatsNew}
+                    onClose={handleWhatsNewClose}
+                    userId={user._id}
+                />
+            )}
         </Container>
     );
 }

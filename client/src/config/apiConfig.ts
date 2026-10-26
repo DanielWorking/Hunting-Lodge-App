@@ -2,8 +2,8 @@
  * @module ClientConfig/ApiConfig
  *
  * Tri-environment client API configuration and endpoint resolver.
- * Detects online environment (nonprod, preprod, prod), resolves API base URL,
- * SSO callback endpoints, and provides typed environment helpers.
+ * Detects online environment (nonprod, preprod, prod), resolves the API base URL,
+ * and provides typed environment helpers.
  */
 
 export type ClientAppEnv = "nonprod" | "preprod" | "prod";
@@ -76,19 +76,6 @@ const rawApiUrl = import.meta.env.VITE_API_URL as string | undefined;
 export const apiUrl = (rawApiUrl && rawApiUrl.trim() !== "") ? rawApiUrl.trim() : "/api";
 
 export const appVersion = (import.meta.env.VITE_APP_VERSION as string) || "1.0.0";
-export const enableDebugLogs = import.meta.env.VITE_ENABLE_DEBUG_LOGS === "true" || isNonProd;
-
-export const ssoCallbackPath = "/auth/callback";
-
-/**
- * Resolves the full SSO callback URL based on window.location in browser environments.
- */
-export function getSsoCallbackUrl(): string {
-    if (typeof window !== "undefined" && window.location && window.location.origin) {
-        return `${window.location.origin}${ssoCallbackPath}`;
-    }
-    return ssoCallbackPath;
-}
 
 export interface ApiConfig {
     readonly appEnv: ClientAppEnv;
@@ -97,10 +84,7 @@ export interface ApiConfig {
     readonly isProd: boolean;
     readonly mode: string;
     readonly apiUrl: string;
-    readonly ssoCallbackPath: string;
-    readonly ssoCallbackUrl: string;
     readonly appVersion: string;
-    readonly enableDebugLogs: boolean;
 }
 
 export const apiConfig: ApiConfig = Object.freeze({
@@ -110,12 +94,7 @@ export const apiConfig: ApiConfig = Object.freeze({
     isProd,
     mode,
     apiUrl,
-    ssoCallbackPath,
-    get ssoCallbackUrl() {
-        return getSsoCallbackUrl();
-    },
     appVersion,
-    enableDebugLogs,
 });
 
 export default apiConfig;

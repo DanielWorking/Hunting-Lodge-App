@@ -31,12 +31,8 @@ export interface PaginatedReportsResult {
 export interface CreateReportPayload {
     groupId: string;
     title: string;
-    date?: Date | string;
     startTime: Date | string;
     endTime: Date | string;
-    currentTasks?: string;
-    previousTasks?: string;
-    attendees?: ShiftReportAttendee[];
 }
 
 export interface UpdateReportPayload {

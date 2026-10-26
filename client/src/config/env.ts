@@ -2,16 +2,10 @@
  * @module ClientConfig
  *
  * Centralized, typed environment configuration for the client application.
- * Normalizes Vite environment variables and provides backwards-compatible helpers.
+ * Exposes the normalized Vite environment values resolved in `apiConfig`.
  */
 
-import apiConfig, {
-    type ClientAppEnv,
-    detectClientAppEnv,
-} from "./apiConfig";
-
-export type { ClientAppEnv };
-export { detectClientAppEnv, apiConfig };
+import apiConfig, { type ClientAppEnv } from "./apiConfig";
 
 export interface ClientConfig {
     readonly isProd: boolean;
@@ -21,9 +15,6 @@ export interface ClientConfig {
     readonly mode: string;
     readonly appVersion: string;
     readonly apiUrl: string;
-    readonly ssoCallbackPath: string;
-    readonly ssoCallbackUrl: string;
-    readonly enableDebugLogs: boolean;
 }
 
 export const envConfig: ClientConfig = Object.freeze({
@@ -34,11 +25,6 @@ export const envConfig: ClientConfig = Object.freeze({
     mode: apiConfig.mode,
     appVersion: apiConfig.appVersion,
     apiUrl: apiConfig.apiUrl,
-    ssoCallbackPath: apiConfig.ssoCallbackPath,
-    get ssoCallbackUrl() {
-        return apiConfig.ssoCallbackUrl;
-    },
-    enableDebugLogs: apiConfig.enableDebugLogs,
 });
 
 export default envConfig;

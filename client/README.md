@@ -59,12 +59,10 @@ npx vite build --mode preprod    # build with env/client/.env.preprod
 | :----------------------- | :------------------------------------------------------- | :---------------------------- |
 | `VITE_APP_ENV`           | `nonprod` / `preprod` / `prod`                           | `nonprod`                     |
 | `VITE_API_URL`           | API base URL, either a relative path or an absolute URL  | `/api`                        |
-| `VITE_ENABLE_DEBUG_LOGS` | Verbose client logging                                   | `true` in nonprod             |
-| `VITE_APP_VERSION`       | Version shown in the UI                                  | `client/package.json` version |
 
 Values are validated in `src/config/apiConfig.ts` and exposed as a frozen, typed object from `src/config/env.ts`. Import from there; don't read `import.meta.env` directly.
 
-> `vite.config.ts` always injects `VITE_APP_VERSION` from `package.json`, so bump the package version to change the displayed version.
+> The UI version (`VITE_APP_VERSION`) is not an env variable: `vite.config.ts` always injects it from `package.json`, so bump the package version to change the displayed version.
 
 ## 📁 Structure
 

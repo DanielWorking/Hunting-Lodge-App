@@ -10,8 +10,7 @@ A full-stack management application for organizing operational groups, shifts, s
 - **Phone Directory:** Organizational/emergency phone entries with per-user favorite phones.
 - **Shift Schedule:** Interactive weekly/monthly schedule planning and publishing.
 - **Shift Reports:** Rich-text report editor (Tiptap) with automatic report generation per time slot via a scheduled worker.
-- **Vacations:** Vacation request submission, Shift Manager approval workflow, and balance aggregation.
-- **Group Settings:** Per-group members, shift types, time slots, notification recipients, and statistics.
+- **Group Settings:** Per-group members, shift types, time slots, and statistics.
 - **Admin Dashboard:** User management with filtering, role/group assignment, and Super Admin protection.
 - **UI:** Material UI with light/dark themes, "What's New" release notes, and accessibility-focused tests.
 
@@ -129,7 +128,6 @@ Only `.example` templates are committed. All real `.env*` files are git-ignored.
 | `SSO_REDIRECT_URI`     | secret | OAuth2 callback URL                         | `http://localhost:5173/auth/callback` | `https://<host>/auth/callback`        | —       |
 | `SSO_IDENTIFIER_FIELD` | secret | Which claims fill System ID and Name: `email` (System ID: email → name → sub; Name: username → nickname → System ID) or `username` (System ID: preferred_username → email → sub; Name: name → given_name → System ID) | `email`                               | `username` (AD / smartcard)           | `email` |
 | `SSO_COOKIE_SECRET`    | secret | Secret for signing SSO state cookies        | dev secret                            | high-entropy secret                   | —       |
-| `SSO_USE_PKCE`         | config | Enable PKCE in the auth code flow           | `true`                                | `true`                                | `true`  |
 | `SSO_COOKIE_SECURE`    | config | Mark auth cookies `Secure`                  | `false`                               | `true`                                | env-based |
 | `SSO_SAME_SITE`        | config | `SameSite` attribute for auth cookies       | `lax`                                 | `lax`                                 | `lax`   |
 
@@ -162,10 +160,10 @@ No admin account is seeded. The server creates the `SUPER_ADMIN_GROUP_NAME` grou
 
 #### Background Jobs
 
-| Variable                     | Purpose                                                              | Nonprod     | Prod           | Default        |
-| :--------------------------- | :------------------------------------------------------------------- | :---------- | :------------- | :------------- |
-| `SHIFT_REPORT_CRON_SCHEDULE` | Cron expression for the in-process shift report generator            | `* * * * *` | `*/10 * * * *` | `*/10 * * * *` |
-| `ENABLE_IN_PROCESS_CRON`     | Set to `true` to run the generator inside the API process (dev only) | _(optional)_ | _(unset)_     | disabled       |
+| Variable                     | Purpose                                                                                                              | Nonprod     | Prod                    | Default  |
+| :--------------------------- | :------------------------------------------------------------------------------------------------------------------- | :---------- | :---------------------- | :------- |
+| `SHIFT_REPORT_CRON_SCHEDULE` | Shift report generator schedule: CI copies it into the K8s CronJob, and the in-process generator uses it when `ENABLE_IN_PROCESS_CRON=true` (required and validated then). Keep it every minute: a report is only created from 1 minute before to 5 minutes after a shift starts. Leave it unquoted | `* * * * *` | `* * * * *`             | —        |
+| `ENABLE_IN_PROCESS_CRON`     | Set to `true` to run the generator inside the API process (nonprod only; refused in preprod/prod)                     | `true`      | _(unset)_               | disabled |
 
 ### Client variables (`env/client/.env.<env>`)
 
@@ -175,10 +173,8 @@ Vite reads these from `env/client/` (`envDir`). They are **public** and baked in
 | :----------------------- | :-------------------------------------------- | :------- | :------ | :------------- |
 | `VITE_APP_ENV`           | Client environment (`nonprod`/`preprod`/`prod`) | `nonprod` | `prod` | `nonprod`     |
 | `VITE_API_URL`           | API base URL (relative path or absolute URL)  | `/api`   | `/api`  | `/api`         |
-| `VITE_ENABLE_DEBUG_LOGS` | Verbose client logging                        | `true`   | `false` | on in nonprod  |
-| `VITE_APP_VERSION`       | UI version label                              | —        | —       | `client/package.json` version |
 
-> Note: `vite.config.ts` always sets `VITE_APP_VERSION` from `client/package.json`, so to change the displayed version, bump that file.
+> Note: the UI version label (`VITE_APP_VERSION`) is not configurable: `vite.config.ts` always sets it from `client/package.json`, so to change the displayed version, bump that file.
 
 ---
 
@@ -229,7 +225,7 @@ Vite reads these from `env/client/` (`envDir`). They are **public** and baked in
 | Script                         | Description                                          |
 | :----------------------------- | :--------------------------------------------------- |
 | `npm run dev`                  | Run server (nodemon + tsx) and client (Vite) together |
-| `npm run dev:seed`             | Same as `dev`, plus run the seed script              |
+| `npm run dev:seed`             | Run the seed script, then `dev`                      |
 | `npm run client` / `server`    | Run a single workspace in dev mode                   |
 | `npm run build`                | Build client (`tsc -b && vite build`) then server (`tsc`) |
 | `npm start`                    | Start the server                                     |
@@ -260,8 +256,8 @@ npm run migrate:create --workspace=server -- <migration-name>   # New migration 
 
 Shift reports are generated automatically for each group's time slots based on the active schedule (timezone `Asia/Jerusalem`). There are two ways to run the generator:
 
-- **Production:** a dedicated Kubernetes **CronJob** (`k8s/cronjob.yaml`) runs the standalone worker (`src/scripts/runShiftReportCron.js`) every minute. The worker connects, generates reports, disconnects, and exits.
-- **Local:** run it once with `npm run cron:shift-report`, or set `ENABLE_IN_PROCESS_CRON=true` to schedule it inside the API process on `SHIFT_REPORT_CRON_SCHEDULE`.
+- **Kubernetes:** a dedicated **CronJob** (`k8s/cronjob.yaml`) runs the standalone worker (`src/scripts/runShiftReportCron.js`) on `SHIFT_REPORT_CRON_SCHEDULE`, which the CI deploy job reads from the `backend-config-<env>` ConfigMap. The worker connects, generates reports, disconnects, and exits.
+- **Local (`nonprod`):** `ENABLE_IN_PROCESS_CRON=true` (set in `env/server/.env.config.nonprod.example`) schedules it inside the API process on `SHIFT_REPORT_CRON_SCHEDULE`, or run it once with `npm run cron:shift-report`. Startup refuses `ENABLE_IN_PROCESS_CRON=true` outside `nonprod` and requires a valid `SHIFT_REPORT_CRON_SCHEDULE`.
 
 In-process scheduling is disabled by default so that multiple API replicas don't generate duplicate reports.
 
@@ -310,29 +306,53 @@ docker run -d -p 5000:5000 \
 
 | File                       | Contents                                                                 |
 | :------------------------- | :----------------------------------------------------------------------- |
-| `nonprod-deployment.yaml`  | Deployment, Service, Route, ConfigMap & Secret templates for nonprod      |
+| `nonprod-deployment.yaml`  | Development & integration manifest (single replica, error details in 5xx bodies) |
 | `preprod-deployment.yaml`  | Staging manifest with production parity                                  |
 | `prod-deployment.yaml`     | Production manifest (2+ replicas, pod anti-affinity, zero-downtime rolling updates) |
-| `cronjob.yaml`             | Shift report generator CronJob                                           |
+| `cronjob.yaml`             | Shift report generator CronJob (all environments; schedule from the ConfigMap) |
 | `seed-job.yaml`            | One-off Job running `seed.js --idempotent` (first deploy of any environment) |
 
-Placeholders like `<NAMESPACE>`, `<YOUR_NAMESPACE>`, `<YOUR_DEPLOYMENT>`, and `<YOUR_ENV>` must be substituted before applying. The CI pipeline does this automatically for the deployment manifests.
+Placeholders like `<NAMESPACE>`, `<ENV>`, `<YOUR_NAMESPACE>`, `<YOUR_DEPLOYMENT>`, and `<YOUR_ENV>` must be substituted before applying. The CI pipeline does this automatically for the deployment manifests and `cronjob.yaml`. To apply the CronJob by hand:
+
+```bash
+NS=<namespace> ENV=nonprod
+SCHEDULE=$(oc get configmap backend-config-$ENV -n $NS -o jsonpath='{.data.SHIFT_REPORT_CRON_SCHEDULE}')
+sed -e "s|<NAMESPACE>|$NS|g" -e "s|<ENV>|$ENV|g" -e "s|<SHIFT_REPORT_CRON_SCHEDULE>|$SCHEDULE|g" \
+  k8s/cronjob.yaml | oc apply -n $NS -f -
+```
 
 #### CI/CD (`.gitlab-ci.yml`)
 
 1. **`validate`**: `npm ci`, server and client tests, and a full build.
-2. **`deploy`**: builds the image, pushes it to the OpenShift internal registry, applies `k8s/<env>-deployment.yaml`, pins the immutable image tag, and waits for the rollout.
+2. **`deploy`**: builds the image, pushes it to the OpenShift internal registry, applies `k8s/<env>-deployment.yaml`, pins the immutable image tag, and waits for the rollout. It then applies `k8s/cronjob.yaml` with the schedule from the `backend-config-<env>` ConfigMap, failing if the key is missing.
 
 Target environment is selected by branch:
 
 | Trigger                         | Environment |
 | :------------------------------ | :---------- |
-| `main` branch or `v*` tag       | `prod`      |
+| `main` branch                   | `prod`      |
 | `release/*` branch              | `preprod`   |
 | `development` branch            | `nonprod`   |
 | Manual run with `ENVIRONMENT_INPUT` | as specified |
 
+Pushing a tag doesn't deploy; it only runs `check_version_tag` (see below). A manual run without `ENVIRONMENT_INPUT` picks the environment from its ref as above, `prod` for a version tag such as `v1.2.0`, and `nonprod` for any other ref.
+
 Required CI variables: `KUBECONFIG_DATA` (base64) and `OPENSHIFT_TOKEN`. Optional: `OPENSHIFT_REGISTRY`, `OPENSHIFT_SERVER`, `OPENSHIFT_USER`, `PROD_NAMESPACE`, `PREPROD_NAMESPACE`, `NONPROD_NAMESPACE`.
+
+#### Releasing a version
+
+The root, `client` and `server` `package.json` files carry one app version; the UI shows `client/package.json`'s. Bump all three and tag the same commit:
+
+```bash
+npm version 1.2.0 --workspaces --include-workspace-root --no-git-tag-version
+npm install --package-lock-only   # sync the workspace versions in package-lock.json
+git add package.json package-lock.json client/package.json server/package.json
+git commit -m "release: v1.2.0"
+git tag -a v1.2.0 -m "v1.2.0"
+git push origin HEAD v1.2.0
+```
+
+Keep `--no-git-tag-version`: with workspaces, `npm version` commits only the root `package.json`, so its tag would point at a commit where `client/package.json` still has the old version. Every tag pipeline runs `check_version_tag`, which fails unless the tag is `v` followed by the version in all three files. The release reaches prod through the push to `main`, not through the tag.
 
 ---
 
@@ -340,24 +360,23 @@ Required CI variables: `KUBECONFIG_DATA` (base64) and `OPENSHIFT_TOKEN`. Optiona
 
 - **Published Postman Docs:** [View API Documentation](https://documenter.getpostman.com/view/52098464/2sBYHQ12XM)
 
-Authenticated requests use the httpOnly `hunting_token` session cookie set at login, or an `Authorization: Bearer <token>` header.
+Authenticated requests use the httpOnly `hunting_token` session cookie set at login (`Cookie: hunting_token=<jwt>`).
 
-| Postman variable | Example                     | Description                            |
-| :--------------- | :-------------------------- | :------------------------------------- |
-| `baseUrl`        | `http://localhost:5000/api` | Base URL for API requests              |
-| `authToken`      | `your_bearer_token`         | JWT obtained after SSO login           |
+| Postman variable | Example                     | Description                                                 |
+| :--------------- | :-------------------------- | :---------------------------------------------------------- |
+| `baseUrl`        | `http://localhost:5000/api` | Base URL for API requests                                   |
+| `authToken`      | `your_session_jwt`          | Value of the `hunting_token` cookie obtained after SSO login |
 
 ### Endpoints overview
 
-- **Health probes:** `GET /healthz` (liveness), `GET /api/health` (readiness, checks DB), `GET /startup` and `/api/startup` (startup).
+- **Health probes:** `GET /healthz` (liveness), `GET /api/health` (readiness, checks DB), `GET /startup` (startup).
 - **Auth (`/api/auth`):** `GET /sso-url`, `POST /login` (OIDC code exchange), `POST /refresh`, `POST /logout`, `GET /me`.
 - **Users (`/api/users`):** listing, role and group updates, favorites, admin management.
-- **Groups (`/api/groups`):** groups, members, shift types, time slots, notification recipients.
+- **Groups (`/api/groups`):** groups, members, shift types, time slots, site tags.
 - **Schedules (`/api/schedules`):** schedule retrieval, editing, and publishing.
 - **Reports (`/api/reports`):** shift report CRUD and queries.
 - **Sites (`/api/sites`):** site CRUD and favorites.
 - **Phones (`/api/phones`):** phone directory CRUD.
-- **Vacations (`/api/vacations`):** submission, manager approval, and balance aggregation.
 
 ---
 

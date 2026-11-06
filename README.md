@@ -94,85 +94,85 @@ Only `.example` templates are committed. All real `.env*` files are git-ignored.
 
 #### Runtime & Networking (`.env.config.<env>`)
 
-| Variable            | Purpose                                                  | Nonprod                    | Prod                  | Default            |
-| :------------------ | :------------------------------------------------------- | :------------------------- | :-------------------- | :----------------- |
-| `APP_ENV`           | Target environment (`nonprod` / `preprod` / `prod`)      | `nonprod`                  | `prod`                | `nonprod`          |
-| `NODE_ENV`          | Node runtime mode                                        | `development`              | `production`          | `development`      |
-| `PORT`              | HTTP listen port                                         | `5000`                     | `5000`                | `5000`             |
-| `TRUST_PROXY`       | Express `trust proxy` (hop count, boolean, or CIDR)      | `1`                        | `1`                   | `1`                |
-| `STATIC_FILES_PATH` | Path to the built client SPA                             | _(unset)_                  | `/app/client/dist`    | `../client/dist`   |
-| `ENV_FILE`          | Load env from this single file instead of the hierarchy  | _(unset)_                  | _(unset)_             | —                  |
-| `LOG_FORMAT`        | Morgan log format                                        | `dev`                      | `combined`            | `dev` / `combined` |
+| Variable            | Purpose                                                 | Nonprod       | Prod               | Default            |
+| :------------------ | :------------------------------------------------------ | :------------ | :----------------- | :----------------- |
+| `APP_ENV`           | Target environment (`nonprod` / `preprod` / `prod`)     | `nonprod`     | `prod`             | `nonprod`          |
+| `NODE_ENV`          | Node runtime mode                                       | `development` | `production`       | `development`      |
+| `PORT`              | HTTP listen port                                        | `5000`        | `5000`             | `5000`             |
+| `TRUST_PROXY`       | Express `trust proxy` (hop count, boolean, or CIDR)     | `1`           | `1`                | `1`                |
+| `STATIC_FILES_PATH` | Path to the built client SPA                            | _(unset)_     | `/app/client/dist` | `../client/dist`   |
+| `ENV_FILE`          | Load env from this single file instead of the hierarchy | _(unset)_     | _(unset)_          | —                  |
+| `LOG_FORMAT`        | Morgan log format                                       | `dev`         | `combined`         | `dev` / `combined` |
 
 #### Database (`MONGO_URI` in secrets, the rest in config)
 
-| Variable                            | Purpose                             | Nonprod                                      | Prod                    | Default   |
-| :---------------------------------- | :---------------------------------- | :------------------------------------------- | :---------------------- | :-------- |
-| `MONGO_URI`                         | MongoDB connection string           | `mongodb://localhost:27017/hunting_lodge_nonprod` | Production replica set | local DB |
-| `MONGO_AUTO_INDEX`                  | Build Mongoose indexes on startup   | `true`                                       | `false` (migrations)    | `false`   |
-| `MONGO_MAX_POOL_SIZE`               | Max pool connections                | `20`                                         | `50`                    | `50`      |
-| `MONGO_MIN_POOL_SIZE`               | Min idle pool connections           | `2`                                          | `10`                    | `10`      |
-| `MONGO_SERVER_SELECTION_TIMEOUT_MS` | Server selection timeout            | `30000`                                      | `5000`                  | `5000`    |
-| `MONGO_SOCKET_TIMEOUT_MS`           | Inactive socket timeout             | `45000`                                      | `45000`                 | `45000`   |
-| `MONGO_HEARTBEAT_FREQUENCY_MS`      | SDAM heartbeat frequency            | `10000`                                      | `10000`                 | `10000`   |
-| `MONGO_CONNECT_TIMEOUT_MS`          | Initial connect timeout             | `30000`                                      | `30000`                 | `30000`   |
-| `MONGO_MAX_IDLE_TIME_MS`            | Idle time before socket reap        | `60000`                                      | `60000`                 | `60000`   |
+| Variable                            | Purpose                           | Nonprod                                           | Prod                   | Default  |
+| :---------------------------------- | :-------------------------------- | :------------------------------------------------ | :--------------------- | :------- |
+| `MONGO_URI`                         | MongoDB connection string         | `mongodb://localhost:27017/hunting_lodge_nonprod` | Production replica set | local DB |
+| `MONGO_AUTO_INDEX`                  | Build Mongoose indexes on startup | `true`                                            | `false` (migrations)   | `false`  |
+| `MONGO_MAX_POOL_SIZE`               | Max pool connections              | `20`                                              | `50`                   | `50`     |
+| `MONGO_MIN_POOL_SIZE`               | Min idle pool connections         | `2`                                               | `10`                   | `10`     |
+| `MONGO_SERVER_SELECTION_TIMEOUT_MS` | Server selection timeout          | `30000`                                           | `5000`                 | `5000`   |
+| `MONGO_SOCKET_TIMEOUT_MS`           | Inactive socket timeout           | `45000`                                           | `45000`                | `45000`  |
+| `MONGO_HEARTBEAT_FREQUENCY_MS`      | SDAM heartbeat frequency          | `10000`                                           | `10000`                | `10000`  |
+| `MONGO_CONNECT_TIMEOUT_MS`          | Initial connect timeout           | `30000`                                           | `30000`                | `30000`  |
+| `MONGO_MAX_IDLE_TIME_MS`            | Idle time before socket reap      | `60000`                                           | `60000`                | `60000`  |
 
 #### SSO / OIDC
 
-| Variable               | File   | Purpose                                     | Nonprod                               | Prod                                  | Default |
-| :--------------------- | :----- | :------------------------------------------ | :------------------------------------ | :------------------------------------ | :------ |
-| `SSO_ISSUER_URL`       | secret | OIDC issuer base URL                        | `https://dev-xxx.us.auth0.com`        | Enterprise IdP (https)                | —       |
-| `SSO_CLIENT_ID`        | secret | OIDC client ID                              | Auth0 dev app                         | Enterprise app                        | —       |
-| `SSO_CLIENT_SECRET`    | secret | OIDC client secret                          | Auth0 dev secret                      | Enterprise secret                     | —       |
-| `SSO_REDIRECT_URI`     | secret | OAuth2 callback URL                         | `http://localhost:5173/auth/callback` | `https://<host>/auth/callback`        | —       |
-| `SSO_IDENTIFIER_FIELD` | secret | Which claims fill System ID and Name: `email` (System ID: email → name → sub; Name: username → nickname → System ID) or `username` (System ID: preferred_username → email → sub; Name: name → given_name → System ID) | `email`                               | `username` (AD / smartcard)           | `email` |
-| `SSO_COOKIE_SECRET`    | secret | Secret for signing SSO state cookies        | dev secret                            | high-entropy secret                   | —       |
-| `SSO_COOKIE_SECURE`    | config | Mark auth cookies `Secure`                  | `false`                               | `true`                                | env-based |
-| `SSO_SAME_SITE`        | config | `SameSite` attribute for auth cookies       | `lax`                                 | `lax`                                 | `lax`   |
+| Variable               | File   | Purpose                                                                                                                                                                                                               | Nonprod                               | Prod                           | Default   |
+| :--------------------- | :----- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------ | :----------------------------- | :-------- |
+| `SSO_ISSUER_URL`       | secret | OIDC issuer base URL                                                                                                                                                                                                  | `https://dev-xxx.us.auth0.com`        | Enterprise IdP (https)         | —         |
+| `SSO_CLIENT_ID`        | secret | OIDC client ID                                                                                                                                                                                                        | Auth0 dev app                         | Enterprise app                 | —         |
+| `SSO_CLIENT_SECRET`    | secret | OIDC client secret                                                                                                                                                                                                    | Auth0 dev secret                      | Enterprise secret              | —         |
+| `SSO_REDIRECT_URI`     | secret | OAuth2 callback URL                                                                                                                                                                                                   | `http://localhost:5173/auth/callback` | `https://<host>/auth/callback` | —         |
+| `SSO_IDENTIFIER_FIELD` | secret | Which claims fill System ID and Name: `email` (System ID: email → name → sub; Name: username → nickname → System ID) or `username` (System ID: preferred_username → email → sub; Name: name → given_name → System ID) | `email`                               | `username` (AD / smartcard)    | `email`   |
+| `SSO_COOKIE_SECRET`    | secret | Secret for signing SSO state cookies                                                                                                                                                                                  | dev secret                            | high-entropy secret            | —         |
+| `SSO_COOKIE_SECURE`    | config | Mark auth cookies `Secure`                                                                                                                                                                                            | `false`                               | `true`                         | env-based |
+| `SSO_SAME_SITE`        | config | `SameSite` attribute for auth cookies                                                                                                                                                                                 | `lax`                                 | `lax`                          | `lax`     |
 
 #### JWT Session
 
-| Variable         | File   | Purpose                               | Default |
-| :--------------- | :----- | :------------------------------------ | :------ |
+| Variable         | File   | Purpose                                                   | Default      |
+| :--------------- | :----- | :-------------------------------------------------------- | :----------- |
 | `JWT_SECRET`     | secret | Session token signing key (≥ 32 chars, every environment) | — (required) |
-| `JWT_EXPIRES_IN` | config | Session token lifetime                | `7d`    |
+| `JWT_EXPIRES_IN` | config | Session token lifetime                                    | `7d`         |
 
 #### Super Admin (secrets, never exposed to the client)
 
-| Variable                 | Purpose                                   | Default          |
-| :----------------------- | :---------------------------------------- | :--------------- |
+| Variable                 | Purpose                                                                                                                   | Default      |
+| :----------------------- | :------------------------------------------------------------------------------------------------------------------------ | :----------- |
 | `SUPER_ADMIN_ID`         | System ID of the bootstrap Super Admin: an email (lowercase) in `email` mode, the `preferred_username` in `username` mode | — (required) |
-| `SUPER_ADMIN_USERNAME`   | Display name                              | _(none)_         |
-| `SUPER_ADMIN_EMAIL`      | Email                                     | _(none)_         |
-| `SUPER_ADMIN_GROUP_NAME` | Group that grants admin privileges        | — (required)     |
+| `SUPER_ADMIN_USERNAME`   | Display name                                                                                                              | _(none)_     |
+| `SUPER_ADMIN_EMAIL`      | Email                                                                                                                     | _(none)_     |
+| `SUPER_ADMIN_GROUP_NAME` | Group that grants admin privileges                                                                                        | — (required) |
 
 No admin account is seeded. The server creates the `SUPER_ADMIN_GROUP_NAME` group at startup if it is missing, and the Super Admin is added to it at their first SSO login. From there they give everyone else access on the Admin page by adding them to groups.
 
 #### Security & Rate Limiting (`.env.config.<env>`)
 
-| Variable               | Purpose                                         | Nonprod                         | Prod                     | Default  |
-| :--------------------- | :---------------------------------------------- | :------------------------------ | :----------------------- | :------- |
-| `CORS_ORIGIN`          | Allowed origin(s), comma-separated              | route URL + `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173` | production route URL | none: only listed origins are accepted, in every environment |
-| `RATE_LIMIT_MAX`       | Max requests per signed-in user per window (callers without a valid session share their IP's budget) | `10000`                         | `100`                    | `100`    |
-| `RATE_LIMIT_WINDOW_MS` | Rate limit window (ms)                          | `900000`                        | `900000`                 | `900000` |
-| `EXPOSE_ERROR_DETAILS` | Add `details` (name, message, stack) to 5xx bodies; startup refuses it in preprod/prod | `true`                          | _(unset)_                | `false`  |
+| Variable               | Purpose                                                                                              | Nonprod                                                                               | Prod                 | Default                                                      |
+| :--------------------- | :--------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------ | :------------------- | :----------------------------------------------------------- |
+| `CORS_ORIGIN`          | Allowed origin(s), comma-separated                                                                   | route URL + `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173` | production route URL | none: only listed origins are accepted, in every environment |
+| `RATE_LIMIT_MAX`       | Max requests per signed-in user per window (callers without a valid session share their IP's budget) | `10000`                                                                               | `100`                | `100`                                                        |
+| `RATE_LIMIT_WINDOW_MS` | Rate limit window (ms)                                                                               | `900000`                                                                              | `900000`             | `900000`                                                     |
+| `EXPOSE_ERROR_DETAILS` | Add `details` (name, message, stack) to 5xx bodies; startup refuses it in preprod/prod               | `true`                                                                                | _(unset)_            | `false`                                                      |
 
 #### Background Jobs
 
-| Variable                     | Purpose                                                                                                              | Nonprod     | Prod                    | Default  |
-| :--------------------------- | :------------------------------------------------------------------------------------------------------------------- | :---------- | :---------------------- | :------- |
-| `SHIFT_REPORT_CRON_SCHEDULE` | Shift report generator schedule: CI copies it into the K8s CronJob, and the in-process generator uses it when `ENABLE_IN_PROCESS_CRON=true` (required and validated then). Keep it every minute: a report is only created from 1 minute before to 5 minutes after a shift starts. Leave it unquoted | `* * * * *` | `* * * * *`             | —        |
-| `ENABLE_IN_PROCESS_CRON`     | Set to `true` to run the generator inside the API process (nonprod only; refused in preprod/prod)                     | `true`      | _(unset)_               | disabled |
+| Variable                     | Purpose                                                                                                                                                                                                                                                                                             | Nonprod     | Prod        | Default  |
+| :--------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------- | :---------- | :------- |
+| `SHIFT_REPORT_CRON_SCHEDULE` | Shift report generator schedule: CI copies it into the K8s CronJob, and the in-process generator uses it when `ENABLE_IN_PROCESS_CRON=true` (required and validated then). Keep it every minute: a report is only created from 1 minute before to 5 minutes after a shift starts. Leave it unquoted | `* * * * *` | `* * * * *` | —        |
+| `ENABLE_IN_PROCESS_CRON`     | Set to `true` to run the generator inside the API process (nonprod only; refused in preprod/prod)                                                                                                                                                                                                   | `true`      | _(unset)_   | disabled |
 
 ### Client variables (`env/client/.env.<env>`)
 
 Vite reads these from `env/client/` (`envDir`). They are **public** and baked into the bundle at build time. Vite loads `.env.<env>` only when run with a matching `--mode`, e.g. `npx vite build --mode prod`. The default `dev`/`build` scripts use Vite's `development`/`production` modes and fall back to the defaults below. Shell-level `VITE_*` variables, such as the Docker build args, are always picked up.
 
-| Variable                 | Purpose                                       | Nonprod  | Prod    | Default        |
-| :----------------------- | :-------------------------------------------- | :------- | :------ | :------------- |
-| `VITE_APP_ENV`           | Client environment (`nonprod`/`preprod`/`prod`) | `nonprod` | `prod` | `nonprod`     |
-| `VITE_API_URL`           | API base URL (relative path or absolute URL)  | `/api`   | `/api`  | `/api`         |
+| Variable       | Purpose                                         | Nonprod   | Prod   | Default   |
+| :------------- | :---------------------------------------------- | :-------- | :----- | :-------- |
+| `VITE_APP_ENV` | Client environment (`nonprod`/`preprod`/`prod`) | `nonprod` | `prod` | `nonprod` |
+| `VITE_API_URL` | API base URL (relative path or absolute URL)    | `/api`    | `/api` | `/api`    |
 
 > Note: the UI version label (`VITE_APP_VERSION`) is not configurable: `vite.config.ts` always sets it from `client/package.json`, so to change the displayed version, bump that file.
 
@@ -222,18 +222,18 @@ Vite reads these from `env/client/` (`envDir`). They are **public** and baked in
 
 ### Available root scripts
 
-| Script                         | Description                                          |
-| :----------------------------- | :--------------------------------------------------- |
-| `npm run dev`                  | Run server (nodemon + tsx) and client (Vite) together |
-| `npm run dev:seed`             | Run the seed script, then `dev`                      |
-| `npm run client` / `server`    | Run a single workspace in dev mode                   |
-| `npm run build`                | Build client (`tsc -b && vite build`) then server (`tsc`) |
-| `npm start`                    | Start the server                                     |
-| `npm test`                     | Run client (Vitest) and server (`node --test`) tests |
-| `npm run test:client` / `test:server` | Run one test suite                            |
-| `npm run seed` / `seed:example`| Seed the database                                    |
-| `npm run cron:shift-report`    | Run the shift report generator once (standalone worker) |
-| `npm run migrate:up` / `down` / `status` | Manage database migrations                 |
+| Script                                   | Description                                               |
+| :--------------------------------------- | :-------------------------------------------------------- |
+| `npm run dev`                            | Run server (nodemon + tsx) and client (Vite) together     |
+| `npm run dev:seed`                       | Run the seed script, then `dev`                           |
+| `npm run client` / `server`              | Run a single workspace in dev mode                        |
+| `npm run build`                          | Build client (`tsc -b && vite build`) then server (`tsc`) |
+| `npm start`                              | Start the server                                          |
+| `npm test`                               | Run client (Vitest) and server (`node --test`) tests      |
+| `npm run test:client` / `test:server`    | Run one test suite                                        |
+| `npm run seed` / `seed:example`          | Seed the database                                         |
+| `npm run cron:shift-report`              | Run the shift report generator once (standalone worker)   |
+| `npm run migrate:up` / `down` / `status` | Manage database migrations                                |
 
 Workspace-only scripts: `npm run lint --workspace=client` and `npm run typecheck --workspace=server`.
 
@@ -304,13 +304,13 @@ docker run -d -p 5000:5000 \
 
 #### Kubernetes / OpenShift manifests (`k8s/`)
 
-| File                       | Contents                                                                 |
-| :------------------------- | :----------------------------------------------------------------------- |
-| `nonprod-deployment.yaml`  | Development & integration manifest (single replica, error details in 5xx bodies) |
-| `preprod-deployment.yaml`  | Staging manifest with production parity                                  |
-| `prod-deployment.yaml`     | Production manifest (2+ replicas, pod anti-affinity, zero-downtime rolling updates) |
-| `cronjob.yaml`             | Shift report generator CronJob (all environments; schedule from the ConfigMap) |
-| `seed-job.yaml`            | One-off Job running `seed.js --idempotent` (first deploy of any environment) |
+| File                      | Contents                                                                            |
+| :------------------------ | :---------------------------------------------------------------------------------- |
+| `nonprod-deployment.yaml` | Development & integration manifest (single replica, error details in 5xx bodies)    |
+| `preprod-deployment.yaml` | Staging manifest with production parity                                             |
+| `prod-deployment.yaml`    | Production manifest (2+ replicas, pod anti-affinity, zero-downtime rolling updates) |
+| `cronjob.yaml`            | Shift report generator CronJob (all environments; schedule from the ConfigMap)      |
+| `seed-job.yaml`           | One-off Job running `seed.js --idempotent` (first deploy of any environment)        |
 
 Placeholders like `<NAMESPACE>`, `<ENV>`, `<YOUR_NAMESPACE>`, `<YOUR_DEPLOYMENT>`, and `<YOUR_ENV>` must be substituted before applying. The CI pipeline does this automatically for the deployment manifests and `cronjob.yaml`. To apply the CronJob by hand:
 
@@ -328,11 +328,11 @@ sed -e "s|<NAMESPACE>|$NS|g" -e "s|<ENV>|$ENV|g" -e "s|<SHIFT_REPORT_CRON_SCHEDU
 
 Target environment is selected by branch:
 
-| Trigger                         | Environment |
-| :------------------------------ | :---------- |
-| `main` branch                   | `prod`      |
-| `release/*` branch              | `preprod`   |
-| `development` branch            | `nonprod`   |
+| Trigger                             | Environment  |
+| :---------------------------------- | :----------- |
+| `main` branch                       | `prod`       |
+| `release/*` branch                  | `preprod`    |
+| `development` branch                | `nonprod`    |
 | Manual run with `ENVIRONMENT_INPUT` | as specified |
 
 Pushing a tag doesn't deploy; it only runs `check_version_tag` (see below). A manual run without `ENVIRONMENT_INPUT` picks the environment from its ref as above, `prod` for a version tag such as `v1.2.0`, and `nonprod` for any other ref.
@@ -362,9 +362,9 @@ Keep `--no-git-tag-version`: with workspaces, `npm version` commits only the roo
 
 Authenticated requests use the httpOnly `hunting_token` session cookie set at login (`Cookie: hunting_token=<jwt>`).
 
-| Postman variable | Example                     | Description                                                 |
-| :--------------- | :-------------------------- | :---------------------------------------------------------- |
-| `baseUrl`        | `http://localhost:5000/api` | Base URL for API requests                                   |
+| Postman variable | Example                     | Description                                                  |
+| :--------------- | :-------------------------- | :----------------------------------------------------------- |
+| `baseUrl`        | `http://localhost:5000/api` | Base URL for API requests                                    |
 | `authToken`      | `your_session_jwt`          | Value of the `hunting_token` cookie obtained after SSO login |
 
 ### Endpoints overview
